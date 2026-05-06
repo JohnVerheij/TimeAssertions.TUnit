@@ -1,52 +1,66 @@
 # TimeAssertions.TUnit
 
+[![NuGet](https://img.shields.io/nuget/v/TimeAssertions.TUnit.svg)](https://www.nuget.org/packages/TimeAssertions.TUnit/)
+[![Downloads](https://img.shields.io/nuget/dt/TimeAssertions.TUnit.svg)](https://www.nuget.org/packages/TimeAssertions.TUnit/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
+
 > **Scope:** Test projects only. Not intended for production code.
 
-**The TUnit assertion package for projects committed to `TimeProvider`-based testable time.**
+TUnit-native fluent time-assertion DSL on top of `Microsoft.Extensions.Time.Testing.FakeTimeProvider`. Adds `FakeTimeProvider` state assertions, `TimeProvider`-aware `DateTimeOffset` recency / past / future checks, plus the cross-cutting `.WithinTimeBudget(TimeSpan)` chain extension. AOT-compatible, trimmable, no reflection.
 
-Fluent assertions on `FakeTimeProvider` state, `TimeProvider`-aware `DateTimeOffset` recency / past / future checks, plus the cross-cutting `.WithinTimeBudget(TimeSpan)` chain extension for assertion-level timing budgets.
+> **Full documentation, "Why TimeProvider in tests", cookbook, design notes, and roadmap:** [github.com/JohnVerheij/TimeAssertions.TUnit](https://github.com/JohnVerheij/TimeAssertions.TUnit)
 
-```csharp
-using Microsoft.Extensions.Time.Testing;
+## Install
 
-var fakeTime = new FakeTimeProvider();
-fakeTime.Advance(TimeSpan.FromMinutes(31));
-
-await Assert.That(fakeTime).HasAdvanced(TimeSpan.FromMinutes(31));
-await Assert.That(timestamp).IsRecent(TimeSpan.FromSeconds(1), fakeTime);
-await Assert.That(timestamp).IsBeforeNow(fakeTime);
-
-// Cross-cutting timing budget on any chain
-await Assert.That(asyncOp)
-    .IsEqualTo(42)
-    .And.WithinTimeBudget(TimeSpan.FromMilliseconds(500));
 ```
-
-## What this package does
-
-- **`FakeTimeProvider` assertions** — `HasAdvanced`, `HasAdvancedBy`, `HasUtcNow` for verifying the fake clock's state after `Advance` / `SetUtcNow` calls
-- **`TimeProvider`-aware `DateTimeOffset` assertions** — `IsRecent(TimeSpan, TimeProvider?)`, `IsBeforeNow(TimeProvider)`, `IsAfterNow(TimeProvider)` for time-relative checks against a (possibly fake) clock
-- **`.And.WithinTimeBudget(TimeSpan)`** — assertion-level timing budget that composes with any behavioural assertion via `.And`
-
-`Microsoft.Extensions.TimeProvider.Testing` is propagated transitively so `FakeTimeProvider` is available in consuming test projects without an extra explicit reference.
-
-## Quick start
-
-```bash
 dotnet add package TimeAssertions.TUnit
 ```
 
-The assertions auto-import via `TUnit.Assertions.Extensions`; no extra `using` directive is needed if your project already uses TUnit. Add `using Microsoft.Extensions.Time.Testing;` to construct `FakeTimeProvider` instances.
+`TimeAssertions` (the framework-agnostic core) and `Microsoft.Extensions.TimeProvider.Testing` come transitively. **Requirements:** TUnit 1.43.11 or later, .NET 10.
 
-## Family
+The source-generated entry points (`HasAdvanced`, `HasUtcNow`, `IsRecent`, `IsBeforeNow`, `IsAfterNow`, `WithinTimeBudget`) auto-import via `TUnit.Assertions.Extensions`. Add the following to a `GlobalUsings.cs` in your test project for the call-site and `FakeTimeProvider` namespaces:
 
-- [LogAssertions.TUnit](https://github.com/JohnVerheij/LogAssertions.TUnit)
-- [SnapshotAssertions.TUnit](https://github.com/JohnVerheij/SnapshotAssertions.TUnit)
+```csharp
+global using Microsoft.Extensions.Time.Testing;
+global using TimeAssertions;
+global using TimeAssertions.TUnit;
+```
 
-## Documentation
+## Quick start
 
-[github.com/JohnVerheij/TimeAssertions.TUnit](https://github.com/JohnVerheij/TimeAssertions.TUnit) — full README, design notes, "Why TimeProvider in tests" section, examples by use case.
+```csharp
+[Test]
+public async Task PreReleaseExpiration_advances_state_after_clock_moves_forward()
+{
+    var fakeTime = new FakeTimeProvider();
+    var service = new ExpirationService(fakeTime);
+
+    fakeTime.Advance(TimeSpan.FromMinutes(31));
+    service.RefreshState();
+
+    await Assert.That(fakeTime).HasAdvanced(TimeSpan.FromMinutes(31));
+    await Assert.That(service.LastRefresh).IsRecent(TimeSpan.FromSeconds(1), fakeTime);
+    await Assert.That(service.RefreshState).WithinTimeBudget(TimeSpan.FromMilliseconds(500));
+}
+```
+
+## Entry points
+
+| Method | Purpose |
+|---|---|
+| `HasAdvanced(TimeSpan)` / `HasAdvancedBy(total, tolerance)` | `FakeTimeProvider` advanced by exact / approximate amount |
+| `HasUtcNow(DateTimeOffset)` / `HasUtcNowApproximately(expected, tolerance)` | `FakeTimeProvider` is at exact / approximate moment |
+| `IsRecent(TimeSpan, TimeProvider?)` | `DateTimeOffset` is within window before "now" of supplied (or system) clock |
+| `IsBeforeNow(TimeProvider)` / `IsAfterNow(TimeProvider)` | `DateTimeOffset` ordering relative to supplied clock |
+| `WithinTimeBudget(TimeSpan)` | Cross-cutting timing budget; chains via `.And` after any behavioural assertion |
+
+## Failure diagnostics
+
+On a failed assertion, the exception message includes the elapsed / expected duration, the absolute drift, and (for budget overruns) the overshoot. No `Console.WriteLine` debugging needed — every dimension you can assert on is also rendered in the failure message.
+
+[Full failure-diagnostics example, design notes, stability intent, and roadmap on GitHub.](https://github.com/JohnVerheij/TimeAssertions.TUnit#failure-diagnostics)
 
 ## License
 
-[MIT](https://github.com/JohnVerheij/TimeAssertions.TUnit/blob/main/LICENSE)
+[MIT](https://github.com/JohnVerheij/TimeAssertions.TUnit/blob/main/LICENSE) — Copyright (c) 2026 John Verheij

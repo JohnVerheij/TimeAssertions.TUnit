@@ -73,17 +73,17 @@ The two packages place types in two namespaces with deliberately-different scope
 | Type / member | Namespace | Auto-imported? |
 |---|---|---|
 | `HasAdvanced()`, `HasUtcNow()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()` (source-generated entries) | `TUnit.Assertions.Extensions` | **Yes** — TUnit auto-imports |
-| `FakeTimeProvider` (the testable-clock type) | `Microsoft.Extensions.Time.Testing` | **No** — needs `using Microsoft.Extensions.Time.Testing;` |
-| `TimeRenderingHelpers` (formatting utilities for failure messages) | `TimeAssertions` | **No** — only needed for advanced or custom-extension scenarios |
-| `WithinTimeBudgetAssertion<T>` (the assertion class behind `WithinTimeBudget`) | `TimeAssertions.TUnit` | **No** — only needed for explicit-import or advanced scenarios |
+| `FakeTimeProvider` (the testable-clock type) | `Microsoft.Extensions.Time.Testing` | **No** — needed at the call site; recommended for `GlobalUsings.cs` |
+| `TimeRenderingHelpers` (formatting utilities for failure messages) | `TimeAssertions` | **No** — needed at the call site; recommended for `GlobalUsings.cs` |
+| `WithinTimeBudgetAssertion<T>` (the assertion class behind `WithinTimeBudget`) | `TimeAssertions.TUnit` | **No** — needed at the call site; recommended for `GlobalUsings.cs` |
 
-**Practical consequence:** test files that *only* call assertion entry points need no `using` from this package. Files that construct `FakeTimeProvider` instances need `using Microsoft.Extensions.Time.Testing;`.
-
-**Recommended:** put the testable-clock namespace into a single `GlobalUsings.cs` in your test project so every test file sees it without ceremony:
+**Recommended:** put the three non-auto-imported namespaces into a single `GlobalUsings.cs` in your test project so every test file sees them without ceremony:
 
 ```csharp
 // tests/MyApp.Tests/GlobalUsings.cs
 global using Microsoft.Extensions.Time.Testing;
+global using TimeAssertions;
+global using TimeAssertions.TUnit;
 ```
 
 ## Quick start

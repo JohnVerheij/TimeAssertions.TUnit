@@ -1,21 +1,44 @@
 # TimeAssertions
 
+[![NuGet](https://img.shields.io/nuget/v/TimeAssertions.svg)](https://www.nuget.org/packages/TimeAssertions/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
+
 > **Scope:** Test projects only. Not intended for production code.
 
-Framework-agnostic core for the [TimeAssertions.TUnit](https://www.nuget.org/packages/TimeAssertions.TUnit/) package family. Most users should install **`TimeAssertions.TUnit`** instead — it depends on this package transitively and ships the actual TUnit assertion entry points.
+Framework-agnostic core for fluent time assertions over `Microsoft.Extensions.Time.Testing.FakeTimeProvider` and `TimeProvider`-aware `DateTimeOffset` checks.
 
-## What this package contains
+> **Most users want [`TimeAssertions.TUnit`](https://www.nuget.org/packages/TimeAssertions.TUnit/), not this package directly.** This is the shared engine; framework-specific adapter packages add the assertion entry points your test framework expects.
 
-- **`TimeRenderingHelpers`** — formatting utilities for elapsed durations and budgets in failure-message context. Pure, allocation-conscious.
+---
 
-## When to install this package directly
+## What's in this package
 
-Only when authoring a non-TUnit adapter for the assertion family (e.g. an xUnit / NUnit / MSTest adapter). For any other use case, install `TimeAssertions.TUnit`.
+- **`TimeRenderingHelpers`** — formatting utilities for elapsed durations and time budgets in failure-message context. Pure, allocation-conscious.
 
-## Repository
+## Test-framework adapters
 
-[github.com/JohnVerheij/TimeAssertions.TUnit](https://github.com/JohnVerheij/TimeAssertions.TUnit) — full README, design notes, examples.
+| Package | Test framework | Status |
+|---|---|---|
+| [`TimeAssertions.TUnit`](https://www.nuget.org/packages/TimeAssertions.TUnit/) | TUnit | Available now |
+| `TimeAssertions.NUnit` | NUnit | Possible if there is demand |
+| `TimeAssertions.xUnit` | xUnit | Possible if there is demand |
+| `TimeAssertions.MSTest` | MSTest | Possible if there is demand |
+
+If you'd find a non-TUnit adapter useful, [open a feature request](https://github.com/JohnVerheij/TimeAssertions.TUnit/issues/new?template=feature_request.yml) — adapters are not built proactively.
+
+## Installation
+
+```
+dotnet add package TimeAssertions.TUnit
+```
+
+`TimeAssertions` comes transitively. You don't need to install it directly unless you're building your own adapter package.
+
+## Stability
+
+The public surfaces above are semver-bound. Breaking changes require a major version bump. The exact text format of `TimeRenderingHelpers` output is **not stable** and may gain extra detail or change formatting in any release.
 
 ## License
 
-[MIT](https://github.com/JohnVerheij/TimeAssertions.TUnit/blob/main/LICENSE)
+[MIT](https://github.com/JohnVerheij/TimeAssertions.TUnit/blob/main/LICENSE) — Copyright (c) 2026 John Verheij
