@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="src/TimeAssertions/TimeAssertions.csproj" />
+  <Project Path="src/TimeAssertions.TUnit/TimeAssertions.TUnit.csproj" />
+  <Project Path="tests/TimeAssertions.TUnit.Tests/TimeAssertions.TUnit.Tests.csproj" />
+</Solution>
