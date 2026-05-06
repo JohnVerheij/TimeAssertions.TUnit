@@ -71,13 +71,17 @@ jobs:
         id: coverage
         run: |
           # The test exe writes coverage relative to the test bin directory; surface its path.
+          # Failing fast if no report is found prevents a silent bypass of the coverage gate
+          # when coverage collection itself breaks (tool version drift, MTP schema change,
+          # instrumentation regression). The downstream threshold step's `if:` guard then
+          # acts as defensive belt-and-suspenders rather than the actual gate.
           REPORT=$(find tests -name 'coverage.cobertura.xml' -print -quit)
           if [ -z "$REPORT" ]; then
-            echo "::warning::No cobertura coverage report found; skipping upload"
-          else
-            echo "report=$REPORT" >> "$GITHUB_OUTPUT"
-            echo "Coverage report: $REPORT"
+            echo "::error::No cobertura coverage report found; coverage collection broken"
+            exit 1
           fi
+          echo "report=$REPORT" >> "$GITHUB_OUTPUT"
+          echo "Coverage report: $REPORT"
 
       # Codecov upload runs BEFORE the threshold check so the coverage trend is visible
       # in Codecov's UI even when the threshold gate fails the build. Without this ordering,
