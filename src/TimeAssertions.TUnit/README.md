@@ -42,7 +42,6 @@ The assertions auto-import via `TUnit.Assertions.Extensions`; no extra `using` d
 
 - [LogAssertions.TUnit](https://github.com/JohnVerheij/LogAssertions.TUnit)
 - [SnapshotAssertions.TUnit](https://github.com/JohnVerheij/SnapshotAssertions.TUnit)
-- [MathAssertions.TUnit](https://github.com/JohnVerheij/MathAssertions.TUnit)
 
 ## Documentation
 
