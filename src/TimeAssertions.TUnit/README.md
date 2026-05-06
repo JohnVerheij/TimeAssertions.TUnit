@@ -37,11 +37,14 @@ public async Task PreReleaseExpiration_advances_state_after_clock_moves_forward(
     var service = new ExpirationService(fakeTime);
 
     fakeTime.Advance(TimeSpan.FromMinutes(31));
-    service.RefreshState();
 
     await Assert.That(fakeTime).HasAdvanced(TimeSpan.FromMinutes(31));
     await Assert.That(service.LastRefresh).IsRecent(TimeSpan.FromSeconds(1), fakeTime);
-    await Assert.That(service.RefreshState).WithinTimeBudget(TimeSpan.FromMilliseconds(500));
+
+    // Cross-cutting timing budget on any behavioural assertion chain
+    await Assert.That(service.IsExpiredAsync())
+        .IsTrue()
+        .And.WithinTimeBudget(TimeSpan.FromMilliseconds(500));
 }
 ```
 

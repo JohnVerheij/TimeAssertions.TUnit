@@ -6,9 +6,9 @@
 
 > **Scope:** Test projects only. Not intended for production code.
 
-Framework-agnostic core for fluent time assertions over `Microsoft.Extensions.Time.Testing.FakeTimeProvider` and `TimeProvider`-aware `DateTimeOffset` checks.
+Framework-agnostic rendering helpers for the TimeAssertions package family. The actual `FakeTimeProvider` and `TimeProvider`-aware `DateTimeOffset` assertion APIs ship in the framework-specific adapter packages (currently `TimeAssertions.TUnit`).
 
-> **Most users want [`TimeAssertions.TUnit`](https://www.nuget.org/packages/TimeAssertions.TUnit/), not this package directly.** This is the shared engine; framework-specific adapter packages add the assertion entry points your test framework expects.
+> **Most users want [`TimeAssertions.TUnit`](https://www.nuget.org/packages/TimeAssertions.TUnit/), not this package directly.** This package only ships the shared rendering helpers; the adapter package adds the assertion entry points your test framework expects.
 
 ---
 
