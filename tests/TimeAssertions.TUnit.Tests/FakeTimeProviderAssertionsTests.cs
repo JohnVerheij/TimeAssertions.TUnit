@@ -10,7 +10,7 @@ namespace TimeAssertions.TUnit.Tests;
 /// <summary>End-to-end tests for the <see cref="FakeTimeProvider"/> assertions. Each test
 /// constructs a fresh <see cref="FakeTimeProvider"/>, drives time via
 /// <c>Advance</c> / <c>SetUtcNow</c>, and verifies the resulting state via the
-/// fluent assertion. Mirrors the canonical AWL test pattern for testable time.</summary>
+/// fluent assertion.</summary>
 [Category("Smoke")]
 [Timeout(5_000)]
 internal sealed class FakeTimeProviderAssertionsTests
