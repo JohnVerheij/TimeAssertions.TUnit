@@ -197,7 +197,7 @@ Failures render the actual measurement against the expected value, with no extra
 
 **`HasAdvanced` mismatch:**
 
-```
+```text
 Expected:
   fakeTime to have advanced 31m
 
@@ -207,7 +207,7 @@ Actual:
 
 **`WithinTimeBudget` budget exceeded (assertion behavioural check passed but slow):**
 
-```
+```text
 Expected:
   to be equal to 42
   and completion within timing budget of 500ms
@@ -219,7 +219,7 @@ Actual:
 
 **Source threw (timing surface is additive; a thrown source is the dominant failure mode):**
 
-```
+```text
 Expected:
   to be equal to 42
   and completion within timing budget of 500ms

@@ -29,7 +29,7 @@ If you'd find a non-TUnit adapter useful, [open a feature request](https://githu
 
 ## Installation
 
-```
+```bash
 dotnet add package TimeAssertions.TUnit
 ```
 

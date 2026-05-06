@@ -13,7 +13,7 @@ TUnit-native fluent time-assertion DSL on top of `Microsoft.Extensions.Time.Test
 
 ## Install
 
-```
+```bash
 dotnet add package TimeAssertions.TUnit
 ```
 
