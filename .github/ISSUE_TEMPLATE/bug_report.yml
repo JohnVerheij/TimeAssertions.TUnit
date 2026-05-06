@@ -21,7 +21,7 @@ body:
     id: tunit-version
     attributes:
       label: TUnit version
-      placeholder: "1.43.2"
+      placeholder: "1.43.11"
     validations:
       required: true
 
@@ -71,17 +71,18 @@ body:
         [Test]
         public async Task Reproduces_The_Issue()
         {
-            var actual = "some text";
-            await Assert.That(actual).MatchesSnapshot();
+            var fakeTime = new FakeTimeProvider();
+            fakeTime.Advance(TimeSpan.FromMinutes(5));
+            await Assert.That(fakeTime).HasAdvanced(TimeSpan.FromMinutes(5));
         }
     validations:
       required: true
 
   - type: textarea
-    id: snapshot-files
+    id: timeprovider-context
     attributes:
-      label: Snapshot files involved
-      description: Paths and (small) contents of the `.expected.txt` / `.actual.txt` files relevant to the bug, if applicable.
+      label: TimeProvider context
+      description: If the issue involves `FakeTimeProvider` or a custom `TimeProvider`, how is it constructed and driven (Advance / SetUtcNow calls, sequence of events)? Skip if not applicable.
     validations:
       required: false
 

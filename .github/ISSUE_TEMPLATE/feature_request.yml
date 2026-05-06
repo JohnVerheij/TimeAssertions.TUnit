@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest a new option, scrubber, or capability
+description: Suggest a new assertion, overload, or capability
 title: "[Feature]: "
 labels: [enhancement]
 
@@ -13,7 +13,7 @@ body:
     id: use-case
     attributes:
       label: Use case
-      description: What test scenario does this enable? Why do existing options not cover it?
+      description: What test scenario does this enable? Why do existing assertions not cover it?
     validations:
       required: true
 
@@ -21,10 +21,10 @@ body:
     id: proposed-api
     attributes:
       label: Proposed API
-      description: What does the new option, scrubber, or method look like in user code?
+      description: What does the new assertion or overload look like in user code?
       render: csharp
       placeholder: |
-        await Assert.That(actual).MatchesSnapshotScrubbed(YourNewScrubber);
+        await Assert.That(fakeTime).HasYourNewState(...);
     validations:
       required: true
 
