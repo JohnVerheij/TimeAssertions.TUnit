@@ -1,0 +1,151 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.editorconfig'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.editorconfig'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Cancel in-progress runs for the same ref to avoid wasting minutes on superseded commits.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build, test & pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
+        with:
+          dotnet-version: |
+            10.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test main suite (with coverage)
+        # TUnit on .NET 10 SDK invokes via the test exe directly. The Microsoft.Testing.Platform
+        # --coverage flag enables Microsoft.CodeCoverage collection (transitively pulled via TUnit).
+        # --coverage-settings is required: without an explicit ModulePaths/Include in the
+        # settings file, Microsoft.CodeCoverage emits an empty 178-byte cobertura skeleton on
+        # Linux runners (it instruments nothing because nothing is in scope). The settings file
+        # uses the MTP flat Configuration/CodeCoverage schema, NOT the VSTest
+        # DataCollectionRunSettings wrapper, which the coverage-settings flag does not accept.
+        # The = form for --coverage-output-format avoids a documented MTP space-form mis-parse.
+        run: |
+          dotnet run --project tests/TimeAssertions.TUnit.Tests/TimeAssertions.TUnit.Tests.csproj \
+            --configuration Release --no-build \
+            -- \
+            --coverage \
+            --coverage-settings .config/codecoverage.settings.xml \
+            --coverage-output coverage.cobertura.xml \
+            --coverage-output-format=cobertura
+
+      - name: Locate coverage report
+        id: coverage
+        run: |
+          # The test exe writes coverage relative to the test bin directory; surface its path.
+          # Failing fast if no report is found prevents a silent bypass of the coverage gate
+          # when coverage collection itself breaks (tool version drift, MTP schema change,
+          # instrumentation regression). The downstream threshold step's `if:` guard then
+          # acts as defensive belt-and-suspenders rather than the actual gate.
+          REPORT=$(find tests -name 'coverage.cobertura.xml' -print -quit)
+          if [ -z "$REPORT" ]; then
+            echo "::error::No cobertura coverage report found; coverage collection broken"
+            exit 1
+          fi
+          echo "report=$REPORT" >> "$GITHUB_OUTPUT"
+          echo "Coverage report: $REPORT"
+
+      # Codecov upload runs BEFORE the threshold check so the coverage trend is visible
+      # in Codecov's UI even when the threshold gate fails the build. Without this ordering,
+      # a failing threshold short-circuits the upload (default `if: success()`) and the
+      # PR shows no Codecov data.
+      - name: Upload coverage to Codecov
+        if: steps.coverage.outputs.report != ''
+        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6
+        with:
+          files: ${{ steps.coverage.outputs.report }}
+          fail_ci_if_error: false
+          verbose: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      # Hard gates: fail the build if line OR branch coverage drops below threshold.
+      # The cobertura XML's top-level <coverage line-rate="X.XX" branch-rate="Y.YY"> is
+      # the source of truth. Thresholds match the project's quality bar; bump them up
+      # over time, never down.
+      - name: Check coverage thresholds
+        if: steps.coverage.outputs.report != ''
+        env:
+          LINE_THRESHOLD: '0.90'
+          BRANCH_THRESHOLD: '0.80'
+        run: |
+          REPORT='${{ steps.coverage.outputs.report }}'
+          LINE_RATE=$(grep -oP 'line-rate="\K[^"]+' "$REPORT" | head -1)
+          BRANCH_RATE=$(grep -oP 'branch-rate="\K[^"]+' "$REPORT" | head -1)
+          if [ -z "$LINE_RATE" ] || [ -z "$BRANCH_RATE" ]; then
+            echo "::error::Could not extract line-rate or branch-rate from $REPORT"
+            exit 1
+          fi
+
+          LINE_PCT=$(awk -v r="$LINE_RATE" 'BEGIN { printf "%.2f", r * 100 }')
+          BRANCH_PCT=$(awk -v r="$BRANCH_RATE" 'BEGIN { printf "%.2f", r * 100 }')
+          LINE_THR_PCT=$(awk -v t="$LINE_THRESHOLD" 'BEGIN { printf "%.2f", t * 100 }')
+          BRANCH_THR_PCT=$(awk -v t="$BRANCH_THRESHOLD" 'BEGIN { printf "%.2f", t * 100 }')
+          echo "Line coverage:   ${LINE_PCT}%   (threshold: ${LINE_THR_PCT}%)"
+          echo "Branch coverage: ${BRANCH_PCT}% (threshold: ${BRANCH_THR_PCT}%)"
+
+          FAILED=0
+          if [ "$(awk -v r="$LINE_RATE" -v t="$LINE_THRESHOLD" 'BEGIN { print (r < t) ? 1 : 0 }')" = "1" ]; then
+            echo "::error::Line coverage ${LINE_PCT}% is below threshold ${LINE_THR_PCT}%"
+            FAILED=1
+          fi
+          if [ "$(awk -v r="$BRANCH_RATE" -v t="$BRANCH_THRESHOLD" 'BEGIN { print (r < t) ? 1 : 0 }')" = "1" ]; then
+            echo "::error::Branch coverage ${BRANCH_PCT}% is below threshold ${BRANCH_THR_PCT}%"
+            FAILED=1
+          fi
+          [ "$FAILED" = "0" ]
+
+      - name: Pack TimeAssertions (core)
+        run: dotnet pack src/TimeAssertions/TimeAssertions.csproj --configuration Release --no-build --output ./artifacts
+
+      - name: Pack TimeAssertions.TUnit (TUnit adapter)
+        run: dotnet pack src/TimeAssertions.TUnit/TimeAssertions.TUnit.csproj --configuration Release --no-build --output ./artifacts
+
+      # External-consumer smoke test + AOT-publish gate are deferred to 0.2.0 alongside
+      # the FakeTimeProvider work where allocation/AOT scrutiny becomes more meaningful.
+      # IsAotCompatible=true on the csproj keeps the build-time AOT analyzer active in 0.1.0.
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: nupkg
+          path: ./artifacts/*.nupkg
+          retention-days: 7
