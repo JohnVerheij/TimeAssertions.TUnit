@@ -1,5 +1,7 @@
 <Solution>
   <Project Path="src/TimeAssertions/TimeAssertions.csproj" />
   <Project Path="src/TimeAssertions.TUnit/TimeAssertions.TUnit.csproj" />
+  <Project Path="tests/TimeAssertions.Tests/TimeAssertions.Tests.csproj" />
+  <Project Path="tests/TimeAssertions.TUnit.SnapshotTests/TimeAssertions.TUnit.SnapshotTests.csproj" />
   <Project Path="tests/TimeAssertions.TUnit.Tests/TimeAssertions.TUnit.Tests.csproj" />
 </Solution>

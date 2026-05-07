@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using TimeAssertions;
 
-namespace TimeAssertions.TUnit.Tests;
+namespace TimeAssertions.Tests;
 
 /// <summary>Pins the format selected by <see cref="TimeRenderingHelpers.FormatDuration"/> across
 /// the magnitude bands (microseconds, milliseconds, seconds, minutes:seconds) and the negative

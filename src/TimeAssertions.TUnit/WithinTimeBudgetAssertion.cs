@@ -95,3 +95,4 @@ public sealed class WithinTimeBudgetAssertion<T> : Assertion<T>
             $"completion within timing budget of {TimeRenderingHelpers.FormatDuration(_budget)}");
     }
 }
+

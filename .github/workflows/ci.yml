@@ -105,7 +105,7 @@ jobs:
         if: steps.coverage.outputs.report != ''
         env:
           LINE_THRESHOLD: '0.90'
-          BRANCH_THRESHOLD: '0.80'
+          BRANCH_THRESHOLD: '0.90'
         run: |
           REPORT='${{ steps.coverage.outputs.report }}'
           LINE_RATE=$(grep -oP 'line-rate="\K[^"]+' "$REPORT" | head -1)
@@ -133,15 +133,73 @@ jobs:
           fi
           [ "$FAILED" = "0" ]
 
+      - name: Test framework-agnostic core suite (no coverage)
+        # tests/TimeAssertions.Tests references ONLY the TimeAssertions core package, NOT
+        # TimeAssertions.TUnit. Catches accidental coupling: if a refactor made the core depend
+        # on TUnit, this project would fail to compile. Coverage of the core types is already
+        # captured in the main suite via the TUnit chain, so coverage is intentionally not
+        # collected here.
+        run: |
+          dotnet run --project tests/TimeAssertions.Tests/TimeAssertions.Tests.csproj \
+            --configuration Release --no-build
+
+      - name: Test snapshot suite (no coverage)
+        # SnapshotTests pins the public API surface using SnapshotAssertions.TUnit's
+        # MatchesSnapshot() chain — cross-package dogfooding (this repo consumes a sibling
+        # family package by PackageReference). Run in a separate step from the main coverage
+        # run because the project measures API surface, not behaviour: its execution
+        # contributes nothing useful to the coverage rate. The .config/codecoverage.settings.xml
+        # already restricts ModulePaths to the production DLLs so SnapshotTests-internal code
+        # is excluded automatically — the separate step makes that intent explicit.
+        run: |
+          dotnet run --project tests/TimeAssertions.TUnit.SnapshotTests/TimeAssertions.TUnit.SnapshotTests.csproj \
+            --configuration Release --no-build
+
       - name: Pack TimeAssertions (core)
         run: dotnet pack src/TimeAssertions/TimeAssertions.csproj --configuration Release --no-build --output ./artifacts
 
       - name: Pack TimeAssertions.TUnit (TUnit adapter)
         run: dotnet pack src/TimeAssertions.TUnit/TimeAssertions.TUnit.csproj --configuration Release --no-build --output ./artifacts
 
-      # External-consumer smoke test + AOT-publish gate are deferred to 0.2.0 alongside
-      # the FakeTimeProvider work where allocation/AOT scrutiny becomes more meaningful.
-      # IsAotCompatible=true on the csproj keeps the build-time AOT analyzer active in 0.1.0.
+      - name: External-consumer smoke test (restore+build+test against just-packed nupkgs)
+        # The smoke-test project lives outside TimeAssertions.TUnit.slnx and consumes
+        # TimeAssertions.TUnit ONLY via PackageReference (NOT ProjectReference) — its NuGet.config
+        # routes TimeAssertions.* to the just-packed local feed at ./artifacts. The project's
+        # namespace is deliberately NOT under TimeAssertions.TUnit, so any future regression of
+        # the namespace-resolution bug class (entry points hidden behind an explicit using) fails
+        # the smoke build before the package can ship.
+        #
+        # NuGet's relative-path resolution for local sources is fragile on Linux runners:
+        # the NuGet.config-relative "../../artifacts" sometimes fails NU1561 even after
+        # the previous Pack steps wrote nupkgs there. We bypass it by passing an absolute
+        # --source flag derived from $GITHUB_WORKSPACE, which is unambiguous regardless of
+        # NuGet's path-resolution context. The existing NuGet.config still provides the
+        # packageSourceMapping that routes TimeAssertions.* to local-pack at restore time.
+        # The explicit "ls" gives a one-line diagnostic if pack ever silently fails to
+        # produce artifacts — saves a CI rerun on diagnosis.
+        run: |
+          echo "Workspace: $GITHUB_WORKSPACE"
+          ls -la "$GITHUB_WORKSPACE/artifacts/" || (echo "::error::artifacts/ missing — Pack steps did not produce nupkgs" && exit 1)
+          dotnet restore tests/TimeAssertions.TUnit.SmokeTest/TimeAssertions.TUnit.SmokeTest.csproj \
+            --force-evaluate \
+            --source "$GITHUB_WORKSPACE/artifacts" \
+            --source "https://api.nuget.org/v3/index.json"
+          dotnet build tests/TimeAssertions.TUnit.SmokeTest/TimeAssertions.TUnit.SmokeTest.csproj --configuration Release --no-restore
+          dotnet run --project tests/TimeAssertions.TUnit.SmokeTest/TimeAssertions.TUnit.SmokeTest.csproj --configuration Release --no-build
+
+      - name: AOT-publish gate (smoke project, linux-x64)
+        # End-to-end AOT validation: the package's csproj sets IsAotCompatible=true (which keeps
+        # the build-time AOT analyzer active during normal `dotnet build`), but only `dotnet
+        # publish -r <RID> -p:PublishAot=true` actually invokes ILCompiler and proves there are
+        # no late-bound surprises. The smoke project sets PublishAot=true conditional on
+        # RuntimeIdentifier so day-to-day builds aren't dragged through ILCompiler. Failing this
+        # step blocks a release; passing means an AOT-targeting consumer will publish cleanly.
+        run: |
+          dotnet publish tests/TimeAssertions.TUnit.SmokeTest/TimeAssertions.TUnit.SmokeTest.csproj \
+            --configuration Release \
+            --runtime linux-x64 \
+            --source "$GITHUB_WORKSPACE/artifacts" \
+            --source "https://api.nuget.org/v3/index.json"
 
       - name: Upload package artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
