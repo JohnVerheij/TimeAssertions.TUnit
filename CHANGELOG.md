@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] — Naming symmetry, elapsed capture, dependency refresh
+
+Feature release plus rolled-in housekeeping. Lockstep version bump for both packages; ApiCompat baseline pinned to 0.1.0 (the previous shipped release). The intermediate v0.1.1 housekeeping work is folded into this release rather than shipping as a separate intermediate version.
+
+### Added
+
+- **`HasAdvancedExactly` / `HasAdvancedApproximately`** on `FakeTimeProvider`. Renamed from `HasAdvanced` / `HasAdvancedBy` for symmetry with the rest of the family ("Exactly" vs "Approximately" makes the bounds intent explicit). The original names remain as `[Obsolete]` aliases through v0.3.x and will be removed in v0.4.0.
+- **`WithinTimeBudgetCapturing(TimeSpan, Action<TimeSpan>)`** — capturing variant of `WithinTimeBudget`. Same wall-clock budget behaviour, plus an `Action<TimeSpan>` callback that always receives the measured elapsed (whether the budget was met, exceeded, or the source threw). Useful for tests that need to surface the observed timing in their failure diagnostic before the budget-overrun assertion exception propagates.
+
+### Added (CI / process)
+
+- **External-consumer smoke-test project** (`tests/TimeAssertions.TUnit.SmokeTest/`) — references `TimeAssertions.TUnit` ONLY via `PackageReference` from a deliberately-different namespace and consumes the just-packed nupkg via a local NuGet feed at `./artifacts`. Lives outside the main `TimeAssertions.TUnit.slnx` so the unpublished local-feed version doesn't break `dotnet restore` on the main solution; CI packs the package first, then restores the smoke-test against the local feed and runs it. AOT-published with `PublishAot=true --runtime linux-x64 --self-contained` as a hard gate against future reflection / DynamicCode regressions.
+- **Recursive public-API self-test project** (`tests/TimeAssertions.TUnit.SnapshotTests/`) — pins the public surface using `SnapshotAssertions.TUnit.MatchesSnapshot()` against `PublicApiGenerator` output. Dogfooding for the family — no `Verify` dependency.
+
+### Notes
+
+- **`FakeTimeProvider.ActiveTimers` upstream proposal.** Filed as [dotnet/extensions#7515](https://github.com/dotnet/extensions/issues/7515) for the `HasActiveTimers` deferred item. `Microsoft.Extensions.Time.Testing` does not expose `ActiveTimers` publicly; if the proposal lands the assertion ships in a follow-up release.
+
+### Deprecated
+
+- **`HasAdvanced` and `HasAdvancedBy` carry `[Obsolete(error: false)]`.** Two-minor cycle: aliases live through v0.3.x; the v0.4.0 release removes them. Migrate via search-and-replace by name across the test suite.
+
+### Changed
+
+- **Dependency refresh.** Bumped to latest stable for every direct and analyzer dependency:
+  - `TUnit` / `TUnit.Assertions` / `TUnit.Core`: 1.43.2 → 1.43.11
+  - `Microsoft.Extensions.TimeProvider.Testing`: 9.5.0 → 10.5.0
+  - `Microsoft.Sbom.Targets`: 3.0.1 → 4.1.5
+  - `Microsoft.SourceLink.GitHub`: 8.0.0 → 10.0.203
+  - `DotNetProjectFile.Analyzers`: 1.12.2 → 1.13.1
+  - `Meziantou.Analyzer`: 2.0.219 → 3.0.72
+  - `Microsoft.VisualStudio.Threading.Analyzers`: 17.13.61 → 17.14.15
+  - `Roslynator.Analyzers`: 4.13.1 → 4.15.0
+  - `SonarAnalyzer.CSharp`: 10.24.0.138807 → 10.25.0.139117
+
+### Documentation
+
+- **`CONVENTIONS.md` upgraded to v0.2.** Codifies the family-wide conventions shared across `TimeAssertions.TUnit`, `LogAssertions.TUnit`, and `SnapshotAssertions.TUnit`: trailing `CancellationToken ct = default` on every new async API, `Task.Delay(TimeSpan, TimeProvider, ct)` for polling loops, the 100/200/400/800/1000ms exponential schedule for time-based polls, the `# <Package> snapshot v<N>` header convention for `ToSnapshotString()` (TimeAssertions has no rendering of this kind today; the convention applies if/when one is added), TFM policy (LTS-anchored; multi-target during STS support windows), and the explicit "Verify is not promoted by this family — `MatchesSnapshot()` is the canonical example" stance.
+
+### Quality numbers
+
+- Coverage on the main suite: **98.39% line / 93.75% branch** (above the CI hard gates of 90% / 90%).
+- ApiCompat strict-mode validation against the v0.1.0 baseline (`PackageValidationBaselineVersion=0.1.0`); auto-generated `CompatibilitySuppressions.xml` documents every additive change plus the two `[Obsolete]` rename markers (`HasAdvanced`, `HasAdvancedBy`).
+
 ## [0.1.0] — Initial release: TUnit-side assertions for TimeProvider-based testable time
 
 First public release. **Positioned as the TUnit assertion package for projects committed to

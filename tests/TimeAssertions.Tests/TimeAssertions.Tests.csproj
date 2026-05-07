@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Framework-agnostic test project for the TimeAssertions core package.
+
+    Intentionally references ONLY TimeAssertions, NOT TimeAssertions.TUnit. The TUnit
+    test runner is referenced for [Test]/[Category]/Assert.That infrastructure, but
+    every test in this project exercises the core types (TimeRenderingHelpers and any
+    future BCL-only helpers) directly without going through any TimeAssertions.TUnit
+    assertion entry point. If the core ever picked up a TUnit dependency by accident,
+    this project would fail to compile.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>TimeAssertions.Tests</RootNamespace>
+    <AssemblyName>TimeAssertions.Tests</AssemblyName>
+
+    <IsPackable>false</IsPackable>
+    <IsPublishable>false</IsPublishable>
+    <IsTestProject>true</IsTestProject>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Alphabetical per dpfa Proj0015 -->
+    <PackageReference Include="TUnit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/TimeAssertions/TimeAssertions.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -19,7 +19,7 @@ dotnet add package TimeAssertions.TUnit
 
 `TimeAssertions` (the framework-agnostic core) and `Microsoft.Extensions.TimeProvider.Testing` come transitively. **Requirements:** TUnit 1.43.11 or later, .NET 10.
 
-The source-generated entry points (`HasAdvanced`, `HasUtcNow`, `IsRecent`, `IsBeforeNow`, `IsAfterNow`, `WithinTimeBudget`) auto-import via `TUnit.Assertions.Extensions`. Add the following to a `GlobalUsings.cs` in your test project for the call-site and `FakeTimeProvider` namespaces:
+The source-generated entry points (`HasAdvancedExactly`, `HasAdvancedApproximately`, `HasUtcNow`, `HasUtcNowApproximately`, `IsRecent`, `IsBeforeNow`, `IsAfterNow`, `WithinTimeBudget`, `WithinTimeBudgetCapturing`) auto-import via `TUnit.Assertions.Extensions`. Add the following to a `GlobalUsings.cs` in your test project for the call-site and `FakeTimeProvider` namespaces:
 
 ```csharp
 global using Microsoft.Extensions.Time.Testing;
@@ -38,7 +38,7 @@ public async Task PreReleaseExpiration_advances_state_after_clock_moves_forward(
 
     fakeTime.Advance(TimeSpan.FromMinutes(31));
 
-    await Assert.That(fakeTime).HasAdvanced(TimeSpan.FromMinutes(31));
+    await Assert.That(fakeTime).HasAdvancedExactly(TimeSpan.FromMinutes(31));
     await Assert.That(service.LastRefresh).IsRecent(TimeSpan.FromSeconds(1), fakeTime);
 
     // Cross-cutting timing budget on any behavioural assertion chain
@@ -52,11 +52,12 @@ public async Task PreReleaseExpiration_advances_state_after_clock_moves_forward(
 
 | Method | Purpose |
 |---|---|
-| `HasAdvanced(TimeSpan)` / `HasAdvancedBy(total, tolerance)` | `FakeTimeProvider` advanced by exact / approximate amount |
+| `HasAdvancedExactly(TimeSpan)` / `HasAdvancedApproximately(total, tolerance)` | `FakeTimeProvider` advanced by exact / approximate amount (renamed from `HasAdvanced` / `HasAdvancedBy` in v0.2.0; old names `[Obsolete]` until v0.4.0) |
 | `HasUtcNow(DateTimeOffset)` / `HasUtcNowApproximately(expected, tolerance)` | `FakeTimeProvider` is at exact / approximate moment |
 | `IsRecent(TimeSpan, TimeProvider?)` | `DateTimeOffset` is within window before "now" of supplied (or system) clock |
 | `IsBeforeNow(TimeProvider)` / `IsAfterNow(TimeProvider)` | `DateTimeOffset` ordering relative to supplied clock |
 | `WithinTimeBudget(TimeSpan)` | Cross-cutting timing budget; chains via `.And` after any behavioural assertion |
+| `WithinTimeBudgetCapturing(TimeSpan, Action<TimeSpan>)` | Same as `WithinTimeBudget` plus a callback that always receives the measured elapsed (added in v0.2.0) |
 
 ## Failure diagnostics
 

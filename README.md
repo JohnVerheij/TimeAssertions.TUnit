@@ -32,6 +32,7 @@ A TUnit-native fluent time-assertion DSL on top of `Microsoft.Extensions.Time.Te
 - [Design notes](#design-notes)
 - [Stability intent (pre-1.0)](#stability-intent-pre-10)
 - [Limitations and future work](#limitations-and-future-work)
+- [Family compatibility](#family-compatibility)
 - [Pair with](#pair-with)
 - [Contributing](#contributing)
 - [License](#license)
@@ -62,7 +63,7 @@ This repo ships **two** NuGet packages:
 | Package | Purpose | Depends on |
 |---|---|---|
 | [`TimeAssertions`](https://www.nuget.org/packages/TimeAssertions/) | Framework-agnostic core: `TimeRenderingHelpers` for elapsed-duration / budget-overrun formatting | BCL only |
-| [`TimeAssertions.TUnit`](https://www.nuget.org/packages/TimeAssertions.TUnit/) | TUnit-specific entry points: `HasAdvanced()`, `HasUtcNow()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()` and shorthand variants | `TimeAssertions` + `TUnit.Assertions` + `TUnit.Core` + `Microsoft.Extensions.TimeProvider.Testing` |
+| [`TimeAssertions.TUnit`](https://www.nuget.org/packages/TimeAssertions.TUnit/) | TUnit-specific entry points: `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()` | `TimeAssertions` + `TUnit.Assertions` + `TUnit.Core` + `Microsoft.Extensions.TimeProvider.Testing` |
 
 You install `TimeAssertions.TUnit`; `TimeAssertions` and `Microsoft.Extensions.TimeProvider.Testing` come transitively. Adapters for other test frameworks (NUnit, xUnit, MSTest) are *not* shipped today — they would reuse the `TimeAssertions` core. Open a feature request if you need one.
 
@@ -72,10 +73,10 @@ The two packages place types in two namespaces with deliberately-different scope
 
 | Type / member | Namespace | Auto-imported? |
 |---|---|---|
-| `HasAdvanced()`, `HasUtcNow()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()` (source-generated entries) | `TUnit.Assertions.Extensions` | **Yes** — TUnit auto-imports |
+| `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()` (source-generated entries) | `TUnit.Assertions.Extensions` | **Yes** — TUnit auto-imports |
 | `FakeTimeProvider` (the testable-clock type) | `Microsoft.Extensions.Time.Testing` | **No** — needed at the call site; recommended for `GlobalUsings.cs` |
 | `TimeRenderingHelpers` (formatting utilities for failure messages) | `TimeAssertions` | **No** — needed at the call site; recommended for `GlobalUsings.cs` |
-| `WithinTimeBudgetAssertion<T>` (the assertion class behind `WithinTimeBudget`) | `TimeAssertions.TUnit` | **No** — needed at the call site; recommended for `GlobalUsings.cs` |
+| `WithinTimeBudgetAssertion<T>`, `WithinTimeBudgetCapturingAssertion<T>` (the assertion classes behind `WithinTimeBudget()` and `WithinTimeBudgetCapturing()`) | `TimeAssertions.TUnit` | **No** — needed at the call site; recommended for `GlobalUsings.cs` |
 
 **Recommended:** put the three non-auto-imported namespaces into a single `GlobalUsings.cs` in your test project so every test file sees them without ceremony:
 
@@ -102,7 +103,7 @@ public async Task PreReleaseExpiration_advances_state_after_clock_moves_forward(
 
     using (Assert.Multiple())
     {
-        await Assert.That(fakeTime).HasAdvanced(TimeSpan.FromMinutes(31));
+        await Assert.That(fakeTime).HasAdvancedExactly(TimeSpan.FromMinutes(31));
         await Assert.That(service.LastProcessedAt).IsRecent(TimeSpan.FromSeconds(1), fakeTime);
         await Assert.That(service.NextRunAt).IsAfterNow(fakeTime);
     }
@@ -124,7 +125,7 @@ This package supplies the assertion side of step 4. Without it, you write boiler
 
 ```csharp
 await Assert.That(fakeTime).HasUtcNow(expected);
-await Assert.That(fakeTime).HasAdvanced(TimeSpan.FromMinutes(5));
+await Assert.That(fakeTime).HasAdvancedExactly(TimeSpan.FromMinutes(5));
 await Assert.That(timestamp).IsRecent(TimeSpan.FromSeconds(1), fakeTime);
 await Assert.That(timestamp).IsBeforeNow(fakeTime);
 await Assert.That(timestamp).IsAfterNow(fakeTime);
@@ -142,8 +143,8 @@ Three groups of entry points cover three distinct testing concerns: fake-clock s
 
 | Entry point | Behaviour |
 |---|---|
-| `HasAdvanced(TimeSpan total)` | Asserts `fakeTime.GetUtcNow() - construction-time` equals `total` exactly. Sanity check for `Advance` / `SetUtcNow` calls in test setup. |
-| `HasAdvancedBy(TimeSpan total, TimeSpan tolerance)` | Same, with absolute tolerance. Useful when production code performs additional internal `Advance` calls. |
+| `HasAdvancedExactly(TimeSpan total)` | Asserts `fakeTime.GetUtcNow() - construction-time` equals `total` exactly. Sanity check for `Advance` / `SetUtcNow` calls in test setup. |
+| `HasAdvancedApproximately(TimeSpan total, TimeSpan tolerance)` | Same, with absolute tolerance. Useful when production code performs additional internal `Advance` calls. |
 | `HasUtcNow(DateTimeOffset expected)` | Asserts `fakeTime.GetUtcNow()` equals `expected` exactly. |
 | `HasUtcNowApproximately(DateTimeOffset expected, TimeSpan tolerance)` | Same, with absolute tolerance. Useful when the expected moment is computed from integer-truncated minute math or chained `Advance` calls with rounding rather than a literal. |
 
@@ -151,8 +152,10 @@ Three groups of entry points cover three distinct testing concerns: fake-clock s
 var fakeTime = new FakeTimeProvider();
 fakeTime.Advance(TimeSpan.FromHours(2));
 
-await Assert.That(fakeTime).HasAdvanced(TimeSpan.FromHours(2));
+await Assert.That(fakeTime).HasAdvancedExactly(TimeSpan.FromHours(2));
 ```
+
+> **Renamed in v0.2.0.** The previous names `HasAdvanced` / `HasAdvancedBy` are kept as `[Obsolete]` aliases through v0.3.x and removed in v0.4.0. The rename gives both names an explicit "Exactly" vs "Approximately" suffix for symmetry with `HasUtcNow` / `HasUtcNowApproximately`. Migrate via search-and-replace by name across the test suite.
 
 ### `TimeProvider`-aware `DateTimeOffset` assertions
 
@@ -189,13 +192,31 @@ await Assert.That(collector)
 
 `.And.WithinTimeBudget()` is **post-facto**, not cancellation. The wall-clock duration is captured around the assertion's evaluation; the chain fails if the budget is exceeded but does NOT abort the assertion mid-flight. For polling / streaming workloads, use the relevant sibling package's domain-specific timeout API.
 
+#### Capturing the elapsed time: `WithinTimeBudgetCapturing` (v0.2.0+)
+
+When you need the measured elapsed value (e.g. to log it, or to feed it into a follow-up assertion), use `WithinTimeBudgetCapturing(TimeSpan budget, Action<TimeSpan> capture)`. Same wall-clock-budget behaviour as `WithinTimeBudget`, plus an `Action<TimeSpan>` callback that always receives the measured elapsed — whether the budget passed, was exceeded, or the source threw.
+
+```csharp
+var elapsed = TimeSpan.Zero;
+await Assert.That(asyncOp)
+    .IsEqualTo(expectedResult)
+    .And.WithinTimeBudgetCapturing(TimeSpan.FromMilliseconds(500), e => elapsed = e);
+
+// 'elapsed' now holds the wall-clock duration of the asyncOp evaluator.
+// Use it for diagnostic logging, or feed into HasAdvancedApproximately for
+// a follow-up assertion against a fake clock advanced by the same amount.
+TestContext.Current.OutputWriter.WriteLine($"asyncOp took {elapsed.TotalMilliseconds:F1}ms");
+```
+
+The capture callback runs on **every** evaluation path, so failed-budget tests can still surface the observed timing in their failure diagnostic before the budget-overrun `AssertionException` propagates. If the source itself threw, the callback receives the partial elapsed reported by TUnit's `EvaluationMetadata<T>.Duration`.
+
 ---
 
 ## Failure diagnostics
 
 Failures render the actual measurement against the expected value, with no extra `Console.WriteLine` calls needed.
 
-**`HasAdvanced` mismatch:**
+**`HasAdvancedExactly` mismatch:**
 
 ```text
 Expected:
@@ -286,7 +307,7 @@ public async Task PreReleaseExpiration_advances_state_after_clock_moves_forward(
 What this pattern buys you:
 
 - **Deterministic timing.** No `Thread.Sleep`, no flaky CI from real-clock drift. The test runs in milliseconds even though it simulates 31 minutes of elapsed time.
-- **Both sides assertable.** `HasUtcNow` / `HasAdvanced*` confirm the *fake clock's* state; `IsRecent` / `IsBeforeNow` / `IsAfterNow` confirm *production state* relative to that fake clock.
+- **Both sides assertable.** `HasUtcNow` / `HasAdvancedExactly` / `HasAdvancedApproximately` confirm the *fake clock's* state; `IsRecent` / `IsBeforeNow` / `IsAfterNow` confirm *production state* relative to that fake clock.
 - **No system-clock leakage.** Because production code accepts `TimeProvider` and the test injects `FakeTimeProvider`, there's no path where `DateTimeOffset.UtcNow` could sneak in.
 
 ### System clock `IsRecent` (no TimeProvider)
@@ -307,9 +328,21 @@ await Assert.That(fakeTime).HasUtcNow(new DateTimeOffset(2026, 5, 6, 18, 0, 0, T
 ### Tolerance for chained `Advance` calls
 
 ```csharp
-await Assert.That(fakeTime).HasAdvancedBy(
+await Assert.That(fakeTime).HasAdvancedApproximately(
     total: TimeSpan.FromMinutes(30),
     tolerance: TimeSpan.FromSeconds(1));
+```
+
+### Capturing the elapsed time of a behavioural assertion
+
+```csharp
+var elapsed = TimeSpan.Zero;
+await Assert.That(httpClient.GetAsync("/health"))
+    .CompletesSuccessfully()
+    .And.WithinTimeBudgetCapturing(TimeSpan.FromSeconds(2), e => elapsed = e);
+
+// Surface the measured latency in test output, even when the assertion passes.
+TestContext.Current.OutputWriter.WriteLine($"GET /health: {elapsed.TotalMilliseconds:F1}ms");
 ```
 
 ---
@@ -364,24 +397,27 @@ The 1.0 milestone signals API stability — see [Limitations and future work](#l
 
 ## Limitations and future work
 
-### `.Elapsed(out TimeSpan)`
+### Resolved in v0.2.0
 
-The original plan called for an `out` parameter to capture the elapsed time of an assertion chain. Unimplementable as written — `out` parameters are assigned synchronously before any await, but the wall-clock duration isn't known until the evaluator runs. Capturing post-await elapsed via `out` would write to a state-machine slot that's no longer alive.
+- ✅ **Capturing the elapsed time of an assertion chain.** Originally planned as `.Elapsed(out TimeSpan)` (unimplementable — `out` parameters are assigned synchronously before any await). Shipped as `WithinTimeBudgetCapturing(TimeSpan budget, Action<TimeSpan> capture)`. See [Cross-cutting timing budget — Capturing the elapsed time](#capturing-the-elapsed-time-withintimebudgetcapturing-v020).
+- ✅ **`HasAdvanced` / `HasAdvancedBy` naming asymmetry.** Renamed to `HasAdvancedExactly` / `HasAdvancedApproximately` to mirror `HasUtcNow` / `HasUtcNowApproximately`. The old names live as `[Obsolete]` aliases through v0.3.x and are removed in v0.4.0.
+- ✅ **External-consumer smoke test + AOT-publish CI gate.** `tests/TimeAssertions.TUnit.SmokeTest/` consumes `TimeAssertions.TUnit` ONLY via `PackageReference` against the just-packed local feed; CI publishes that consumer with `PublishAot=true` on `linux-x64` so any future reflection / DynamicCode regression fails the build before the package can ship. The `IsAotCompatible=true` build-time analyzer remains the first gate; the smoke + AOT-publish steps add end-to-end parity with the rest of the family as a defensive backup.
+- ✅ **Recursive public-API self-test project.** `tests/TimeAssertions.TUnit.SnapshotTests/` pins the public surface using `SnapshotAssertions.TUnit.MatchesSnapshot()` against `PublicApiGenerator` output — pure dogfooding for the family, no Verify dependency.
 
-Alternatives under consideration for 0.2.0:
-
-- **Property-capture:** `var capture = new ElapsedCapture(); await ... .CaptureElapsed(capture); var latency = capture.Value;`
-- **Tuple-return:** `var (response, latency) = await Assert.That(response).IsOk().And.WithElapsed();`
-- **Callback:** `.CaptureElapsed(t => latency = t)`
-
-Pending design call.
-
-### Other deferred items
+### Deferred items
 
 - **`.Eventually()` retry / polling terminator** — planned for 0.3.0.
-- **`Stopwatch.GetTimestamp()`-based monotonic-clock variant** of `WithinTimeBudget` — candidate for 0.2.0 if benchmark-class precision is needed. Today, `WithinTimeBudget` uses TUnit's `EvaluationMetadata<T>.Duration` (`DateTimeOffset.Now`-based); system-clock jumps during a test method are vanishingly rare.
-- **`HasActiveTimers`** — `FakeTimeProvider.ActiveTimers` isn't part of the public `Microsoft.Extensions.Time.Testing` API surface; can't be observed without reflection. If Microsoft exposes it later, we add the assertion in a follow-up.
-- **External-consumer smoke test + AOT-publish CI gate** — planned for 0.2.0.
+- **`Stopwatch.GetTimestamp()`-based monotonic-clock variant** of `WithinTimeBudget` — candidate for 0.3.0 if benchmark-class precision is needed. Today, `WithinTimeBudget` uses TUnit's `EvaluationMetadata<T>.Duration` (`DateTimeOffset.Now`-based); system-clock jumps during a test method are vanishingly rare.
+- **`HasActiveTimers`** — filed upstream as [dotnet/extensions#7515](https://github.com/dotnet/extensions/issues/7515). `FakeTimeProvider.ActiveTimers` isn't part of the public `Microsoft.Extensions.Time.Testing` API surface yet; can't be observed without reflection. If Microsoft exposes it later, we add the assertion in a follow-up.
+
+## Family compatibility
+
+The three assertion-family packages — `LogAssertions.TUnit`, `TimeAssertions.TUnit`, and `SnapshotAssertions.TUnit` — release independently and target the same .NET TFM at any moment (LTS-anchored, multi-target during STS support windows; see the [TFM policy in CONVENTIONS.md](CONVENTIONS.md#tfm-policy) for the rotation schedule). **Mix versions freely.** Each package ships under SemVer with `EnablePackageValidation` strict-mode ApiCompat against its previous baseline, so binary breaks within a version line are caught at pack time.
+
+For per-package release notes:
+- [LogAssertions.TUnit CHANGELOG](https://github.com/JohnVerheij/LogAssertions.TUnit/blob/main/CHANGELOG.md)
+- [TimeAssertions.TUnit CHANGELOG](https://github.com/JohnVerheij/TimeAssertions.TUnit/blob/main/CHANGELOG.md)
+- [SnapshotAssertions.TUnit CHANGELOG](https://github.com/JohnVerheij/SnapshotAssertions.TUnit/blob/main/CHANGELOG.md)
 
 ## Pair with
 

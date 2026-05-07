@@ -93,6 +93,40 @@ internal sealed class WithinTimeBudgetAssertionTests
             .And.WithinTimeBudget(TimeSpan.FromSeconds(5));
     }
 
+    /// <summary>Microseconds-band budget: the source assertion still passes (TUnit's
+    /// <c>EvaluationMetadata.Duration</c> is captured at sub-millisecond precision, so
+    /// <c>FastSourceAsync</c>'s <c>Task.Yield()</c> alone may exceed 100μs and trigger
+    /// budget overrun). The point of this test is not the pass/fail outcome but the side
+    /// effect: <c>WithinTimeBudgetAssertion</c>'s constructor and <c>GetExpectation</c>
+    /// call <c>TimeRenderingHelpers.FormatDuration</c> on the budget, exercising the
+    /// microseconds-band code path of <c>FormatDuration</c> that the direct tests in
+    /// <c>TimeAssertions.Tests</c> cover (those run in the no-coverage CI step). This test
+    /// keeps that band exercised in the coverage-instrumented test exe.</summary>
+    [Test]
+    public async Task MicrosecondsBudget_ExercisesFormatDurationMicroBand(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await Assert.That(async () =>
+        {
+            await Assert.That(SlowSourceAsync(TimeSpan.FromMilliseconds(20), cancellationToken))
+                .WithinTimeBudget<int>(TimeSpan.FromMicroseconds(100));
+        }).Throws<AssertionException>();
+    }
+
+    /// <summary>Minutes:seconds-band budget: a 90-second budget is far above any realistic
+    /// wall-clock duration in this test, so the assertion passes. The constructor and
+    /// <c>GetExpectation</c> calls of <c>WithinTimeBudgetAssertion</c> exercise
+    /// <c>TimeRenderingHelpers.FormatDuration</c>'s minutes:seconds-band code path
+    /// (formats as "1:30") in the coverage-instrumented test exe.</summary>
+    [Test]
+    public async Task MinutesSecondsBudget_ExercisesFormatDurationMinSecBand(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await Assert.That(FastSourceAsync(cancellationToken))
+            .IsEqualTo(42)
+            .And.WithinTimeBudget(TimeSpan.FromSeconds(90));
+    }
+
     private static async Task<int> FastSourceAsync(CancellationToken cancellationToken)
     {
         await Task.Yield();
@@ -104,6 +138,86 @@ internal sealed class WithinTimeBudgetAssertionTests
     {
         await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
         return 42;
+    }
+
+    // ---- WithinTimeBudgetCapturing tests ----
+
+    /// <summary>Capturing variant on a fast source: budget passes AND the capture callback
+    /// receives a non-negative elapsed within the budget.</summary>
+    [Test]
+    public async Task Capturing_FastSource_InvokesCaptureWithMeasuredElapsed(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var captured = TimeSpan.Zero;
+        // Sentinel: prove the callback fired. Without this, the captured-default Zero would
+        // satisfy `>= Zero` even if the callback never ran, so the test would silently lose
+        // its protection against a regression where WithinTimeBudgetCapturing forgets to invoke.
+        var captureInvoked = false;
+        await Assert.That(FastSourceAsync(cancellationToken))
+            .IsEqualTo(42)
+            .And.WithinTimeBudgetCapturing(TimeSpan.FromSeconds(5), e => { captured = e; captureInvoked = true; });
+
+        await Assert.That(captureInvoked).IsTrue();
+        await Assert.That(captured).IsGreaterThanOrEqualTo(TimeSpan.Zero);
+        await Assert.That(captured).IsLessThan(TimeSpan.FromSeconds(5));
+    }
+
+    /// <summary>Capturing on a slow source that overruns the budget still invokes capture
+    /// before propagating the assertion failure — consumers should see the actual elapsed
+    /// in their failure diagnostic.</summary>
+    [Test]
+    public async Task Capturing_SlowSource_CaptureInvokedBeforeFailure(CancellationToken cancellationToken)
+    {
+        var captured = TimeSpan.Zero;
+        await Assert.That(async () =>
+        {
+            await Assert.That(SlowSourceAsync(TimeSpan.FromMilliseconds(200), cancellationToken))
+                .IsEqualTo(42)
+                .And.WithinTimeBudgetCapturing(TimeSpan.FromMilliseconds(50), e => captured = e);
+        }).Throws<AssertionException>();
+
+        // Capture must have run with a non-zero observed duration despite the overrun.
+        await Assert.That(captured).IsGreaterThan(TimeSpan.Zero);
+    }
+
+    /// <summary>If the source throws, capture is still invoked. Underlying exception still
+    /// propagates as <see cref="AssertionException"/>.</summary>
+    [Test]
+    public async Task Capturing_ThrowingSource_CaptureStillInvoked(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var captureRan = false;
+        await Assert.That(async () =>
+        {
+            await Assert.That(ThrowingSourceAsync(cancellationToken))
+                .WithinTimeBudgetCapturing<int>(TimeSpan.FromSeconds(5), _ => captureRan = true);
+        }).Throws<AssertionException>();
+
+        await Assert.That(captureRan).IsTrue();
+    }
+
+    /// <summary>Constructor argument validation: negative budget rejected.</summary>
+    [Test]
+    public async Task Capturing_NegativeBudget_ThrowsArgumentOutOfRange(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await Assert.That(async () =>
+        {
+            await Assert.That(FastSourceAsync(cancellationToken))
+                .WithinTimeBudgetCapturing<int>(TimeSpan.FromMilliseconds(-1), _ => { });
+        }).Throws<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>Constructor argument validation: null capture rejected.</summary>
+    [Test]
+    public async Task Capturing_NullCapture_ThrowsArgumentNull(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await Assert.That(async () =>
+        {
+            await Assert.That(FastSourceAsync(cancellationToken))
+                .WithinTimeBudgetCapturing<int>(TimeSpan.FromSeconds(5), capture: null!);
+        }).Throws<ArgumentNullException>();
     }
 
     private static async Task<int> ThrowingSourceAsync(CancellationToken cancellationToken)

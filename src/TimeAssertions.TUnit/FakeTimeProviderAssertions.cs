@@ -27,7 +27,7 @@ public static class FakeTimeProviderAssertions
     /// <param name="value">The fake time provider.</param>
     /// <param name="total">Expected total elapsed since construction.</param>
     [GenerateAssertion(ExpectationMessage = "to have advanced by total {total}", InlineMethodBody = true)]
-    public static bool HasAdvanced(this FakeTimeProvider value, TimeSpan total)
+    public static bool HasAdvancedExactly(this FakeTimeProvider value, TimeSpan total)
     {
         ArgumentNullException.ThrowIfNull(value);
         return (value.GetUtcNow() - value.Start) == total;
@@ -38,9 +38,44 @@ public static class FakeTimeProviderAssertions
     /// <paramref name="tolerance"/>. Use this when production code performs additional
     /// internal Advance calls that you want to allow for without exact matching.</summary>
     [GenerateAssertion(ExpectationMessage = "to have advanced by approximately {total} within tolerance {tolerance}", InlineMethodBody = true)]
+    public static bool HasAdvancedApproximately(this FakeTimeProvider value, TimeSpan total, TimeSpan tolerance)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentOutOfRangeException.ThrowIfLessThan(tolerance, TimeSpan.Zero);
+        var elapsed = value.GetUtcNow() - value.Start;
+        var diff = elapsed - total;
+        var absDiff = diff < TimeSpan.Zero ? -diff : diff;
+        return absDiff <= tolerance;
+    }
+
+    /// <summary>Obsolete alias for <see cref="HasAdvancedExactly"/>. Renamed in v0.2.0 for
+    /// symmetry with <see cref="HasAdvancedApproximately"/>; will be removed in v0.4.0.</summary>
+    /// <remarks>The body is duplicated rather than delegating to <see cref="HasAdvancedExactly"/>
+    /// because TUnit's source generator inlines the body into the generated assertion class
+    /// (<c>InlineMethodBody = true</c>); the inlined form does not resolve sibling static-method
+    /// calls from the generator's emit context. The duplication is intentional and will be
+    /// deleted in v0.4.0 along with the obsolete alias itself.</remarks>
+    [Obsolete("Use HasAdvancedExactly. This alias will be removed in v0.4.0.", error: false)]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Major Code Smell", "S1133:Do not forget to remove this deprecated code someday", Justification = "Two-minor [Obsolete] cycle is intentional; v0.4.0 removes this alias per CONVENTIONS.md.")]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Major Code Smell", "S4144:Methods should not have identical implementations", Justification = "Body duplicated by design for the InlineMethodBody source-generator path; the obsolete alias forwards the same semantics during the rename cycle.")]
+    [GenerateAssertion(ExpectationMessage = "to have advanced by total {total}", InlineMethodBody = true)]
+    public static bool HasAdvanced(this FakeTimeProvider value, TimeSpan total)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        return (value.GetUtcNow() - value.Start) == total;
+    }
+
+    /// <summary>Obsolete alias for <see cref="HasAdvancedApproximately"/>. Renamed in v0.2.0
+    /// for symmetry with <see cref="HasAdvancedExactly"/>; will be removed in v0.4.0.</summary>
+    /// <remarks>See note on <see cref="HasAdvanced"/> for why the body is duplicated.</remarks>
+    [Obsolete("Use HasAdvancedApproximately. This alias will be removed in v0.4.0.", error: false)]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Major Code Smell", "S1133:Do not forget to remove this deprecated code someday", Justification = "Two-minor [Obsolete] cycle is intentional; v0.4.0 removes this alias per CONVENTIONS.md.")]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Major Code Smell", "S4144:Methods should not have identical implementations", Justification = "Body duplicated by design for the InlineMethodBody source-generator path; the obsolete alias forwards the same semantics during the rename cycle.")]
+    [GenerateAssertion(ExpectationMessage = "to have advanced by approximately {total} within tolerance {tolerance}", InlineMethodBody = true)]
     public static bool HasAdvancedBy(this FakeTimeProvider value, TimeSpan total, TimeSpan tolerance)
     {
         ArgumentNullException.ThrowIfNull(value);
+        ArgumentOutOfRangeException.ThrowIfLessThan(tolerance, TimeSpan.Zero);
         var elapsed = value.GetUtcNow() - value.Start;
         var diff = elapsed - total;
         var absDiff = diff < TimeSpan.Zero ? -diff : diff;
@@ -65,6 +100,7 @@ public static class FakeTimeProviderAssertions
     public static bool HasUtcNowApproximately(this FakeTimeProvider value, DateTimeOffset expected, TimeSpan tolerance)
     {
         ArgumentNullException.ThrowIfNull(value);
+        ArgumentOutOfRangeException.ThrowIfLessThan(tolerance, TimeSpan.Zero);
         var diff = value.GetUtcNow() - expected;
         var absDiff = diff < TimeSpan.Zero ? -diff : diff;
         return absDiff <= tolerance;
