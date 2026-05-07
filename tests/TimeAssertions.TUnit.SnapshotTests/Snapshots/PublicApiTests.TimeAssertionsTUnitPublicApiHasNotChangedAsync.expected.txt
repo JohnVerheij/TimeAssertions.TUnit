@@ -1,0 +1,141 @@
+[assembly: System.Reflection.AssemblyMetadata("IsAotCompatible", "True")]
+[assembly: System.Reflection.AssemblyMetadata("IsTrimmable", "True")]
+[assembly: System.Reflection.AssemblyMetadata("RepositoryUrl", "https://github.com/JohnVerheij/TimeAssertions.TUnit")]
+[assembly: System.Runtime.Versioning.TargetFramework(".NETCoreApp,Version=v10.0", FrameworkDisplayName=".NET 10.0")]
+namespace TUnit.Assertions.Extensions
+{
+    public static class DateTimeOffsetAssertions
+    {
+        public static TUnit.Assertions.Extensions.DateTimeOffset_IsAfterNow_TimeProvider_Assertion IsAfterNow(this TUnit.Assertions.Core.IAssertionSource<System.DateTimeOffset> source, System.TimeProvider timeProvider, [System.Runtime.CompilerServices.CallerArgumentExpression("timeProvider")] string? timeProviderExpression = null) { }
+        public static TUnit.Assertions.Extensions.DateTimeOffset_IsBeforeNow_TimeProvider_Assertion IsBeforeNow(this TUnit.Assertions.Core.IAssertionSource<System.DateTimeOffset> source, System.TimeProvider timeProvider, [System.Runtime.CompilerServices.CallerArgumentExpression("timeProvider")] string? timeProviderExpression = null) { }
+        public static TUnit.Assertions.Extensions.DateTimeOffset_IsRecent_TimeSpan_TimeProvider_Assertion IsRecent(this TUnit.Assertions.Core.IAssertionSource<System.DateTimeOffset> source, System.TimeSpan window, System.TimeProvider? timeProvider = null, [System.Runtime.CompilerServices.CallerArgumentExpression("window")] string? windowExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("timeProvider")] string? timeProviderExpression = null) { }
+    }
+    public sealed class DateTimeOffset_IsAfterNow_TimeProvider_Assertion : TUnit.Assertions.Core.Assertion<System.DateTimeOffset>
+    {
+        public DateTimeOffset_IsAfterNow_TimeProvider_Assertion(TUnit.Assertions.Core.AssertionContext<System.DateTimeOffset> context, System.TimeProvider timeProvider) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<System.DateTimeOffset> metadata) { }
+        protected override string GetExpectation() { }
+    }
+    public sealed class DateTimeOffset_IsBeforeNow_TimeProvider_Assertion : TUnit.Assertions.Core.Assertion<System.DateTimeOffset>
+    {
+        public DateTimeOffset_IsBeforeNow_TimeProvider_Assertion(TUnit.Assertions.Core.AssertionContext<System.DateTimeOffset> context, System.TimeProvider timeProvider) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<System.DateTimeOffset> metadata) { }
+        protected override string GetExpectation() { }
+    }
+    public sealed class DateTimeOffset_IsRecent_TimeSpan_TimeProvider_Assertion : TUnit.Assertions.Core.Assertion<System.DateTimeOffset>
+    {
+        public DateTimeOffset_IsRecent_TimeSpan_TimeProvider_Assertion(TUnit.Assertions.Core.AssertionContext<System.DateTimeOffset> context, System.TimeSpan window, System.TimeProvider? timeProvider) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<System.DateTimeOffset> metadata) { }
+        protected override string GetExpectation() { }
+    }
+    public static class FakeTimeProviderAssertions
+    {
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2091", Justification="Generic type parameter is only used for property access, not instantiation")]
+        [System.Obsolete("Use HasAdvancedExactly. This alias will be removed in v0.4.0.")]
+        public static TUnit.Assertions.Extensions.FakeTimeProvider_HasAdvanced_TimeSpan_Assertion HasAdvanced<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, System.TimeSpan total, [System.Runtime.CompilerServices.CallerArgumentExpression("total")] string? totalExpression = null)
+            where TActual : Microsoft.Extensions.Time.Testing.FakeTimeProvider { }
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2091", Justification="Generic type parameter is only used for property access, not instantiation")]
+        public static TUnit.Assertions.Extensions.FakeTimeProvider_HasAdvancedApproximately_TimeSpan_TimeSpan_Assertion HasAdvancedApproximately<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, System.TimeSpan total, System.TimeSpan tolerance, [System.Runtime.CompilerServices.CallerArgumentExpression("total")] string? totalExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("tolerance")] string? toleranceExpression = null)
+            where TActual : Microsoft.Extensions.Time.Testing.FakeTimeProvider { }
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2091", Justification="Generic type parameter is only used for property access, not instantiation")]
+        [System.Obsolete("Use HasAdvancedApproximately. This alias will be removed in v0.4.0.")]
+        public static TUnit.Assertions.Extensions.FakeTimeProvider_HasAdvancedBy_TimeSpan_TimeSpan_Assertion HasAdvancedBy<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, System.TimeSpan total, System.TimeSpan tolerance, [System.Runtime.CompilerServices.CallerArgumentExpression("total")] string? totalExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("tolerance")] string? toleranceExpression = null)
+            where TActual : Microsoft.Extensions.Time.Testing.FakeTimeProvider { }
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2091", Justification="Generic type parameter is only used for property access, not instantiation")]
+        public static TUnit.Assertions.Extensions.FakeTimeProvider_HasAdvancedExactly_TimeSpan_Assertion HasAdvancedExactly<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, System.TimeSpan total, [System.Runtime.CompilerServices.CallerArgumentExpression("total")] string? totalExpression = null)
+            where TActual : Microsoft.Extensions.Time.Testing.FakeTimeProvider { }
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2091", Justification="Generic type parameter is only used for property access, not instantiation")]
+        public static TUnit.Assertions.Extensions.FakeTimeProvider_HasUtcNow_DateTimeOffset_Assertion HasUtcNow<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, System.DateTimeOffset expected, [System.Runtime.CompilerServices.CallerArgumentExpression("expected")] string? expectedExpression = null)
+            where TActual : Microsoft.Extensions.Time.Testing.FakeTimeProvider { }
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2091", Justification="Generic type parameter is only used for property access, not instantiation")]
+        public static TUnit.Assertions.Extensions.FakeTimeProvider_HasUtcNowApproximately_DateTimeOffset_TimeSpan_Assertion HasUtcNowApproximately<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, System.DateTimeOffset expected, System.TimeSpan tolerance, [System.Runtime.CompilerServices.CallerArgumentExpression("expected")] string? expectedExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("tolerance")] string? toleranceExpression = null)
+            where TActual : Microsoft.Extensions.Time.Testing.FakeTimeProvider { }
+    }
+    public sealed class FakeTimeProvider_HasAdvancedApproximately_TimeSpan_TimeSpan_Assertion : TUnit.Assertions.Core.Assertion<Microsoft.Extensions.Time.Testing.FakeTimeProvider>
+    {
+        public FakeTimeProvider_HasAdvancedApproximately_TimeSpan_TimeSpan_Assertion(TUnit.Assertions.Core.AssertionContext<Microsoft.Extensions.Time.Testing.FakeTimeProvider> context, System.TimeSpan total, System.TimeSpan tolerance) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<Microsoft.Extensions.Time.Testing.FakeTimeProvider> metadata) { }
+        protected override string GetExpectation() { }
+    }
+    public sealed class FakeTimeProvider_HasAdvancedBy_TimeSpan_TimeSpan_Assertion : TUnit.Assertions.Core.Assertion<Microsoft.Extensions.Time.Testing.FakeTimeProvider>
+    {
+        public FakeTimeProvider_HasAdvancedBy_TimeSpan_TimeSpan_Assertion(TUnit.Assertions.Core.AssertionContext<Microsoft.Extensions.Time.Testing.FakeTimeProvider> context, System.TimeSpan total, System.TimeSpan tolerance) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<Microsoft.Extensions.Time.Testing.FakeTimeProvider> metadata) { }
+        protected override string GetExpectation() { }
+    }
+    public sealed class FakeTimeProvider_HasAdvancedExactly_TimeSpan_Assertion : TUnit.Assertions.Core.Assertion<Microsoft.Extensions.Time.Testing.FakeTimeProvider>
+    {
+        public FakeTimeProvider_HasAdvancedExactly_TimeSpan_Assertion(TUnit.Assertions.Core.AssertionContext<Microsoft.Extensions.Time.Testing.FakeTimeProvider> context, System.TimeSpan total) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<Microsoft.Extensions.Time.Testing.FakeTimeProvider> metadata) { }
+        protected override string GetExpectation() { }
+    }
+    public sealed class FakeTimeProvider_HasAdvanced_TimeSpan_Assertion : TUnit.Assertions.Core.Assertion<Microsoft.Extensions.Time.Testing.FakeTimeProvider>
+    {
+        public FakeTimeProvider_HasAdvanced_TimeSpan_Assertion(TUnit.Assertions.Core.AssertionContext<Microsoft.Extensions.Time.Testing.FakeTimeProvider> context, System.TimeSpan total) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<Microsoft.Extensions.Time.Testing.FakeTimeProvider> metadata) { }
+        protected override string GetExpectation() { }
+    }
+    public sealed class FakeTimeProvider_HasUtcNowApproximately_DateTimeOffset_TimeSpan_Assertion : TUnit.Assertions.Core.Assertion<Microsoft.Extensions.Time.Testing.FakeTimeProvider>
+    {
+        public FakeTimeProvider_HasUtcNowApproximately_DateTimeOffset_TimeSpan_Assertion(TUnit.Assertions.Core.AssertionContext<Microsoft.Extensions.Time.Testing.FakeTimeProvider> context, System.DateTimeOffset expected, System.TimeSpan tolerance) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<Microsoft.Extensions.Time.Testing.FakeTimeProvider> metadata) { }
+        protected override string GetExpectation() { }
+    }
+    public sealed class FakeTimeProvider_HasUtcNow_DateTimeOffset_Assertion : TUnit.Assertions.Core.Assertion<Microsoft.Extensions.Time.Testing.FakeTimeProvider>
+    {
+        public FakeTimeProvider_HasUtcNow_DateTimeOffset_Assertion(TUnit.Assertions.Core.AssertionContext<Microsoft.Extensions.Time.Testing.FakeTimeProvider> context, System.DateTimeOffset expected) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<Microsoft.Extensions.Time.Testing.FakeTimeProvider> metadata) { }
+        protected override string GetExpectation() { }
+    }
+    public static class WithinTimeBudgetAssertionExtensions
+    {
+        public static TimeAssertions.TUnit.WithinTimeBudgetAssertion<T> WithinTimeBudget<T>(this TUnit.Assertions.Core.IAssertionSource<T> source, System.TimeSpan budget, [System.Runtime.CompilerServices.CallerArgumentExpression("budget")] string? budgetExpression = null) { }
+    }
+    public static class WithinTimeBudgetCapturingAssertionExtensions
+    {
+        public static TimeAssertions.TUnit.WithinTimeBudgetCapturingAssertion<T> WithinTimeBudgetCapturing<T>(this TUnit.Assertions.Core.IAssertionSource<T> source, System.TimeSpan budget, System.Action<System.TimeSpan> capture, [System.Runtime.CompilerServices.CallerArgumentExpression("budget")] string? budgetExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("capture")] string? captureExpression = null) { }
+    }
+}
+namespace TimeAssertions.TUnit
+{
+    public static class DateTimeOffsetAssertions
+    {
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to be strictly after the supplied time provider\'s UTC now", InlineMethodBody=true)]
+        public static bool IsAfterNow(this System.DateTimeOffset value, System.TimeProvider timeProvider) { }
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to be strictly before the supplied time provider\'s UTC now", InlineMethodBody=true)]
+        public static bool IsBeforeNow(this System.DateTimeOffset value, System.TimeProvider timeProvider) { }
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to be within the last {window} relative to the supplied time provider", InlineMethodBody=true)]
+        public static bool IsRecent(this System.DateTimeOffset value, System.TimeSpan window, System.TimeProvider? timeProvider = null) { }
+    }
+    public static class FakeTimeProviderAssertions
+    {
+        [System.Obsolete("Use HasAdvancedExactly. This alias will be removed in v0.4.0.", false)]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have advanced by total {total}", InlineMethodBody=true)]
+        public static bool HasAdvanced(this Microsoft.Extensions.Time.Testing.FakeTimeProvider value, System.TimeSpan total) { }
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have advanced by approximately {total} within tolerance {tolerance}", InlineMethodBody=true)]
+        public static bool HasAdvancedApproximately(this Microsoft.Extensions.Time.Testing.FakeTimeProvider value, System.TimeSpan total, System.TimeSpan tolerance) { }
+        [System.Obsolete("Use HasAdvancedApproximately. This alias will be removed in v0.4.0.", false)]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have advanced by approximately {total} within tolerance {tolerance}", InlineMethodBody=true)]
+        public static bool HasAdvancedBy(this Microsoft.Extensions.Time.Testing.FakeTimeProvider value, System.TimeSpan total, System.TimeSpan tolerance) { }
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have advanced by total {total}", InlineMethodBody=true)]
+        public static bool HasAdvancedExactly(this Microsoft.Extensions.Time.Testing.FakeTimeProvider value, System.TimeSpan total) { }
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have UTC now {expected}", InlineMethodBody=true)]
+        public static bool HasUtcNow(this Microsoft.Extensions.Time.Testing.FakeTimeProvider value, System.DateTimeOffset expected) { }
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have UTC now approximately {expected} within tolerance {tolerance}", InlineMethodBody=true)]
+        public static bool HasUtcNowApproximately(this Microsoft.Extensions.Time.Testing.FakeTimeProvider value, System.DateTimeOffset expected, System.TimeSpan tolerance) { }
+    }
+    [TUnit.Assertions.Attributes.AssertionExtension("WithinTimeBudget")]
+    public sealed class WithinTimeBudgetAssertion<T> : TUnit.Assertions.Core.Assertion<T>
+    {
+        public WithinTimeBudgetAssertion(TUnit.Assertions.Core.AssertionContext<T> context, System.TimeSpan budget) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<T> metadata) { }
+        protected override string GetExpectation() { }
+    }
+    [TUnit.Assertions.Attributes.AssertionExtension("WithinTimeBudgetCapturing")]
+    public sealed class WithinTimeBudgetCapturingAssertion<T> : TUnit.Assertions.Core.Assertion<T>
+    {
+        public WithinTimeBudgetCapturingAssertion(TUnit.Assertions.Core.AssertionContext<T> context, System.TimeSpan budget, System.Action<System.TimeSpan> capture) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<T> metadata) { }
+        protected override string GetExpectation() { }
+    }
+}

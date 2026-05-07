@@ -11,10 +11,11 @@
     <IsPackable>true</IsPackable>
     <PackageId>TimeAssertions.TUnit</PackageId>
     <ProductName>TimeAssertions.TUnit</ProductName>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
+    <PackageValidationBaselineVersion>0.1.0</PackageValidationBaselineVersion>
     <Authors>John Verheij</Authors>
     <Copyright>Copyright (c) 2026 John Verheij</Copyright>
-    <Description>TUnit-native fluent time-assertion DSL on FakeTimeProvider plus an assertion-level timing budget chain extension via [AssertionExtension]. Provides Assert.That(fakeTime).HasAdvanced(...) / HasUtcNow(...), Assert.That(timestamp).IsRecent(...) / IsBeforeNow(...) / IsAfterNow(...), and the cross-cutting Assert.That(value).IsX().And.WithinTimeBudget(TimeSpan) on any TUnit assertion chain. Composes with sibling assertion packages without a binary dependency. AOT-compatible, trimmable, no reflection.</Description>
+    <Description>TUnit-native fluent time-assertion DSL on FakeTimeProvider plus assertion-level timing budget chain extensions via [AssertionExtension]. Provides Assert.That(fakeTime).HasAdvancedExactly(...) / HasAdvancedApproximately(...) / HasUtcNow(...) / HasUtcNowApproximately(...), Assert.That(timestamp).IsRecent(...) / IsBeforeNow(...) / IsAfterNow(...), and the cross-cutting Assert.That(value).IsX().And.WithinTimeBudget(TimeSpan) / WithinTimeBudgetCapturing(TimeSpan, Action&lt;TimeSpan&gt;) on any TUnit assertion chain. Composes with sibling assertion packages without a binary dependency. AOT-compatible, trimmable, no reflection.</Description>
     <PackageTags>tunit;timing;testing;assertions;timespan;timeprovider</PackageTags>
     <PackageProjectUrl>https://github.com/JohnVerheij/TimeAssertions.TUnit</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -24,11 +25,11 @@
 
     <!-- Pre-1.0 suppressions:
          Proj0212/Proj0213: PackageIcon and PackageIconUrl omitted; will be added by 1.0.0.
-         Proj0241 (PackageValidationBaselineVersion missing) is suppressed for 0.1.0 only —
-         there is no prior shipped version to baseline against. Once 0.1.0 ships, set
-         PackageValidationBaselineVersion to the previous version below and remove Proj0241
-         from this NoWarn list. -->
-    <NoWarn>$(NoWarn);Proj0212;Proj0213;Proj0241</NoWarn>
+         (Proj0241 is no longer suppressed because PackageValidationBaselineVersion
+         above pins to the previous shipped version of this package - keep the
+         baseline value in sync with each release; do not pin a specific version
+         number in this comment to avoid drift.) -->
+    <NoWarn>$(NoWarn);Proj0212;Proj0213</NoWarn>
 
     <!-- Symbol package + API compat (strict mode quad per dpfa Proj0249/0250/0251/0252) -->
     <IncludeSymbols>true</IncludeSymbols>
@@ -41,8 +42,13 @@
     <ApiCompatEnableRuleAttributesMustMatch>true</ApiCompatEnableRuleAttributesMustMatch>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
-    <!-- SBOM generation per dpfa Proj0243 (Microsoft.Sbom.Targets pack-time generation) -->
+    <!-- SBOM generation per dpfa Proj0243 (Microsoft.Sbom.Targets pack-time generation).
+         SPDX 3.0 (April 2024) emits richer security-profile metadata than 2.2 / 2.3 — better
+         positioned for CRA Annex I §2(1) "commonly used and machine-readable format" alignment.
+         Tooling lag note: very old scanners that don't yet parse SPDX 3.0 fall back to the
+         CycloneDX 1.6 sibling artifact emitted by the release workflow. -->
     <GenerateSBOM>true</GenerateSBOM>
+    <SbomGenerationManifestInfo>SPDX:3.0</SbomGenerationManifestInfo>
 
     <!-- AOT / trimming — lib code uses no reflection, safe for AOT-mode test contexts -->
     <IsAotCompatible>true</IsAotCompatible>

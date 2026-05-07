@@ -129,21 +129,6 @@
       "timeassertions": {
         "type": "Project"
       },
-      "timeassertions.tunit": {
-        "type": "Project",
-        "dependencies": {
-          "Microsoft.Extensions.TimeProvider.Testing": "[10.5.0, )",
-          "TUnit.Assertions": "[1.43.11, )",
-          "TUnit.Core": "[1.43.11, )",
-          "TimeAssertions": "[0.2.0, )"
-        }
-      },
-      "Microsoft.Extensions.TimeProvider.Testing": {
-        "type": "CentralTransitive",
-        "requested": "[10.5.0, )",
-        "resolved": "10.5.0",
-        "contentHash": "BW6DXn0oZWfoEN9cb+3PcM2IBHqcTnsO+UqEhW+uzdEuZSY3C9i9ITKoLiYbS8JwWm6daTpa4kRikUwr3KD+qQ=="
-      },
       "TUnit.Assertions": {
         "type": "CentralTransitive",
         "requested": "[1.43.11, )",
