@@ -10,8 +10,8 @@ namespace TimeAssertions.TUnit.Tests;
 /// <c>[AssertionExtension]</c> source generator emits an extension on
 /// <c>IAssertionSource&lt;T&gt;</c>. Two chain shapes work:
 /// <list type="bullet">
-/// <item><b>Canonical:</b> <c>Assert.That(x).IsEqualTo(...).And.WithinTimeBudget(TimeSpan)</c> — type inference works, no explicit <c>&lt;T&gt;</c> needed.</item>
-/// <item>Direct-on-source: <c>Assert.That(asyncTask).WithinTimeBudget&lt;int&gt;(TimeSpan)</c> — requires explicit type argument because the Task-source's inferred type doesn't drive the generator-emitted overload.</item>
+/// <item><b>Canonical:</b> <c>Assert.That(x).IsEqualTo(...).And.WithinTimeBudget(TimeSpan)</c>: type inference works, no explicit <c>&lt;T&gt;</c> needed.</item>
+/// <item>Direct-on-source: <c>Assert.That(asyncTask).WithinTimeBudget&lt;int&gt;(TimeSpan)</c>: requires explicit type argument because the Task-source's inferred type doesn't drive the generator-emitted overload.</item>
 /// </list>
 /// </summary>
 [Category("Smoke")]
@@ -25,7 +25,7 @@ internal sealed class WithinTimeBudgetAssertionTests
         cancellationToken.ThrowIfCancellationRequested();
         // Direct-on-source path requires explicit type argument because Assert.That(Task<T>)'s
         // returned source type doesn't drive type inference for our extension. The canonical
-        // pattern (.And.WithinTimeBudget) infers cleanly — see AndChain test.
+        // pattern (.And.WithinTimeBudget) infers cleanly: see AndChain test.
         await Assert.That(FastSourceAsync(cancellationToken)).WithinTimeBudget<int>(TimeSpan.FromSeconds(5));
     }
 
@@ -82,7 +82,7 @@ internal sealed class WithinTimeBudgetAssertionTests
 
     /// <summary>Pins that <c>.And.WithinTimeBudget()</c> works after an intermediate assertion.
     /// The <c>.And</c> continuation returns <c>IAssertionSource&lt;T&gt;</c>, which is the
-    /// surface our <c>[AssertionExtension]</c>-emitted extension targets — so timing budgets
+    /// surface our <c>[AssertionExtension]</c>-emitted extension targets: so timing budgets
     /// CAN compose with behavioural assertion chains, just via <c>.And</c> rather than directly.</summary>
     [Test]
     public async Task AndChain_AfterIntermediateAssertion_Composes(CancellationToken cancellationToken)
@@ -163,7 +163,7 @@ internal sealed class WithinTimeBudgetAssertionTests
     }
 
     /// <summary>Capturing on a slow source that overruns the budget still invokes capture
-    /// before propagating the assertion failure — consumers should see the actual elapsed
+    /// before propagating the assertion failure: consumers should see the actual elapsed
     /// in their failure diagnostic.</summary>
     [Test]
     public async Task Capturing_SlowSource_CaptureInvokedBeforeFailure(CancellationToken cancellationToken)

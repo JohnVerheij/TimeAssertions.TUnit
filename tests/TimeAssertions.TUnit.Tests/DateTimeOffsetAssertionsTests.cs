@@ -102,7 +102,7 @@ internal sealed class DateTimeOffsetAssertionsTests
     {
         ct.ThrowIfCancellationRequested();
         var fakeTime = CreateFakeAt(FakeNow);
-        // "Strictly before" — exact equality fails.
+        // "Strictly before": exact equality fails.
         await Assert.That(async () =>
         {
             await Assert.That(FakeNow).IsBeforeNow(fakeTime);

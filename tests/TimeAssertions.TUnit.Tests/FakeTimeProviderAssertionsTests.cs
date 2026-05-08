@@ -92,7 +92,7 @@ internal sealed class FakeTimeProviderAssertionsTests
         ct.ThrowIfCancellationRequested();
         var fakeTime = new FakeTimeProvider();
         // The absolute-difference logic should treat under-shoot and over-shoot symmetrically.
-        // Advance by less than the expected total — the |elapsed - total| is positive after abs.
+        // Advance by less than the expected total: the |elapsed - total| is positive after abs.
         fakeTime.Advance(TimeSpan.FromMilliseconds(95));
 
         await Assert.That(fakeTime).HasAdvancedApproximately(
@@ -118,7 +118,7 @@ internal sealed class FakeTimeProviderAssertionsTests
             .Throws<ArgumentOutOfRangeException>();
     }
 
-    /// <summary>Same guard on the obsolete <c>HasAdvancedBy</c> alias — kept aligned with the
+    /// <summary>Same guard on the obsolete <c>HasAdvancedBy</c> alias: kept aligned with the
     /// new name until v0.4.0 removes the alias.</summary>
     [Test]
     public async Task HasAdvancedBy_NegativeTolerance_ThrowsArgumentOutOfRange(CancellationToken ct)
@@ -134,7 +134,7 @@ internal sealed class FakeTimeProviderAssertionsTests
 #pragma warning restore CS0618
     }
 
-    /// <summary>Same guard on <c>HasUtcNowApproximately</c> — symmetric API surface.</summary>
+    /// <summary>Same guard on <c>HasUtcNowApproximately</c>: symmetric API surface.</summary>
     [Test]
     public async Task HasUtcNowApproximately_NegativeTolerance_ThrowsArgumentOutOfRange(CancellationToken ct)
     {
@@ -216,7 +216,7 @@ internal sealed class FakeTimeProviderAssertionsTests
     // through v0.3.x (two-minor [Obsolete] cycle, dropped in v0.4.0). Tests below pin both
     // the runtime behaviour and the [Obsolete] attribute presence so a future rename can't
     // accidentally break consumers mid-cycle.
-#pragma warning disable CS0618 // Type or member is obsolete — intentional regression check
+#pragma warning disable CS0618 // Type or member is obsolete: intentional regression check
     [Test]
     public async Task HasAdvanced_obsoleteAlias_StillWorks(CancellationToken ct)
     {

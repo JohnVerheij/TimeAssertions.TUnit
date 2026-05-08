@@ -16,7 +16,7 @@ namespace TimeAssertions.TUnit;
 /// <item>Production code accepts an optional <see cref="TimeProvider"/> parameter (defaults to <see cref="TimeProvider.System"/>).</item>
 /// <item>Tests construct a <see cref="FakeTimeProvider"/> and inject it.</item>
 /// <item>Tests call <c>fakeTime.Advance(TimeSpan)</c> or <c>fakeTime.SetUtcNow(...)</c> to drive time forward deterministically.</item>
-/// <item>Tests assert that production code reacted correctly — including the <see cref="FakeTimeProvider"/>'s own state.</item>
+/// <item>Tests assert that production code reacted correctly: including the <see cref="FakeTimeProvider"/>'s own state.</item>
 /// </list>
 /// </remarks>
 public static class FakeTimeProviderAssertions
@@ -95,7 +95,7 @@ public static class FakeTimeProviderAssertions
     /// <summary>Asserts that <c>fakeTime.GetUtcNow()</c> is within <paramref name="tolerance"/>
     /// of <paramref name="expected"/>. Useful when the expected moment is computed (e.g. from
     /// integer-truncated minute math or chained <c>Advance</c> calls with rounding) rather than
-    /// a literal — avoids exact-match brittleness.</summary>
+    /// a literal: avoids exact-match brittleness.</summary>
     [GenerateAssertion(ExpectationMessage = "to have UTC now approximately {expected} within tolerance {tolerance}", InlineMethodBody = true)]
     public static bool HasUtcNowApproximately(this FakeTimeProvider value, DateTimeOffset expected, TimeSpan tolerance)
     {

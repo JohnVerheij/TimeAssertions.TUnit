@@ -59,7 +59,7 @@ public sealed class WithinTimeBudgetCapturingAssertion<T> : Assertion<T>
     {
         if (metadata.Exception is not null)
         {
-            // Source threw — capture is still invoked with the partial elapsed (TUnit reports
+            // Source threw: capture is still invoked with the partial elapsed (TUnit reports
             // metadata.Duration for thrown evaluators too) so consumers see consistent capture
             // semantics regardless of pass / fail / throw.
             _capture(metadata.Duration);

@@ -2,11 +2,11 @@ namespace Smoke.Consumer;
 
 /// <summary>
 /// Smoke tests proving that an external consumer can adopt TimeAssertions.TUnit purely via
-/// the README's recommended GlobalUsings.cs snippet — no extra <c>using TimeAssertions.TUnit;</c>
+/// the README's recommended GlobalUsings.cs snippet: no extra <c>using TimeAssertions.TUnit;</c>
 /// directive at every call site, no other wiring. The test class lives in <c>Smoke.Consumer</c>
 /// deliberately: TimeAssertions.TUnit's own test project is in the
 /// <c>TimeAssertions.TUnit.Tests</c> namespace, which inherits parent-namespace visibility into
-/// <c>TimeAssertions.TUnit</c> — that inheritance would mask any future namespace-resolution
+/// <c>TimeAssertions.TUnit</c>: that inheritance would mask any future namespace-resolution
 /// bug in the source-generated entry points. By placing this file in a namespace with NO parent
 /// relationship to TimeAssertions.TUnit, this project is the canonical regression coverage for
 /// the resolution-pathway bug class.

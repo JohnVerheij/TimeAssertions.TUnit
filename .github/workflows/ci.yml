@@ -145,12 +145,12 @@ jobs:
 
       - name: Test snapshot suite (no coverage)
         # SnapshotTests pins the public API surface using SnapshotAssertions.TUnit's
-        # MatchesSnapshot() chain — cross-package dogfooding (this repo consumes a sibling
+        # MatchesSnapshot() chain: cross-package dogfooding (this repo consumes a sibling
         # family package by PackageReference). Run in a separate step from the main coverage
         # run because the project measures API surface, not behaviour: its execution
         # contributes nothing useful to the coverage rate. The .config/codecoverage.settings.xml
         # already restricts ModulePaths to the production DLLs so SnapshotTests-internal code
-        # is excluded automatically — the separate step makes that intent explicit.
+        # is excluded automatically: the separate step makes that intent explicit.
         run: |
           dotnet run --project tests/TimeAssertions.TUnit.SnapshotTests/TimeAssertions.TUnit.SnapshotTests.csproj \
             --configuration Release --no-build
@@ -163,7 +163,7 @@ jobs:
 
       - name: External-consumer smoke test (restore+build+test against just-packed nupkgs)
         # The smoke-test project lives outside TimeAssertions.TUnit.slnx and consumes
-        # TimeAssertions.TUnit ONLY via PackageReference (NOT ProjectReference) — its NuGet.config
+        # TimeAssertions.TUnit ONLY via PackageReference (NOT ProjectReference): its NuGet.config
         # routes TimeAssertions.* to the just-packed local feed at ./artifacts. The project's
         # namespace is deliberately NOT under TimeAssertions.TUnit, so any future regression of
         # the namespace-resolution bug class (entry points hidden behind an explicit using) fails
@@ -176,10 +176,10 @@ jobs:
         # NuGet's path-resolution context. The existing NuGet.config still provides the
         # packageSourceMapping that routes TimeAssertions.* to local-pack at restore time.
         # The explicit "ls" gives a one-line diagnostic if pack ever silently fails to
-        # produce artifacts — saves a CI rerun on diagnosis.
+        # produce artifacts: saves a CI rerun on diagnosis.
         run: |
           echo "Workspace: $GITHUB_WORKSPACE"
-          ls -la "$GITHUB_WORKSPACE/artifacts/" || (echo "::error::artifacts/ missing — Pack steps did not produce nupkgs" && exit 1)
+          ls -la "$GITHUB_WORKSPACE/artifacts/" || (echo "::error::artifacts/ missing: Pack steps did not produce nupkgs" && exit 1)
           dotnet restore tests/TimeAssertions.TUnit.SmokeTest/TimeAssertions.TUnit.SmokeTest.csproj \
             --force-evaluate \
             --source "$GITHUB_WORKSPACE/artifacts" \

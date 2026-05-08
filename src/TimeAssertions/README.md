@@ -14,7 +14,7 @@ Framework-agnostic rendering helpers for the TimeAssertions package family. The 
 
 ## What's in this package
 
-- **`TimeRenderingHelpers`** — formatting utilities for elapsed durations and time budgets in failure-message context. Pure, allocation-conscious.
+- **`TimeRenderingHelpers`**: formatting utilities for elapsed durations and time budgets in failure-message context. Pure, allocation-conscious.
 
 ## Test-framework adapters
 
@@ -25,7 +25,7 @@ Framework-agnostic rendering helpers for the TimeAssertions package family. The 
 | `TimeAssertions.xUnit` | xUnit | Possible if there is demand |
 | `TimeAssertions.MSTest` | MSTest | Possible if there is demand |
 
-If you'd find a non-TUnit adapter useful, [open a feature request](https://github.com/JohnVerheij/TimeAssertions.TUnit/issues/new?template=feature_request.yml) — adapters are not built proactively.
+If you'd find a non-TUnit adapter useful, [open a feature request](https://github.com/JohnVerheij/TimeAssertions.TUnit/issues/new?template=feature_request.yml): adapters are not built proactively.
 
 ## Installation
 
@@ -41,4 +41,4 @@ The public surfaces above are semver-bound. Breaking changes require a major ver
 
 ## License
 
-[MIT](https://github.com/JohnVerheij/TimeAssertions.TUnit/blob/main/LICENSE) — Copyright (c) 2026 John Verheij
+[MIT](https://github.com/JohnVerheij/TimeAssertions.TUnit/blob/main/LICENSE). Copyright (c) 2026 John Verheij.

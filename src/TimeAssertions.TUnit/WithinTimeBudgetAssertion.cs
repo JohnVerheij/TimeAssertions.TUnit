@@ -36,7 +36,7 @@ namespace TimeAssertions.TUnit;
 /// </para>
 /// <para>
 /// For polling / streaming workloads, use the package's own timeout API (e.g.
-/// <c>LogAssertions.WithinTimeout</c>) — <c>.WithinTimeBudget()</c> would let an unbounded
+/// <c>LogAssertions.WithinTimeout</c>): <c>.WithinTimeBudget()</c> would let an unbounded
 /// poll run and only flag the overrun at the end.
 /// </para>
 /// </remarks>
