@@ -61,6 +61,6 @@ public static class TimeRenderingHelpers
         var excess = elapsed - budget;
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"completed in {FormatDuration(elapsed)} — exceeded budget of {FormatDuration(budget)} by {FormatDuration(excess)}");
+            $"completed in {FormatDuration(elapsed)}: exceeded budget of {FormatDuration(budget)} by {FormatDuration(excess)}");
     }
 }

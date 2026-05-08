@@ -3,7 +3,7 @@
   <!--
     Public-API surface snapshot test project for TimeAssertions / TimeAssertions.TUnit. Uses
     SnapshotAssertions.TUnit's MatchesSnapshot() against the public surface emitted by
-    PublicApiGenerator — same pattern the family promotes for downstream consumers, so the
+    PublicApiGenerator: same pattern the family promotes for downstream consumers, so the
     test stack runs the canonical example end-to-end on the package's own surface.
 
     Why a separate project from TimeAssertions.TUnit.Tests:
@@ -13,14 +13,14 @@
 
     No Verify dependency: this project deliberately does NOT use Verify.TUnit. The family-wide
     "Verify is not promoted" rule (see CONVENTIONS.md) applies to the package's own test stack
-    too — the canonical example, including for our own public-API testing, is
+    too: the canonical example, including for our own public-API testing, is
     Assert.That(api).MatchesSnapshot().
 
     Snapshot baselines live under Snapshots/*.expected.txt next to this csproj. They are
     auto-included as content via the explicit None entry below; ProjectReference doesn't
     auto-import build/*.targets the way PackageReference does, but we consume
     SnapshotAssertions.TUnit by PackageReference here so the package's targets file fires
-    automatically — the explicit include below is a redundant safeguard if auto-import
+    automatically: the explicit include below is a redundant safeguard if auto-import
     ever regresses.
   -->
   <PropertyGroup>

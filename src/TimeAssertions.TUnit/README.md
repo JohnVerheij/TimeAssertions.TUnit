@@ -61,10 +61,10 @@ public async Task PreReleaseExpiration_advances_state_after_clock_moves_forward(
 
 ## Failure diagnostics
 
-On a failed assertion, the exception message includes the elapsed / expected duration, the absolute drift, and (for budget overruns) the overshoot. No `Console.WriteLine` debugging needed — every dimension you can assert on is also rendered in the failure message.
+On a failed assertion, the exception message includes the elapsed / expected duration, the absolute drift, and (for budget overruns) the overshoot. No `Console.WriteLine` debugging needed: every dimension you can assert on is also rendered in the failure message.
 
 [Full failure-diagnostics example, design notes, stability intent, and roadmap on GitHub.](https://github.com/JohnVerheij/TimeAssertions.TUnit#failure-diagnostics)
 
 ## License
 
-[MIT](https://github.com/JohnVerheij/TimeAssertions.TUnit/blob/main/LICENSE) — Copyright (c) 2026 John Verheij
+[MIT](https://github.com/JohnVerheij/TimeAssertions.TUnit/blob/main/LICENSE). Copyright (c) 2026 John Verheij.

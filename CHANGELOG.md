@@ -7,19 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] — Naming symmetry, elapsed capture, dependency refresh
+## [0.2.0]: Naming symmetry, elapsed capture, dependency refresh
 
 Feature release plus rolled-in housekeeping. Lockstep version bump for both packages; ApiCompat baseline pinned to 0.1.0 (the previous shipped release). The intermediate v0.1.1 housekeeping work is folded into this release rather than shipping as a separate intermediate version.
 
 ### Added
 
 - **`HasAdvancedExactly` / `HasAdvancedApproximately`** on `FakeTimeProvider`. Renamed from `HasAdvanced` / `HasAdvancedBy` for symmetry with the rest of the family ("Exactly" vs "Approximately" makes the bounds intent explicit). The original names remain as `[Obsolete]` aliases through v0.3.x and will be removed in v0.4.0.
-- **`WithinTimeBudgetCapturing(TimeSpan, Action<TimeSpan>)`** — capturing variant of `WithinTimeBudget`. Same wall-clock budget behaviour, plus an `Action<TimeSpan>` callback that always receives the measured elapsed (whether the budget was met, exceeded, or the source threw). Useful for tests that need to surface the observed timing in their failure diagnostic before the budget-overrun assertion exception propagates.
+- **`WithinTimeBudgetCapturing(TimeSpan, Action<TimeSpan>)`**: capturing variant of `WithinTimeBudget`. Same wall-clock budget behaviour, plus an `Action<TimeSpan>` callback that always receives the measured elapsed (whether the budget was met, exceeded, or the source threw). Useful for tests that need to surface the observed timing in their failure diagnostic before the budget-overrun assertion exception propagates.
 
 ### Added (CI / process)
 
-- **External-consumer smoke-test project** (`tests/TimeAssertions.TUnit.SmokeTest/`) — references `TimeAssertions.TUnit` ONLY via `PackageReference` from a deliberately-different namespace and consumes the just-packed nupkg via a local NuGet feed at `./artifacts`. Lives outside the main `TimeAssertions.TUnit.slnx` so the unpublished local-feed version doesn't break `dotnet restore` on the main solution; CI packs the package first, then restores the smoke-test against the local feed and runs it. AOT-published with `PublishAot=true --runtime linux-x64 --self-contained` as a hard gate against future reflection / DynamicCode regressions.
-- **Recursive public-API self-test project** (`tests/TimeAssertions.TUnit.SnapshotTests/`) — pins the public surface using `SnapshotAssertions.TUnit.MatchesSnapshot()` against `PublicApiGenerator` output. Dogfooding for the family — no `Verify` dependency.
+- **External-consumer smoke-test project** (`tests/TimeAssertions.TUnit.SmokeTest/`): references `TimeAssertions.TUnit` ONLY via `PackageReference` from a deliberately-different namespace and consumes the just-packed nupkg via a local NuGet feed at `./artifacts`. Lives outside the main `TimeAssertions.TUnit.slnx` so the unpublished local-feed version doesn't break `dotnet restore` on the main solution; CI packs the package first, then restores the smoke-test against the local feed and runs it. AOT-published with `PublishAot=true --runtime linux-x64 --self-contained` as a hard gate against future reflection / DynamicCode regressions.
+- **Recursive public-API self-test project** (`tests/TimeAssertions.TUnit.SnapshotTests/`): pins the public surface using `SnapshotAssertions.TUnit.MatchesSnapshot()` against `PublicApiGenerator` output. Dogfooding for the family: no `Verify` dependency.
 
 ### Notes
 
@@ -44,14 +44,14 @@ Feature release plus rolled-in housekeeping. Lockstep version bump for both pack
 
 ### Documentation
 
-- **`CONVENTIONS.md` upgraded to v0.2.** Codifies the family-wide conventions shared across `TimeAssertions.TUnit`, `LogAssertions.TUnit`, and `SnapshotAssertions.TUnit`: trailing `CancellationToken ct = default` on every new async API, `Task.Delay(TimeSpan, TimeProvider, ct)` for polling loops, the 100/200/400/800/1000ms exponential schedule for time-based polls, the `# <Package> snapshot v<N>` header convention for `ToSnapshotString()` (TimeAssertions has no rendering of this kind today; the convention applies if/when one is added), TFM policy (LTS-anchored; multi-target during STS support windows), and the explicit "Verify is not promoted by this family — `MatchesSnapshot()` is the canonical example" stance.
+- **`CONVENTIONS.md` upgraded to v0.2.** Codifies the family-wide conventions shared across `TimeAssertions.TUnit`, `LogAssertions.TUnit`, and `SnapshotAssertions.TUnit`: trailing `CancellationToken ct = default` on every new async API, `Task.Delay(TimeSpan, TimeProvider, ct)` for polling loops, the 100/200/400/800/1000ms exponential schedule for time-based polls, the `# <Package> snapshot v<N>` header convention for `ToSnapshotString()` (TimeAssertions has no rendering of this kind today; the convention applies if/when one is added), TFM policy (LTS-anchored; multi-target during STS support windows), and the explicit "Verify is not promoted by this family: `MatchesSnapshot()` is the canonical example" stance.
 
 ### Quality numbers
 
 - Coverage on the main suite: **98.39% line / 93.75% branch** (above the CI hard gates of 90% / 90%).
 - ApiCompat strict-mode validation against the v0.1.0 baseline (`PackageValidationBaselineVersion=0.1.0`); auto-generated `CompatibilitySuppressions.xml` documents every additive change plus the two `[Obsolete]` rename markers (`HasAdvanced`, `HasAdvancedBy`).
 
-## [0.1.0] — Initial release: TUnit-side assertions for TimeProvider-based testable time
+## [0.1.0]: Initial release: TUnit-side assertions for TimeProvider-based testable time
 
 First public release. **Positioned as the TUnit assertion package for projects committed to
 `TimeProvider`-based testable time.** Two packages ship in lockstep: `TimeAssertions`
@@ -62,37 +62,37 @@ Net 10, AOT-compatible, trimmable, no runtime reflection.
 
 ### Added (TimeAssertions, framework-agnostic core)
 
-- **`TimeRenderingHelpers`** — formatting utilities for elapsed durations and budgets in
+- **`TimeRenderingHelpers`**: formatting utilities for elapsed durations and budgets in
   failure-message context. Pure, allocation-conscious.
 
 ### Added (TimeAssertions.TUnit, TUnit adapter)
 
-`FakeTimeProvider` state assertions — the headline integration with the testable-time pattern:
+`FakeTimeProvider` state assertions: the headline integration with the testable-time pattern:
 
-- **`HasAdvanced(TimeSpan total)`** — asserts that the fake provider's current time
+- **`HasAdvanced(TimeSpan total)`**: asserts that the fake provider's current time
   differs from its construction-time start by exactly `total`. Sanity check for
   `Advance` / `SetUtcNow` calls in test setup.
-- **`HasAdvancedBy(TimeSpan total, TimeSpan tolerance)`** — same with absolute tolerance.
+- **`HasAdvancedBy(TimeSpan total, TimeSpan tolerance)`**: same with absolute tolerance.
   Useful when production code performs additional internal `Advance` calls.
-- **`HasUtcNow(DateTimeOffset expected)`** — asserts that `fakeTime.GetUtcNow()` equals
+- **`HasUtcNow(DateTimeOffset expected)`**: asserts that `fakeTime.GetUtcNow()` equals
   the expected moment exactly.
-- **`HasUtcNowApproximately(DateTimeOffset expected, TimeSpan tolerance)`** — same with
+- **`HasUtcNowApproximately(DateTimeOffset expected, TimeSpan tolerance)`**: same with
   absolute tolerance. Useful when the expected moment is computed from integer-truncated
   minute math or chained `Advance` calls with rounding rather than a literal.
 
-`TimeProvider`-aware `DateTimeOffset` assertions — distinct from TUnit core's
+`TimeProvider`-aware `DateTimeOffset` assertions: distinct from TUnit core's
 `IsInPast()` / `IsInFuture()` (which always use the system clock):
 
-- **`IsRecent(TimeSpan window, TimeProvider? timeProvider = null)`** — asserts that the
+- **`IsRecent(TimeSpan window, TimeProvider? timeProvider = null)`**: asserts that the
   timestamp is within the last `window` relative to the supplied `TimeProvider`'s notion
   of "now". Defaults to `TimeProvider.System` when omitted.
-- **`IsBeforeNow(TimeProvider timeProvider)`** — strict-before-now check against the
+- **`IsBeforeNow(TimeProvider timeProvider)`**: strict-before-now check against the
   supplied time provider.
-- **`IsAfterNow(TimeProvider timeProvider)`** — strict-after-now check.
+- **`IsAfterNow(TimeProvider timeProvider)`**: strict-after-now check.
 
-Cross-cutting timing budget — composes with any behavioural assertion via `.And`:
+Cross-cutting timing budget: composes with any behavioural assertion via `.And`:
 
-- **`WithinTimeBudgetAssertion<T>`** — TUnit chain extension generating the
+- **`WithinTimeBudgetAssertion<T>`**: TUnit chain extension generating the
   `WithinTimeBudget(TimeSpan)` assertion. The wall-clock duration captured by TUnit's
   `EvaluationMetadata<T>.Duration` is compared against the budget; assertion fails if
   exceeded.
@@ -153,7 +153,7 @@ argument; `.And.WithinTimeBudget(...)` is preferred.
 - ApiCompat strict mode wired (`PackageValidationBaselineVersion` will pin to 0.1.0 in
   0.1.1).
 - 90% line / 80% branch coverage CI gates (achieved 100% line / 100% branch as shipped).
-- Trusted Publishing (OIDC) to nuget.org — no long-lived secrets.
+- Trusted Publishing (OIDC) to nuget.org: no long-lived secrets.
 - Source Link, SBOM via `Microsoft.Sbom.Targets`, deterministic builds, lock files,
   `--locked-mode` restore on CI.
 - TUnit dependency pinned to **1.43.11**; `Microsoft.Extensions.TimeProvider.Testing` to
@@ -162,9 +162,9 @@ argument; `.And.WithinTimeBudget(...)` is preferred.
 
 ### Deferred to follow-up releases
 
-- **`.Elapsed(...)`** — needs design call (callback vs property-capture vs tuple-return).
-- **`.Eventually()`** retry/polling terminator — planned for 0.3.0.
-- **`Stopwatch.GetTimestamp()`-based monotonic-clock variant** of `WithinTimeBudget` —
+- **`.Elapsed(...)`**: needs design call (callback vs property-capture vs tuple-return).
+- **`.Eventually()`** retry/polling terminator: planned for 0.3.0.
+- **`Stopwatch.GetTimestamp()`-based monotonic-clock variant** of `WithinTimeBudget`:
   candidate for 0.2.0 if benchmark-class precision is needed.
-- **External-consumer smoke test + AOT-publish CI gate** — planned for 0.2.0.
-- **Recursive public-API self-test** via `SnapshotAssertions.TUnit` — planned for 0.1.1.
+- **External-consumer smoke test + AOT-publish CI gate**: planned for 0.2.0.
+- **Recursive public-API self-test** via `SnapshotAssertions.TUnit`: planned for 0.1.1.
