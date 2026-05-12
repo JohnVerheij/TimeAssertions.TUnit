@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using TimeAssertions;
@@ -100,17 +101,29 @@ internal sealed class TimeRenderingHelpersTests
     /// Under cultures whose digit / separator conventions diverge from invariant, a naive
     /// <c>$"{x:F0}"</c> would render differently. The implementation uses
     /// <see cref="string.Create(IFormatProvider, ref System.Runtime.CompilerServices.DefaultInterpolatedStringHandler)"/>
-    /// with <see cref="System.Globalization.CultureInfo.InvariantCulture"/> to guarantee a
-    /// fixed text shape across consumer locales.</summary>
+    /// with <see cref="CultureInfo.InvariantCulture"/> to guarantee a fixed text shape across
+    /// consumer locales. The test forces an ambient <c>nl-NL</c> culture (comma as decimal
+    /// separator, dot as group separator) for its scope so a regression to
+    /// <c>CurrentCulture</c>-based formatting would be observable; under invariant culture
+    /// alone the assertion would pass vacuously.</summary>
     [Test]
     public async Task FormatBudgetOverrun_RendersSubsecondBudgetWithInvariantCultureF0(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var formatted = TimeRenderingHelpers.FormatBudgetOverrun(
-            TimeSpan.FromMilliseconds(1200),
-            TimeSpan.FromMilliseconds(500));
+        CultureInfo originalCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("nl-NL");
+            var formatted = TimeRenderingHelpers.FormatBudgetOverrun(
+                TimeSpan.FromMilliseconds(1200),
+                TimeSpan.FromMilliseconds(500));
 
-        await Assert.That(formatted).Contains("(elapsed=1200ms, budget=500ms, overrun=700ms)");
+            await Assert.That(formatted).Contains("(elapsed=1200ms, budget=500ms, overrun=700ms)");
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+        }
     }
 
     /// <summary>Pins the arithmetic invariant: the rendered <c>overrun</c> equals
