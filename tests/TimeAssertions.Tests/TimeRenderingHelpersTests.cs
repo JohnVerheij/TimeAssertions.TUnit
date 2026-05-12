@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using TimeAssertions;
@@ -79,5 +80,75 @@ internal sealed class TimeRenderingHelpersTests
         await Assert.That(formatted).Contains("750ms");
         await Assert.That(formatted).Contains("500ms");
         await Assert.That(formatted).Contains("250ms");
+    }
+
+    /// <summary>Pins the grep-friendly uniform-millisecond suffix appended in v0.3.0. The
+    /// suffix carries three named components in a fixed order so CI log scrapers and triage
+    /// tooling can extract the numbers without parsing the human-readable prose.</summary>
+    [Test]
+    public async Task FormatBudgetOverrun_EmitsUniformMillisecondSuffixWithThreeNamedComponents(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var formatted = TimeRenderingHelpers.FormatBudgetOverrun(
+            TimeSpan.FromMilliseconds(750),
+            TimeSpan.FromMilliseconds(500));
+
+        // The suffix is the substring after the human-readable prose. Pin the exact shape.
+        await Assert.That(formatted).Contains("(elapsed=750ms, budget=500ms, overrun=250ms)");
+    }
+
+    /// <summary>Pins invariant-culture rendering of the F0 numeric format inside the suffix.
+    /// Under cultures whose digit / separator conventions diverge from invariant, a naive
+    /// <c>$"{x:F0}"</c> would render differently. The implementation uses
+    /// <see cref="string.Create(IFormatProvider, ref System.Runtime.CompilerServices.DefaultInterpolatedStringHandler)"/>
+    /// with <see cref="CultureInfo.InvariantCulture"/> to guarantee a fixed text shape across
+    /// consumer locales. The test forces an ambient <c>nl-NL</c> culture (comma as decimal
+    /// separator, dot as group separator) for its scope so a regression to
+    /// <c>CurrentCulture</c>-based formatting would be observable; under invariant culture
+    /// alone the assertion would pass vacuously.</summary>
+    [Test]
+    public async Task FormatBudgetOverrun_RendersSubsecondBudgetWithInvariantCultureF0(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        CultureInfo originalCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("nl-NL");
+            var formatted = TimeRenderingHelpers.FormatBudgetOverrun(
+                TimeSpan.FromMilliseconds(1200),
+                TimeSpan.FromMilliseconds(500));
+
+            await Assert.That(formatted).Contains("(elapsed=1200ms, budget=500ms, overrun=700ms)");
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+        }
+    }
+
+    /// <summary>Pins the arithmetic invariant: the rendered <c>overrun</c> equals
+    /// <c>elapsed - budget</c>, rounded to whole milliseconds by the F0 format. Exercised
+    /// across five representative (elapsed, budget) pairs spanning ms / s / min scales.</summary>
+    [Test]
+    [Arguments(10, 5, 5)]
+    [Arguments(100, 50, 50)]
+    [Arguments(1_000, 500, 500)]
+    [Arguments(30_000, 10_000, 20_000)]
+    [Arguments(3_600_000, 1_800_000, 1_800_000)]
+    public async Task FormatBudgetOverrun_OverrunValueEqualsElapsedMinusBudget(
+        int elapsedMs,
+        int budgetMs,
+        int expectedOverrunMs,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var formatted = TimeRenderingHelpers.FormatBudgetOverrun(
+            TimeSpan.FromMilliseconds(elapsedMs),
+            TimeSpan.FromMilliseconds(budgetMs));
+
+        await Assert.That(formatted).Contains(
+            string.Create(
+                System.Globalization.CultureInfo.InvariantCulture,
+                $"(elapsed={elapsedMs}ms, budget={budgetMs}ms, overrun={expectedOverrunMs}ms)"));
     }
 }

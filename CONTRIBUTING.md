@@ -35,7 +35,7 @@ For larger ideas (new entry points, breaking changes, cross-cutting refactors), 
 
 ## Tests
 
-- Tests live in `tests/TimeAssertions.TUnit.Tests/` (main behavior), `tests/TimeAssertions.Tests/` (framework-agnostic core, no TUnit reference), and `tests/TimeAssertions.TUnit.SnapshotTests/` (public API surface pin via `MatchesSnapshot()`).
+- Tests live in `tests/TimeAssertions.TUnit.Tests/` (main behavior), `tests/TimeAssertions.Tests/` (framework-agnostic core, no TUnit reference), `tests/TimeAssertions.TUnit.SnapshotTests/` (public API surface pin via `MatchesSnapshot()`), and `tests/TimeAssertions.TUnit.SmokeTest/` (external-consumer smoke + AOT-publish gate against the locally-packed nupkg).
 - Each public method on the assertion classes should have at least one test covering its happy path and at least one covering an invalid-input path.
 - Tests use TUnit's `[Test]` and the project's own assertion style (we eat our own dog food where possible).
 - Add `[Category("Smoke")]` to tests that should run in the pre-commit / fast feedback loop.

@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-12: Failure-message enrichment, cold-start cookbook, family lockstep
+
+Demand-driven minor. Surfaces the grep-friendly elapsed / budget / overrun tuple in every `WithinTimeBudget` failure message, adds a cookbook section for the first-fixture cold-start tax, documents the transitional `Advance` + real-time-yield shape used until `Eventually(...)` ships, and brings the repo into lockstep with the SnapshotAssertions 0.3.0 family-wide hygiene baseline.
+
+### Added (TimeAssertions, framework-agnostic core)
+
+- **`TimeRenderingHelpers.FormatBudgetOverrun`** now appends a grep-friendly uniform-millisecond suffix to its rendered output: `(elapsed=Xms, budget=Yms, overrun=Zms)`. Surfaces in every `WithinTimeBudget` / `WithinTimeBudgetCapturing` failure message and lets CI log scrapers and triage tooling extract the three numbers without parsing the human-readable prose. Behaviour-only change to the existing public method; signature unchanged.
+
+### Documentation
+
+- **New cookbook section "Accommodating first-fixture cold-start"** in `README.md`. Documents the JIT + DI container build + hosted-service startup tax that pads the first invocation in a freshly-created TUnit fixture and offers two patterns: budget-with-margin (simple) and warm-up-call (precise). Pairs the warm-up pattern with `WithinTimeBudgetCapturing` for steady-state observability.
+- **New "Transitional shape: 50ms real-time yield after `Advance`"** subsection in "Limitations and future work". Documents the consumer pattern for crossing async-state-machine boundaries until the deferred `Eventually(timeout, polling)` primitive ships.
+- **"Failure diagnostics" subsection** cross-references the grep-friendly suffix and the capturing variant.
+- **"Entry points" table** reworded for `IsRecent` to make the null / omitted `TimeProvider` fallback explicit (`TimeProvider.System` for end-to-end tests not running under a fake clock).
+- **Packaged README (`src/TimeAssertions.TUnit/README.md`)** now ships a `## Family` section listing the three siblings and a one-line note on the grep-friendly suffix in failure messages. Required TUnit version bumped to `1.44.0`.
+- **`CONVENTIONS.md` upgraded to v0.3** with the `SnapshotAssertions.Render` namespace reservation for sibling-package text renderers.
+
+### Changed
+
+- **Dependency refresh.** Family-lockstep versions:
+  - `TUnit` / `TUnit.Assertions` / `TUnit.Core`: 1.43.11 -> 1.44.0
+  - `Microsoft.CodeAnalysis.BannedApiAnalyzers`: 3.3.4 -> 4.14.0
+  - `Meziantou.Analyzer`: 3.0.72 -> 3.0.78
+  - `SnapshotAssertions.TUnit`: 0.2.0 -> 0.3.0
+- **`Directory.Build.props` sets `MeziantouAnalysisMode=all-warnings` for `src/` projects** via the path-normalised `Replace('\','/').Contains('/tests/')` predicate. Test projects retain Meziantou defaults. Production-code fixes surfaced: `TimeRenderingHelpers.FormatDuration` minute math now uses `duration.Ticks / TimeSpan.TicksPerMinute` instead of an explicit `(long)` cast on `TotalMinutes`; the four assertion-class `string.Create`-with-only-string-arguments call sites simplified to plain `$"..."` interpolation. `<NoWarn>` extended with `MA0038;MA0137;MA0174;MA0190` for the family-convention exceptions documented inline in `Directory.Build.props`.
+- **`BannedSymbols.txt`** collapsed bare `#` comment lines into adjacent text-bearing lines so the file parses cleanly under the stricter BannedApiAnalyzers 4.x grammar.
+
+### Quality
+
+- ApiCompat strict-mode baseline bumped 0.1.0 -> 0.2.0. Behaviour-only release on the public signature surface; `CompatibilitySuppressions.xml` regenerated empty.
+- AOT-publish smoke gate via `tests/TimeAssertions.TUnit.SmokeTest/` validates `dotnet publish -r linux-x64 -p:PublishAot=true` consumer-side AOT correctness on every release; SmokeTest pin bumped to `TUnit 1.44.0` and the floating `TimeAssertions.TUnit` reference to `0.3.0-*`.
+- Coverage holds at the 90% line / 90% branch CI gates. Test count rises from 51 to 59: three new `FormatBudgetOverrun` unit tests plus one parameterised case covering five (elapsed, budget) pairs (the arithmetic invariant) plus one end-to-end assertion-message integration test on the adapter.
+
+### Notes
+
+- The deferred `Eventually(timeout, polling)` primitive moves to a post-v0.3.0 release. The 50ms-real-time-yield transitional shape is now documented in the README for consumers who hit the async-state-machine-boundary use case before the API lands.
+- `HasActiveTimers` remains gated on [dotnet/extensions#7515](https://github.com/dotnet/extensions/issues/7515); no upstream movement since filing 2026-05-07.
+
 ## [0.2.0]: Naming symmetry, elapsed capture, dependency refresh
 
 Feature release plus rolled-in housekeeping. Lockstep version bump for both packages; ApiCompat baseline pinned to 0.1.0 (the previous shipped release). The intermediate v0.1.1 housekeeping work is folded into this release rather than shipping as a separate intermediate version.
