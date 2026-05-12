@@ -44,7 +44,7 @@ public static class TimeRenderingHelpers
             return string.Create(CultureInfo.InvariantCulture, $"{seconds:F1}s");
         }
 
-        var minutes = (long)duration.TotalMinutes;
+        var minutes = duration.Ticks / TimeSpan.TicksPerMinute;
         var remainingSeconds = duration.Seconds;
         return string.Create(CultureInfo.InvariantCulture, $"{minutes}:{remainingSeconds:D2}");
     }
@@ -53,14 +53,24 @@ public static class TimeRenderingHelpers
     /// Formats a budget-overrun summary: actual elapsed, the budget that was exceeded, and the
     /// excess. Used in <c>.WithinTimeBudget(...)</c> failure messages.
     /// </summary>
+    /// <remarks>
+    /// The rendered string carries two forms in parallel: a human-readable prose
+    /// (<c>completed in 1.2s: exceeded budget of 500ms by 747ms</c>) and a grep-friendly
+    /// fixed-unit parenthetical (<c>(elapsed=1247ms, budget=500ms, overrun=747ms)</c>). The
+    /// parenthetical lets CI log scrapers and triage tooling extract the three numbers
+    /// without parsing the human-readable prose around them.
+    /// </remarks>
     /// <param name="elapsed">The wall-clock duration the assertion's evaluator took.</param>
     /// <param name="budget">The configured timing budget.</param>
     /// <returns>A multi-line human-readable summary.</returns>
     public static string FormatBudgetOverrun(TimeSpan elapsed, TimeSpan budget)
     {
         var excess = elapsed - budget;
+        var elapsedMs = elapsed.TotalMilliseconds;
+        var budgetMs = budget.TotalMilliseconds;
+        var excessMs = excess.TotalMilliseconds;
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"completed in {FormatDuration(elapsed)}: exceeded budget of {FormatDuration(budget)} by {FormatDuration(excess)}");
+            $"completed in {FormatDuration(elapsed)}: exceeded budget of {FormatDuration(budget)} by {FormatDuration(excess)} (elapsed={elapsedMs:F0}ms, budget={budgetMs:F0}ms, overrun={excessMs:F0}ms)");
     }
 }

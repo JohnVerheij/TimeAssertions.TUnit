@@ -54,7 +54,7 @@ This library replaces both with a fluent DSL on top of Microsoft's recommended `
 dotnet add package TimeAssertions.TUnit
 ```
 
-**Requirements:** TUnit 1.43.11 or later, .NET 10. `TimeAssertions` (the framework-agnostic core) and `Microsoft.Extensions.TimeProvider.Testing` come transitively. The package is AOT-compatible, trimmable, and uses no runtime reflection in the assertion path.
+**Requirements:** TUnit 1.44.0 or later, .NET 10. `TimeAssertions` (the framework-agnostic core) and `Microsoft.Extensions.TimeProvider.Testing` come transitively. The package is AOT-compatible, trimmable, and uses no runtime reflection in the assertion path.
 
 ## Package layout
 
@@ -163,7 +163,7 @@ Distinct from TUnit core's `IsInPast()` / `IsInFuture()` (which always use the s
 
 | Entry point | Behaviour |
 |---|---|
-| `IsRecent(TimeSpan window, TimeProvider? timeProvider = null)` | Asserts the timestamp is within the last `window` relative to the supplied `TimeProvider`'s notion of "now". Defaults to `TimeProvider.System` when omitted. |
+| `IsRecent(TimeSpan window, TimeProvider? timeProvider = null)` | Asserts the timestamp is within the last `window` relative to the supplied `TimeProvider`'s notion of "now". When `timeProvider` is `null` or omitted, falls back to `TimeProvider.System` (useful for end-to-end tests not running under a fake clock). |
 | `IsBeforeNow(TimeProvider timeProvider)` | Strict-before-now check against the supplied time provider. |
 | `IsAfterNow(TimeProvider timeProvider)` | Strict-after-now check. |
 
@@ -248,6 +248,10 @@ Expected:
 Actual:
   Source threw InvalidOperationException: connection refused
 ```
+
+The budget-overrun rendering carries a grep-friendly fixed-unit suffix `(elapsed=Xms, budget=Yms, overrun=Zms)` in addition to the human-readable prose, so CI log scrapers and triage tooling can extract the three numbers without parsing the prose.
+
+For tests that need to surface the measured elapsed even on the success path, the capturing variant `WithinTimeBudgetCapturing` invokes its callback on every evaluation path (pass / fail / throw). Use it to write the observed elapsed to test output before the assertion exception propagates: see [Capturing the elapsed time](#capturing-the-elapsed-time-withintimebudgetcapturing-v020).
 
 ---
 
@@ -345,6 +349,45 @@ await Assert.That(httpClient.GetAsync("/health"))
 TestContext.Current.OutputWriter.WriteLine($"GET /health: {elapsed.TotalMilliseconds:F1}ms");
 ```
 
+### Accommodating first-fixture cold-start
+
+`WithinTimeBudget` measures wall-clock time including JIT compilation, DI container construction, hosted-service startup, and any one-shot lazy initialization that happens during the first call in a freshly-created fixture. The cold-start tax varies by workload and runner; for hosted-service-backed pipelines on shared CI it can be several multiples of the steady-state cost. Measure locally to calibrate before setting tight budgets.
+
+Two patterns address this:
+
+**Pattern A: budget with margin (simple).** Set the budget at 5-10x the local steady-state measurement on paths that exercise hosted-service startup, DI container build, or first-time JIT. The goal of `WithinTimeBudget` is to catch order-of-magnitude regressions, not micro-benchmark drift.
+
+```csharp
+// Local steady-state: ~1s. Cold-start: up to 5s. Budget 10s for order-of-magnitude regression detection.
+await Assert.That(action)
+    .ThrowsNothing()
+    .And.WithinTimeBudget(TimeSpan.FromSeconds(10));
+```
+
+**Pattern B: warm-up call (precise).** Factor a single warm-up invocation before the measured call. The warm-up amortises JIT and one-shot init; the measured call sees steady-state cost only.
+
+```csharp
+// Warm up: pays the cold-start tax once, discarded.
+await action();
+
+// Measured: now reflects steady-state cost only.
+await Assert.That(action)
+    .ThrowsNothing()
+    .And.WithinTimeBudget(TimeSpan.FromMilliseconds(500));
+```
+
+Pair Pattern B with `WithinTimeBudgetCapturing` to log the actual measured elapsed and confirm the steady-state assumption holds:
+
+```csharp
+await action(); // warm up
+
+var elapsed = TimeSpan.Zero;
+await Assert.That(action)
+    .ThrowsNothing()
+    .And.WithinTimeBudgetCapturing(TimeSpan.FromMilliseconds(500), e => elapsed = e);
+TestContext.Current.OutputWriter.WriteLine($"steady-state: {elapsed.TotalMilliseconds:F1}ms");
+```
+
 ---
 
 ## Modern .NET 10+ practices on display
@@ -404,25 +447,39 @@ The 1.0 milestone signals API stability: see [Limitations and future work](#limi
 - ✅ **External-consumer smoke test + AOT-publish CI gate.** `tests/TimeAssertions.TUnit.SmokeTest/` consumes `TimeAssertions.TUnit` ONLY via `PackageReference` against the just-packed local feed; CI publishes that consumer with `PublishAot=true` on `linux-x64` so any future reflection / DynamicCode regression fails the build before the package can ship. The `IsAotCompatible=true` build-time analyzer remains the first gate; the smoke + AOT-publish steps add end-to-end parity with the rest of the family as a defensive backup.
 - ✅ **Recursive public-API self-test project.** `tests/TimeAssertions.TUnit.SnapshotTests/` pins the public surface using `SnapshotAssertions.TUnit.MatchesSnapshot()` against `PublicApiGenerator` output: pure dogfooding for the family, no Verify dependency.
 
+### Transitional shape: 50ms real-time yield after `Advance`
+
+When production code crosses an `async`-state-machine boundary (e.g. a `BackgroundService` resuming a delayed continuation), the consumer pattern today is to call `fakeTime.Advance(...)` and then yield real time briefly for the continuation to propagate:
+
+```csharp
+fakeTime.Advance(TimeSpan.FromSeconds(60));
+await Task.Delay(TimeSpan.FromMilliseconds(50), ct);
+await Assert.That(service.LastRunAt).IsAfterNow(fakeTime);
+```
+
+The 50ms value is a real-time yield, NOT a fake-time advance. The deferred `Eventually(timeout, polling)` primitive (planned post-v0.3.0) replaces this with a deterministic polling terminator that uses `Task.Delay(TimeSpan, TimeProvider, ct)` against the supplied `TimeProvider`. Until that ships, the 50ms yield is the documented transitional shape.
+
 ### Deferred items
 
-- **`.Eventually()` retry / polling terminator**: planned for 0.3.0.
-- **`Stopwatch.GetTimestamp()`-based monotonic-clock variant** of `WithinTimeBudget`: candidate for 0.3.0 if benchmark-class precision is needed. Today, `WithinTimeBudget` uses TUnit's `EvaluationMetadata<T>.Duration` (`DateTimeOffset.Now`-based); system-clock jumps during a test method are vanishingly rare.
+- **`.Eventually()` retry / polling terminator**: design ongoing; needs decisions on `TimeProvider`-driven sleep, predicate signature (sync vs async), cancellation propagation, default schedule, and capture-of-value-on-success. The 50ms-real-time-yield transitional shape (above) is the documented workaround until it lands.
+- **`Stopwatch.GetTimestamp()`-based monotonic-clock variant** of `WithinTimeBudget`: candidate if benchmark-class precision is needed. Today, `WithinTimeBudget` uses TUnit's `EvaluationMetadata<T>.Duration` (`DateTimeOffset.Now`-based); system-clock jumps during a test method are vanishingly rare.
 - **`HasActiveTimers`**: filed upstream as [dotnet/extensions#7515](https://github.com/dotnet/extensions/issues/7515). `FakeTimeProvider.ActiveTimers` isn't part of the public `Microsoft.Extensions.Time.Testing` API surface yet; can't be observed without reflection. If Microsoft exposes it later, we add the assertion in a follow-up.
 
 ## Family compatibility
 
-The three assertion-family packages: `LogAssertions.TUnit`, `TimeAssertions.TUnit`, and `SnapshotAssertions.TUnit`: release independently and target the same .NET TFM at any moment (LTS-anchored, multi-target during STS support windows; see the [TFM policy in CONVENTIONS.md](CONVENTIONS.md#tfm-policy) for the rotation schedule). **Mix versions freely.** Each package ships under SemVer with `EnablePackageValidation` strict-mode ApiCompat against its previous baseline, so binary breaks within a version line are caught at pack time.
+The four assertion-family packages: `LogAssertions.TUnit`, `TimeAssertions.TUnit`, `SnapshotAssertions.TUnit`, and `MathAssertions.TUnit`: release independently and target the same .NET TFM at any moment (LTS-anchored, multi-target during STS support windows; see the [TFM policy in CONVENTIONS.md](CONVENTIONS.md#tfm-policy) for the rotation schedule). **Mix versions freely.** Each package ships under SemVer with `EnablePackageValidation` strict-mode ApiCompat against its previous baseline, so binary breaks within a version line are caught at pack time.
 
 For per-package release notes:
 - [LogAssertions.TUnit CHANGELOG](https://github.com/JohnVerheij/LogAssertions.TUnit/blob/main/CHANGELOG.md)
 - [TimeAssertions.TUnit CHANGELOG](https://github.com/JohnVerheij/TimeAssertions.TUnit/blob/main/CHANGELOG.md)
 - [SnapshotAssertions.TUnit CHANGELOG](https://github.com/JohnVerheij/SnapshotAssertions.TUnit/blob/main/CHANGELOG.md)
+- [MathAssertions.TUnit CHANGELOG](https://github.com/JohnVerheij/MathAssertions.TUnit/blob/main/CHANGELOG.md)
 
 ## Pair with
 
 - **[`LogAssertions.TUnit`](https://www.nuget.org/packages/LogAssertions.TUnit/)**: fluent log assertions over `Microsoft.Extensions.Logging.Testing.FakeLogCollector`. Use `.And.WithinTimeBudget(...)` to add a timing budget to any `HasLogged()` chain.
 - **[`SnapshotAssertions.TUnit`](https://www.nuget.org/packages/SnapshotAssertions.TUnit/)**: text-snapshot assertions for API-surface tests and similar deterministic-string scenarios. Coexists with Verify; covers the 80% case without coverage friction.
+- **[`MathAssertions.TUnit`](https://www.nuget.org/packages/MathAssertions.TUnit/)**: tolerance-aware fluent assertions over numeric and geometric types (vectors, quaternions, matrices, planes, complex numbers, arrays).
 
 ## Contributing
 
