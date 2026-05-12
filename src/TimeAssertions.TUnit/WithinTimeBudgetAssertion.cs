@@ -72,9 +72,7 @@ public sealed class WithinTimeBudgetAssertion<T> : Assertion<T>
         if (metadata.Exception is not null)
         {
             return Task.FromResult(AssertionResult.Failed(
-                string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"threw {metadata.Exception.GetType().Name}: {metadata.Exception.Message}"),
+                $"threw {metadata.Exception.GetType().Name}: {metadata.Exception.Message}",
                 metadata.Exception));
         }
 
@@ -90,9 +88,7 @@ public sealed class WithinTimeBudgetAssertion<T> : Assertion<T>
     /// <inheritdoc/>
     protected override string GetExpectation()
     {
-        return string.Create(
-            CultureInfo.InvariantCulture,
-            $"completion within timing budget of {TimeRenderingHelpers.FormatDuration(_budget)}");
+        return $"completion within timing budget of {TimeRenderingHelpers.FormatDuration(_budget)}";
     }
 }
 

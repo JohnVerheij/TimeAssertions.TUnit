@@ -43,6 +43,26 @@ internal sealed class WithinTimeBudgetAssertionTests
         await Assert.That(exception!.Message).Contains("budget");
     }
 
+    /// <summary>End-to-end: a budget overrun surfaces both the human-readable prose ("exceeded
+    /// budget of ...") AND the grep-friendly machine-parseable suffix ("(elapsed=") in the
+    /// resulting assertion exception message. Pins F7's user-visible contract: log scrapers can
+    /// extract elapsed / budget / overrun without parsing the prose, while humans see the same
+    /// information in the readable form.</summary>
+    [Test]
+    public async Task SlowSource_FailureMessage_ContainsGrepFriendlyElapsedSuffix(CancellationToken cancellationToken)
+    {
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(SlowSourceAsync(TimeSpan.FromMilliseconds(200), cancellationToken))
+                .WithinTimeBudget<int>(TimeSpan.FromMilliseconds(50));
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains("exceeded budget of");
+        await Assert.That(exception.Message).Contains("(elapsed=");
+        await Assert.That(exception.Message).Contains("ms, budget=");
+        await Assert.That(exception.Message).Contains("ms, overrun=");
+    }
+
     /// <summary>A source that throws does NOT mask its exception with a timing failure;
     /// the underlying exception propagates through TUnit's normal error pipeline. Timing
     /// surface is additive, not replacement.</summary>

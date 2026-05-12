@@ -17,7 +17,7 @@ TUnit-native fluent time-assertion DSL on top of `Microsoft.Extensions.Time.Test
 dotnet add package TimeAssertions.TUnit
 ```
 
-`TimeAssertions` (the framework-agnostic core) and `Microsoft.Extensions.TimeProvider.Testing` come transitively. **Requirements:** TUnit 1.43.11 or later, .NET 10.
+`TimeAssertions` (the framework-agnostic core) and `Microsoft.Extensions.TimeProvider.Testing` come transitively. **Requirements:** TUnit 1.44.0 or later, .NET 10.
 
 The source-generated entry points (`HasAdvancedExactly`, `HasAdvancedApproximately`, `HasUtcNow`, `HasUtcNowApproximately`, `IsRecent`, `IsBeforeNow`, `IsAfterNow`, `WithinTimeBudget`, `WithinTimeBudgetCapturing`) auto-import via `TUnit.Assertions.Extensions`. Add the following to a `GlobalUsings.cs` in your test project for the call-site and `FakeTimeProvider` namespaces:
 
@@ -61,9 +61,17 @@ public async Task PreReleaseExpiration_advances_state_after_clock_moves_forward(
 
 ## Failure diagnostics
 
-On a failed assertion, the exception message includes the elapsed / expected duration, the absolute drift, and (for budget overruns) the overshoot. No `Console.WriteLine` debugging needed: every dimension you can assert on is also rendered in the failure message.
+On a failed assertion, the exception message includes the elapsed / expected duration, the absolute drift, and (for budget overruns) the overshoot plus a grep-friendly `(elapsed=Xms, budget=Yms, overrun=Zms)` suffix for log scrapers. No `Console.WriteLine` debugging needed: every dimension you can assert on is also rendered in the failure message.
 
 [Full failure-diagnostics example, design notes, stability intent, and roadmap on GitHub.](https://github.com/JohnVerheij/TimeAssertions.TUnit#failure-diagnostics)
+
+## Family
+
+Part of an assertion family for TUnit:
+
+- [LogAssertions.TUnit](https://github.com/JohnVerheij/LogAssertions.TUnit)
+- [SnapshotAssertions.TUnit](https://github.com/JohnVerheij/SnapshotAssertions.TUnit)
+- [MathAssertions.TUnit](https://github.com/JohnVerheij/MathAssertions.TUnit)
 
 ## License
 

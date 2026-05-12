@@ -11,8 +11,8 @@
     <IsPackable>true</IsPackable>
     <PackageId>TimeAssertions.TUnit</PackageId>
     <ProductName>TimeAssertions.TUnit</ProductName>
-    <Version>0.2.0</Version>
-    <PackageValidationBaselineVersion>0.1.0</PackageValidationBaselineVersion>
+    <Version>0.3.0</Version>
+    <PackageValidationBaselineVersion>0.2.0</PackageValidationBaselineVersion>
     <Authors>John Verheij</Authors>
     <Copyright>Copyright (c) 2026 John Verheij</Copyright>
     <Description>TUnit-native fluent time-assertion DSL on FakeTimeProvider plus assertion-level timing budget chain extensions via [AssertionExtension]. Provides Assert.That(fakeTime).HasAdvancedExactly(...) / HasAdvancedApproximately(...) / HasUtcNow(...) / HasUtcNowApproximately(...), Assert.That(timestamp).IsRecent(...) / IsBeforeNow(...) / IsAfterNow(...), and the cross-cutting Assert.That(value).IsX().And.WithinTimeBudget(TimeSpan) / WithinTimeBudgetCapturing(TimeSpan, Action&lt;TimeSpan&gt;) on any TUnit assertion chain. Composes with sibling assertion packages without a binary dependency. AOT-compatible, trimmable, no reflection.</Description>

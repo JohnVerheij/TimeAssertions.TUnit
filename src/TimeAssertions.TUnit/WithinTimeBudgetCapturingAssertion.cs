@@ -64,9 +64,7 @@ public sealed class WithinTimeBudgetCapturingAssertion<T> : Assertion<T>
             // semantics regardless of pass / fail / throw.
             _capture(metadata.Duration);
             return Task.FromResult(AssertionResult.Failed(
-                string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"threw {metadata.Exception.GetType().Name}: {metadata.Exception.Message}"),
+                $"threw {metadata.Exception.GetType().Name}: {metadata.Exception.Message}",
                 metadata.Exception));
         }
 
@@ -83,8 +81,6 @@ public sealed class WithinTimeBudgetCapturingAssertion<T> : Assertion<T>
     /// <inheritdoc/>
     protected override string GetExpectation()
     {
-        return string.Create(
-            CultureInfo.InvariantCulture,
-            $"completion within timing budget of {TimeRenderingHelpers.FormatDuration(_budget)} (capturing elapsed)");
+        return $"completion within timing budget of {TimeRenderingHelpers.FormatDuration(_budget)} (capturing elapsed)";
     }
 }
