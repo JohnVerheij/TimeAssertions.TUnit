@@ -337,6 +337,36 @@ await Assert.That(fakeTime).HasAdvancedApproximately(
     tolerance: TimeSpan.FromSeconds(1));
 ```
 
+### Waiting for an asynchronous effect after `Advance(...)`
+
+After advancing `FakeTimeProvider`, timer callbacks and any continuations they trigger run on real wall-clock thread-pool threads; they do not complete synchronously when `Advance` returns. The naïve pattern is a fixed `Task.Delay` between the advance and the assert:
+
+```csharp
+// Pattern to avoid: brittle and slow.
+fakeTime.Advance(TimeSpan.FromMinutes(2));
+await Task.Delay(TimeSpan.FromMilliseconds(50), ct);  // hope continuations have drained
+await Assert.That(collector.HasLogged("[Heartbeat]")).IsTrue();
+```
+
+The 50ms guess is paid on every test run regardless of whether continuations drained in 5ms or 500ms. Replace it with TUnit's built-in [`Eventually`](https://github.com/thomhurst/TUnit) polling assertion, which re-evaluates the source until the inner assertion passes or the timeout elapses:
+
+```csharp
+fakeTime.Advance(TimeSpan.FromMinutes(2));
+await Assert.That(() => collector.HasLogged("[Heartbeat]"))
+    .Eventually(a => a.IsTrue(), TimeSpan.FromSeconds(1));
+```
+
+`Eventually` uses a 10ms default polling interval, so the median case completes in 10-20ms instead of the worst-case 50ms. The `TimeAssertions.TUnit` package deliberately does not ship its own polling assertion: `Eventually` and its alias `WaitsFor` cover the use case directly, and a sibling implementation would only fragment the surface.
+
+For polling sources updated externally (e.g. a counter incremented by a different thread), the same pattern applies with an `int`-typed source and a value predicate:
+
+```csharp
+await Assert.That(() => observable.ActiveTimerCount)
+    .Eventually(a => a.IsGreaterThanOrEqualTo(1),
+                timeout: TimeSpan.FromSeconds(5),
+                pollingInterval: TimeSpan.FromMilliseconds(25));
+```
+
 ### Capturing the elapsed time of a behavioural assertion
 
 ```csharp
@@ -443,25 +473,12 @@ The 1.0 milestone signals API stability: see [Limitations and future work](#limi
 ### Resolved in v0.2.0
 
 - ✅ **Capturing the elapsed time of an assertion chain.** Originally planned as `.Elapsed(out TimeSpan)` (unimplementable: `out` parameters are assigned synchronously before any await). Shipped as `WithinTimeBudgetCapturing(TimeSpan budget, Action<TimeSpan> capture)`. See [Cross-cutting timing budget: Capturing the elapsed time](#capturing-the-elapsed-time-withintimebudgetcapturing-v020).
-- ✅ **`HasAdvanced` / `HasAdvancedBy` naming asymmetry.** Renamed to `HasAdvancedExactly` / `HasAdvancedApproximately` to mirror `HasUtcNow` / `HasUtcNowApproximately`. The old names live as `[Obsolete]` aliases through v0.3.x and are removed in v0.4.0.
+- ✅ **`HasAdvanced` / `HasAdvancedBy` naming asymmetry.** Renamed to `HasAdvancedExactly` / `HasAdvancedApproximately` in v0.2.0 to mirror `HasUtcNow` / `HasUtcNowApproximately`. The old names lived as `[Obsolete]` aliases through v0.3.x; removed in v0.4.0.
 - ✅ **External-consumer smoke test + AOT-publish CI gate.** `tests/TimeAssertions.TUnit.SmokeTest/` consumes `TimeAssertions.TUnit` ONLY via `PackageReference` against the just-packed local feed; CI publishes that consumer with `PublishAot=true` on `linux-x64` so any future reflection / DynamicCode regression fails the build before the package can ship. The `IsAotCompatible=true` build-time analyzer remains the first gate; the smoke + AOT-publish steps add end-to-end parity with the rest of the family as a defensive backup.
 - ✅ **Recursive public-API self-test project.** `tests/TimeAssertions.TUnit.SnapshotTests/` pins the public surface using `SnapshotAssertions.TUnit.MatchesSnapshot()` against `PublicApiGenerator` output: pure dogfooding for the family, no Verify dependency.
 
-### Transitional shape: 50ms real-time yield after `Advance`
-
-When production code crosses an `async`-state-machine boundary (e.g. a `BackgroundService` resuming a delayed continuation), the consumer pattern today is to call `fakeTime.Advance(...)` and then yield real time briefly for the continuation to propagate:
-
-```csharp
-fakeTime.Advance(TimeSpan.FromSeconds(60));
-await Task.Delay(TimeSpan.FromMilliseconds(50), ct);
-await Assert.That(service.LastRunAt).IsAfterNow(fakeTime);
-```
-
-The 50ms value is a real-time yield, NOT a fake-time advance. The deferred `Eventually(timeout, polling)` primitive (planned post-v0.3.0) replaces this with a deterministic polling terminator that uses `Task.Delay(TimeSpan, TimeProvider, ct)` against the supplied `TimeProvider`. Until that ships, the 50ms yield is the documented transitional shape.
-
 ### Deferred items
 
-- **`.Eventually()` retry / polling terminator**: design ongoing; needs decisions on `TimeProvider`-driven sleep, predicate signature (sync vs async), cancellation propagation, default schedule, and capture-of-value-on-success. The 50ms-real-time-yield transitional shape (above) is the documented workaround until it lands.
 - **`Stopwatch.GetTimestamp()`-based monotonic-clock variant** of `WithinTimeBudget`: candidate if benchmark-class precision is needed. Today, `WithinTimeBudget` uses TUnit's `EvaluationMetadata<T>.Duration` (`DateTimeOffset.Now`-based); system-clock jumps during a test method are vanishingly rare.
 - **`HasActiveTimers`**: filed upstream as [dotnet/extensions#7515](https://github.com/dotnet/extensions/issues/7515). `FakeTimeProvider.ActiveTimers` isn't part of the public `Microsoft.Extensions.Time.Testing` API surface yet; can't be observed without reflection. If Microsoft exposes it later, we add the assertion in a follow-up.
 

@@ -2,8 +2,50 @@
 <!-- https://learn.microsoft.com/dotnet/fundamentals/package-validation/diagnostic-ids -->
 <Suppressions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <Suppression>
+    <DiagnosticId>CP0001</DiagnosticId>
+    <Target>T:TUnit.Assertions.Extensions.FakeTimeProvider_HasAdvanced_TimeSpan_Assertion</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0001</DiagnosticId>
+    <Target>T:TUnit.Assertions.Extensions.FakeTimeProvider_HasAdvancedBy_TimeSpan_TimeSpan_Assertion</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TimeAssertions.TUnit.FakeTimeProviderAssertions.HasAdvanced(Microsoft.Extensions.Time.Testing.FakeTimeProvider,System.TimeSpan)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TimeAssertions.TUnit.FakeTimeProviderAssertions.HasAdvancedBy(Microsoft.Extensions.Time.Testing.FakeTimeProvider,System.TimeSpan,System.TimeSpan)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.FakeTimeProviderAssertions.HasAdvanced``1(TUnit.Assertions.Core.IAssertionSource{``0},System.TimeSpan,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.FakeTimeProviderAssertions.HasAdvancedBy``1(TUnit.Assertions.Core.IAssertionSource{``0},System.TimeSpan,System.TimeSpan,System.String,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
     <DiagnosticId>CP0003</DiagnosticId>
-    <Target>TimeAssertions.TUnit, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null</Target>
+    <Target>TimeAssertions.TUnit, Version=0.3.0.0, Culture=neutral, PublicKeyToken=null</Target>
     <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>

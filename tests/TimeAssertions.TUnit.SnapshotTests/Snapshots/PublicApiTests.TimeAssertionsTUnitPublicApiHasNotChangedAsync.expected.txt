@@ -31,15 +31,7 @@ namespace TUnit.Assertions.Extensions
     public static class FakeTimeProviderAssertions
     {
         [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2091", Justification="Generic type parameter is only used for property access, not instantiation")]
-        [System.Obsolete("Use HasAdvancedExactly. This alias will be removed in v0.4.0.")]
-        public static TUnit.Assertions.Extensions.FakeTimeProvider_HasAdvanced_TimeSpan_Assertion HasAdvanced<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, System.TimeSpan total, [System.Runtime.CompilerServices.CallerArgumentExpression("total")] string? totalExpression = null)
-            where TActual : Microsoft.Extensions.Time.Testing.FakeTimeProvider { }
-        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2091", Justification="Generic type parameter is only used for property access, not instantiation")]
         public static TUnit.Assertions.Extensions.FakeTimeProvider_HasAdvancedApproximately_TimeSpan_TimeSpan_Assertion HasAdvancedApproximately<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, System.TimeSpan total, System.TimeSpan tolerance, [System.Runtime.CompilerServices.CallerArgumentExpression("total")] string? totalExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("tolerance")] string? toleranceExpression = null)
-            where TActual : Microsoft.Extensions.Time.Testing.FakeTimeProvider { }
-        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2091", Justification="Generic type parameter is only used for property access, not instantiation")]
-        [System.Obsolete("Use HasAdvancedApproximately. This alias will be removed in v0.4.0.")]
-        public static TUnit.Assertions.Extensions.FakeTimeProvider_HasAdvancedBy_TimeSpan_TimeSpan_Assertion HasAdvancedBy<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, System.TimeSpan total, System.TimeSpan tolerance, [System.Runtime.CompilerServices.CallerArgumentExpression("total")] string? totalExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("tolerance")] string? toleranceExpression = null)
             where TActual : Microsoft.Extensions.Time.Testing.FakeTimeProvider { }
         [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2091", Justification="Generic type parameter is only used for property access, not instantiation")]
         public static TUnit.Assertions.Extensions.FakeTimeProvider_HasAdvancedExactly_TimeSpan_Assertion HasAdvancedExactly<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, System.TimeSpan total, [System.Runtime.CompilerServices.CallerArgumentExpression("total")] string? totalExpression = null)
@@ -57,21 +49,9 @@ namespace TUnit.Assertions.Extensions
         protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<Microsoft.Extensions.Time.Testing.FakeTimeProvider> metadata) { }
         protected override string GetExpectation() { }
     }
-    public sealed class FakeTimeProvider_HasAdvancedBy_TimeSpan_TimeSpan_Assertion : TUnit.Assertions.Core.Assertion<Microsoft.Extensions.Time.Testing.FakeTimeProvider>
-    {
-        public FakeTimeProvider_HasAdvancedBy_TimeSpan_TimeSpan_Assertion(TUnit.Assertions.Core.AssertionContext<Microsoft.Extensions.Time.Testing.FakeTimeProvider> context, System.TimeSpan total, System.TimeSpan tolerance) { }
-        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<Microsoft.Extensions.Time.Testing.FakeTimeProvider> metadata) { }
-        protected override string GetExpectation() { }
-    }
     public sealed class FakeTimeProvider_HasAdvancedExactly_TimeSpan_Assertion : TUnit.Assertions.Core.Assertion<Microsoft.Extensions.Time.Testing.FakeTimeProvider>
     {
         public FakeTimeProvider_HasAdvancedExactly_TimeSpan_Assertion(TUnit.Assertions.Core.AssertionContext<Microsoft.Extensions.Time.Testing.FakeTimeProvider> context, System.TimeSpan total) { }
-        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<Microsoft.Extensions.Time.Testing.FakeTimeProvider> metadata) { }
-        protected override string GetExpectation() { }
-    }
-    public sealed class FakeTimeProvider_HasAdvanced_TimeSpan_Assertion : TUnit.Assertions.Core.Assertion<Microsoft.Extensions.Time.Testing.FakeTimeProvider>
-    {
-        public FakeTimeProvider_HasAdvanced_TimeSpan_Assertion(TUnit.Assertions.Core.AssertionContext<Microsoft.Extensions.Time.Testing.FakeTimeProvider> context, System.TimeSpan total) { }
         protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<Microsoft.Extensions.Time.Testing.FakeTimeProvider> metadata) { }
         protected override string GetExpectation() { }
     }
@@ -109,14 +89,8 @@ namespace TimeAssertions.TUnit
     }
     public static class FakeTimeProviderAssertions
     {
-        [System.Obsolete("Use HasAdvancedExactly. This alias will be removed in v0.4.0.", false)]
-        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have advanced by total {total}", InlineMethodBody=true)]
-        public static bool HasAdvanced(this Microsoft.Extensions.Time.Testing.FakeTimeProvider value, System.TimeSpan total) { }
         [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have advanced by approximately {total} within tolerance {tolerance}", InlineMethodBody=true)]
         public static bool HasAdvancedApproximately(this Microsoft.Extensions.Time.Testing.FakeTimeProvider value, System.TimeSpan total, System.TimeSpan tolerance) { }
-        [System.Obsolete("Use HasAdvancedApproximately. This alias will be removed in v0.4.0.", false)]
-        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have advanced by approximately {total} within tolerance {tolerance}", InlineMethodBody=true)]
-        public static bool HasAdvancedBy(this Microsoft.Extensions.Time.Testing.FakeTimeProvider value, System.TimeSpan total, System.TimeSpan tolerance) { }
         [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have advanced by total {total}", InlineMethodBody=true)]
         public static bool HasAdvancedExactly(this Microsoft.Extensions.Time.Testing.FakeTimeProvider value, System.TimeSpan total) { }
         [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have UTC now {expected}", InlineMethodBody=true)]

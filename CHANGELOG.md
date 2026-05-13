@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-05-13: Obsolete alias removal, upstream-Eventually migration cookbook
+
+Minor release that fulfils the v0.2.0 CHANGELOG commitment to remove the renamed `HasAdvanced` / `HasAdvancedBy` aliases in v0.4.0, and documents the canonical upstream polling pattern for consumers crossing async-state-machine boundaries after `FakeTimeProvider.Advance(...)`.
+
+The originally-planned `Eventually(timeout, predicate)` polling primitive (deferred in v0.3.0) is **no longer scoped** for this package. Investigation during v0.4.0 implementation confirmed that `TUnit.Assertions` ships the same surface as a built-in extension method (`Assert.That(getter).Eventually(assert => assert.IsEqualTo(expected), TimeSpan.FromSeconds(5))`, alias for `WaitsFor`, available since TUnit v1.13.69 / 2026-02-14). A sibling family-side implementation would fragment the polling surface for no net consumer benefit. The transitional 50ms-real-time-yield shape documented in v0.3.0 is replaced in the cookbook by the upstream pattern.
+
+### Removed
+
+- **`HasAdvanced(this FakeTimeProvider, TimeSpan)`**: the `[Obsolete]` alias carried since v0.2.0 is removed. Migrate to `HasAdvancedExactly(this FakeTimeProvider, TimeSpan)` via search-and-replace.
+- **`HasAdvancedBy(this FakeTimeProvider, TimeSpan, TimeSpan)`**: the `[Obsolete]` alias carried since v0.2.0 is removed. Migrate to `HasAdvancedApproximately(this FakeTimeProvider, TimeSpan, TimeSpan)` via search-and-replace.
+
+### Documentation
+
+- **New cookbook section "Waiting for an asynchronous effect after `Advance(...)`"** in `README.md`. Documents the upstream `Assert.That(getter).Eventually(...)` polling pattern as the canonical replacement for the `Advance` + fixed-yield + `Assert` shape. Covers both the source-already-evaluated case (e.g. `HasLogged` predicate) and the externally-updated-counter case (e.g. `ObservableTimerCount`).
+- **Removed "Transitional shape: 50ms real-time yield after `Advance`"** subsection. The transitional language is no longer accurate: the upstream alternative existed at v0.3.0 publish time; the v0.3.0 doc was written without checking what TUnit already ships.
+
+### Changed
+
+- **`PackageValidationBaselineVersion` bumped to `0.3.0`** in both csproj files. `CompatibilitySuppressions.xml` carries `CP0001` / `CP0002` entries for the two removed alias methods and their generator-emitted assertion classes; the `CP0003` baseline-identity entry targets `0.3.0.0`.
+- **Dependency refresh.**
+  - `DotNetProjectFile.Analyzers`: 1.13.1 -> 1.14.0
+  - `Meziantou.Analyzer`: 3.0.78 -> 3.0.84
+  - `Microsoft.Extensions.TimeProvider.Testing`: 10.5.0 -> 10.6.0 (verified against [dotnet/extensions#7515](https://github.com/dotnet/extensions/issues/7515); the `HasActiveTimers` proposal remains open, so no new API surface is unlocked by this bump)
+  - `Microsoft.SourceLink.GitHub`: 10.0.203 -> 10.0.300
+
+### Quality
+
+- ApiCompat strict-mode reports two intentional binary-breaking removals against the v0.3.0 baseline; both are pre-announced in the v0.2.0 CHANGELOG and suppressed with `IsBaselineSuppression=true`.
+- Test count drops from 59 to 54: the four obsolete-alias regression tests (`HasAdvanced_obsoleteAlias_StillWorks`, `HasAdvancedBy_obsoleteAlias_StillWorks`, `HasAdvanced_HasObsoleteAttribute`, `HasAdvancedBy_HasObsoleteAttribute`) and the `HasAdvancedBy_NegativeTolerance_ThrowsArgumentOutOfRange` argument-validation guard on the obsolete alias are removed alongside the methods they covered. Coverage holds at the 90% line / 90% branch CI gates.
+- Public-API snapshot (`PublicApiTests.TimeAssertionsTUnitPublicApiHasNotChangedAsync.expected.txt`) regenerated to reflect the removed surface.
+
 ## [0.3.0] - 2026-05-12: Failure-message enrichment, cold-start cookbook, family lockstep
 
 Demand-driven minor. Surfaces the grep-friendly elapsed / budget / overrun tuple in every `WithinTimeBudget` failure message, adds a cookbook section for the first-fixture cold-start tax, documents the transitional `Advance` + real-time-yield shape used until `Eventually(...)` ships, and brings the repo into lockstep with the SnapshotAssertions 0.3.0 family-wide hygiene baseline.

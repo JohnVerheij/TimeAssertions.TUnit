@@ -118,22 +118,6 @@ internal sealed class FakeTimeProviderAssertionsTests
             .Throws<ArgumentOutOfRangeException>();
     }
 
-    /// <summary>Same guard on the obsolete <c>HasAdvancedBy</c> alias: kept aligned with the
-    /// new name until v0.4.0 removes the alias.</summary>
-    [Test]
-    public async Task HasAdvancedBy_NegativeTolerance_ThrowsArgumentOutOfRange(CancellationToken ct)
-    {
-        ct.ThrowIfCancellationRequested();
-        var fakeTime = new FakeTimeProvider();
-
-#pragma warning disable CS0618 // Legacy obsolete alias: tested intentionally to keep the guard covered until removal in v0.4.0.
-        await Assert.That(() =>
-            FakeTimeProviderAssertions.HasAdvancedBy(
-                fakeTime, total: TimeSpan.FromSeconds(5), tolerance: TimeSpan.FromMilliseconds(-1)))
-            .Throws<ArgumentOutOfRangeException>();
-#pragma warning restore CS0618
-    }
-
     /// <summary>Same guard on <c>HasUtcNowApproximately</c>: symmetric API surface.</summary>
     [Test]
     public async Task HasUtcNowApproximately_NegativeTolerance_ThrowsArgumentOutOfRange(CancellationToken ct)
@@ -212,55 +196,4 @@ internal sealed class FakeTimeProviderAssertionsTests
         await Assert.That(fakeTime).HasUtcNowApproximately(expected, TimeSpan.FromMilliseconds(10));
     }
 
-    // Obsolete-alias contract: the v0.1.x names HasAdvanced / HasAdvancedBy must keep working
-    // through v0.3.x (two-minor [Obsolete] cycle, dropped in v0.4.0). Tests below pin both
-    // the runtime behaviour and the [Obsolete] attribute presence so a future rename can't
-    // accidentally break consumers mid-cycle.
-#pragma warning disable CS0618 // Type or member is obsolete: intentional regression check
-    [Test]
-    public async Task HasAdvanced_obsoleteAlias_StillWorks(CancellationToken ct)
-    {
-        ct.ThrowIfCancellationRequested();
-        var fakeTime = new FakeTimeProvider();
-        fakeTime.Advance(TimeSpan.FromMinutes(5));
-
-        await Assert.That(fakeTime).HasAdvanced(TimeSpan.FromMinutes(5));
-    }
-
-    [Test]
-    public async Task HasAdvancedBy_obsoleteAlias_StillWorks(CancellationToken ct)
-    {
-        ct.ThrowIfCancellationRequested();
-        var fakeTime = new FakeTimeProvider();
-        fakeTime.Advance(TimeSpan.FromSeconds(5));
-
-        await Assert.That(fakeTime).HasAdvancedBy(
-            total: TimeSpan.FromSeconds(5),
-            tolerance: TimeSpan.FromMilliseconds(10));
-    }
-#pragma warning restore CS0618
-
-    [Test]
-    public async Task HasAdvanced_HasObsoleteAttribute(CancellationToken ct)
-    {
-        ct.ThrowIfCancellationRequested();
-        var method = typeof(FakeTimeProviderAssertions).GetMethod(
-            nameof(FakeTimeProviderAssertions.HasAdvanced),
-            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-        await Assert.That(method).IsNotNull();
-        var attr = method!.GetCustomAttributes(typeof(ObsoleteAttribute), inherit: false);
-        await Assert.That(attr).HasSingleItem();
-    }
-
-    [Test]
-    public async Task HasAdvancedBy_HasObsoleteAttribute(CancellationToken ct)
-    {
-        ct.ThrowIfCancellationRequested();
-        var method = typeof(FakeTimeProviderAssertions).GetMethod(
-            nameof(FakeTimeProviderAssertions.HasAdvancedBy),
-            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-        await Assert.That(method).IsNotNull();
-        var attr = method!.GetCustomAttributes(typeof(ObsoleteAttribute), inherit: false);
-        await Assert.That(attr).HasSingleItem();
-    }
 }
