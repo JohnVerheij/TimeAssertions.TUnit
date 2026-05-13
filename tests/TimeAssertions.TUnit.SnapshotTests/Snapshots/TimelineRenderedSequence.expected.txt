@@ -1,0 +1,4 @@
++0ms WarmUp
++500ms Pick
++2000ms Place
++2500ms Cleanup

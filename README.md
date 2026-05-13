@@ -367,6 +367,38 @@ await Assert.That(() => observable.ActiveTimerCount)
                 pollingInterval: TimeSpan.FromMilliseconds(25));
 ```
 
+### Pinning the moment-graph of a multi-event sequence
+
+When a test produces a sequence of named events at known fake-time moments, snapshot the whole graph rather than asserting on each event individually. `TimelineRenderer` produces a deterministic byte-stable string from a list of `(Timestamp, Label)` pairs; pair it with `MatchesSnapshot()` from `SnapshotAssertions.TUnit` to pin the graph against a committed baseline.
+
+```csharp
+using TimeAssertions.Render;
+
+[Test]
+public async Task HeartbeatService_emits_at_expected_cadence(CancellationToken ct)
+{
+    var epoch = new DateTimeOffset(2026, 5, 13, 0, 0, 0, TimeSpan.Zero);
+    var fakeTime = new FakeTimeProvider();
+    fakeTime.SetUtcNow(epoch);
+    var events = new List<TimelineEvent>();
+
+    var service = new HeartbeatService(fakeTime, ev => events.Add(new TimelineEvent(fakeTime.GetUtcNow(), ev)));
+    await service.StartAsync(ct);
+    fakeTime.Advance(TimeSpan.FromMinutes(3));
+
+    var rendered = TimelineRenderer.Render(epoch, events);
+    // rendered =
+    //   +60000ms Heartbeat
+    //   +120000ms Heartbeat
+    //   +180000ms Heartbeat
+    await Assert.That(rendered).MatchesSnapshot();
+}
+```
+
+`MatchesSnapshot()` lives in the sibling [`SnapshotAssertions.TUnit`](https://www.nuget.org/packages/SnapshotAssertions.TUnit/) package; this package does not take a hard dependency on it. The two-line composition (`Render`, then assert) lets consumers reach for the renderer without committing to a specific snapshot framework, and lets `SnapshotAssertions.TUnit` stay an opt-in pairing.
+
+The renderer preserves input order verbatim, including ties on `Timestamp`. If the snapshot needs a specific ordering (chronological, by-category, etc.) the caller sorts the input list before rendering.
+
 ### Capturing the elapsed time of a behavioural assertion
 
 ```csharp
