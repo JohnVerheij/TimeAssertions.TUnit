@@ -2,6 +2,19 @@
 [assembly: System.Reflection.AssemblyMetadata("IsTrimmable", "True")]
 [assembly: System.Reflection.AssemblyMetadata("RepositoryUrl", "https://github.com/JohnVerheij/TimeAssertions.TUnit")]
 [assembly: System.Runtime.Versioning.TargetFramework(".NETCoreApp,Version=v10.0", FrameworkDisplayName=".NET 10.0")]
+namespace TimeAssertions.Render
+{
+    public readonly struct TimelineEvent : System.IEquatable<TimeAssertions.Render.TimelineEvent>
+    {
+        public TimelineEvent(System.DateTimeOffset Timestamp, string Label) { }
+        public string Label { get; init; }
+        public System.DateTimeOffset Timestamp { get; init; }
+    }
+    public static class TimelineRenderer
+    {
+        public static string Render(System.DateTimeOffset epoch, System.Collections.Generic.IReadOnlyList<TimeAssertions.Render.TimelineEvent> events) { }
+    }
+}
 namespace TimeAssertions
 {
     public static class TimeRenderingHelpers
