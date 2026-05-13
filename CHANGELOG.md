@@ -7,11 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.0] - 2026-05-13: Obsolete alias removal, upstream-Eventually migration cookbook
+## [0.4.0] - 2026-05-13: TimelineRenderer, obsolete alias removal, upstream-Eventually migration cookbook
 
-Minor release that fulfils the v0.2.0 CHANGELOG commitment to remove the renamed `HasAdvanced` / `HasAdvancedBy` aliases in v0.4.0, and documents the canonical upstream polling pattern for consumers crossing async-state-machine boundaries after `FakeTimeProvider.Advance(...)`.
+Minor release that adds the first concrete renderer under the family-shared `*.Render` namespace convention, fulfils the v0.2.0 CHANGELOG commitment to remove the renamed `HasAdvanced` / `HasAdvancedBy` aliases, and documents the canonical upstream polling pattern for consumers crossing async-state-machine boundaries after `FakeTimeProvider.Advance(...)`.
 
 The originally-planned `Eventually(timeout, predicate)` polling primitive (deferred in v0.3.0) is **no longer scoped** for this package. Investigation during v0.4.0 implementation confirmed that `TUnit.Assertions` ships the same surface as a built-in extension method (`Assert.That(getter).Eventually(assert => assert.IsEqualTo(expected), TimeSpan.FromSeconds(5))`, alias for `WaitsFor`, available since TUnit v1.13.69 / 2026-02-14). A sibling family-side implementation would fragment the polling surface for no net consumer benefit. The transitional 50ms-real-time-yield shape documented in v0.3.0 is replaced in the cookbook by the upstream pattern.
+
+### Added (TimeAssertions, framework-agnostic core)
+
+- **`TimeAssertions.Render.TimelineRenderer.Render(DateTimeOffset epoch, IReadOnlyList<TimelineEvent> events)`** renders a sequence of `(Timestamp, Label)` events as deterministic multi-line text suitable for snapshot comparison. Each event renders as `+{deltaMs}ms label` (or `-{absDeltaMs}ms label` for events before the epoch); empty input renders as `string.Empty`. The renderer preserves input order verbatim, including ties on `Timestamp`: caller sorts.
+- **`TimeAssertions.Render.TimelineEvent(DateTimeOffset Timestamp, string Label)`** value type (record struct) consumed by the renderer. `Label` is non-null by contract.
+- Pairs naturally with `Assert.That(rendered).MatchesSnapshot()` from the sibling `SnapshotAssertions.TUnit` package. The two-line composition is deliberate: `TimeAssertions` does not take a hard dependency on `SnapshotAssertions.TUnit`, so consumers who do not snapshot are unaffected.
 
 ### Removed
 
@@ -20,6 +26,7 @@ The originally-planned `Eventually(timeout, predicate)` polling primitive (defer
 
 ### Documentation
 
+- **New cookbook section "Pinning the moment-graph of a multi-event sequence"** in `README.md`. Worked example pairing `TimelineRenderer.Render(epoch, events)` with `MatchesSnapshot()` from `SnapshotAssertions.TUnit`. Documents the two-line composition pattern and explains why no in-package chain wrapper ships in v0.4.0.
 - **New cookbook section "Waiting for an asynchronous effect after `Advance(...)`"** in `README.md`. Documents the upstream `Assert.That(getter).Eventually(...)` polling pattern as the canonical replacement for the `Advance` + fixed-yield + `Assert` shape. Covers both the source-already-evaluated case (e.g. `HasLogged` predicate) and the externally-updated-counter case (e.g. `ObservableTimerCount`).
 - **Removed "Transitional shape: 50ms real-time yield after `Advance`"** subsection. The transitional language is no longer accurate: the upstream alternative existed at v0.3.0 publish time; the v0.3.0 doc was written without checking what TUnit already ships.
 
@@ -35,8 +42,8 @@ The originally-planned `Eventually(timeout, predicate)` polling primitive (defer
 ### Quality
 
 - ApiCompat strict-mode reports two intentional binary-breaking removals against the v0.3.0 baseline; both are pre-announced in the v0.2.0 CHANGELOG and suppressed with `IsBaselineSuppression=true`.
-- Test count drops from 59 to 54: the four obsolete-alias regression tests (`HasAdvanced_obsoleteAlias_StillWorks`, `HasAdvancedBy_obsoleteAlias_StillWorks`, `HasAdvanced_HasObsoleteAttribute`, `HasAdvancedBy_HasObsoleteAttribute`) and the `HasAdvancedBy_NegativeTolerance_ThrowsArgumentOutOfRange` argument-validation guard on the obsolete alias are removed alongside the methods they covered. Coverage holds at the 90% line / 90% branch CI gates.
-- Public-API snapshot (`PublicApiTests.TimeAssertionsTUnitPublicApiHasNotChangedAsync.expected.txt`) regenerated to reflect the removed surface.
+- Test count nets 59 -> 60: the five obsolete-alias regression tests (`HasAdvanced_obsoleteAlias_StillWorks`, `HasAdvancedBy_obsoleteAlias_StillWorks`, `HasAdvanced_HasObsoleteAttribute`, `HasAdvancedBy_HasObsoleteAttribute`, `HasAdvancedBy_NegativeTolerance_ThrowsArgumentOutOfRange`) are removed alongside the methods they covered (-5); six new `TimelineRendererTests` cover empty / single-event / multi-event-ordering / negative-delta / duplicate-timestamp / null-events-throws contracts (+6). Coverage holds at the 90% line / 90% branch CI gates.
+- Public-API snapshots regenerated: `PublicApiTests.TimeAssertionsTUnitPublicApiHasNotChangedAsync.expected.txt` to reflect the removed alias surface, and `PublicApiTests.TimeAssertionsPublicApiHasNotChangedAsync.expected.txt` to add the new `TimeAssertions.Render` namespace surface.
 
 ## [0.3.0] - 2026-05-12: Failure-message enrichment, cold-start cookbook, family lockstep
 
