@@ -16,6 +16,11 @@ internal sealed class TimelineRendererTests
 {
     private static readonly DateTimeOffset Epoch = new(2026, 5, 13, 0, 0, 0, TimeSpan.Zero);
 
+    /// <summary>The literal LF byte the renderer emits between events. Hardcoded here so
+    /// these tests assert against the same cross-platform-deterministic byte sequence the
+    /// renderer produces (see <c>TimelineRenderer</c> XML docs for the rationale).</summary>
+    private const string Lf = "\n";
+
     /// <summary>Empty input renders as <see cref="string.Empty"/>: zero bytes, no trailing
     /// newline. Distinct from the single-event-at-epoch case (which renders a single line
     /// with a trailing newline). Snapshot files for empty timelines are therefore
@@ -37,7 +42,7 @@ internal sealed class TimelineRendererTests
         ct.ThrowIfCancellationRequested();
         var rendered = TimelineRenderer.Render(Epoch, [new TimelineEvent(Epoch, "Start")]);
 
-        await Assert.That(rendered).IsEqualTo("+0ms Start" + Environment.NewLine);
+        await Assert.That(rendered).IsEqualTo("+0ms Start" + Lf);
     }
 
     /// <summary>Multiple ascending events render in input order with one newline-terminated
@@ -53,9 +58,9 @@ internal sealed class TimelineRendererTests
             new TimelineEvent(Epoch.AddMilliseconds(500), "Pick"),
             new TimelineEvent(Epoch.AddSeconds(2), "Place"),
         };
-        var expected = "+0ms WarmUp" + Environment.NewLine
-                     + "+500ms Pick" + Environment.NewLine
-                     + "+2000ms Place" + Environment.NewLine;
+        var expected = "+0ms WarmUp" + Lf
+                     + "+500ms Pick" + Lf
+                     + "+2000ms Place" + Lf;
 
         var rendered = TimelineRenderer.Render(Epoch, events);
 
@@ -72,7 +77,7 @@ internal sealed class TimelineRendererTests
         var earlier = Epoch.AddMilliseconds(-250);
         var rendered = TimelineRenderer.Render(Epoch, [new TimelineEvent(earlier, "Trigger")]);
 
-        await Assert.That(rendered).IsEqualTo("-250ms Trigger" + Environment.NewLine);
+        await Assert.That(rendered).IsEqualTo("-250ms Trigger" + Lf);
     }
 
     /// <summary>Two events at exactly the same <see cref="TimelineEvent.Timestamp"/> render
@@ -88,8 +93,8 @@ internal sealed class TimelineRendererTests
             new TimelineEvent(at, "First"),
             new TimelineEvent(at, "Second"),
         };
-        var expected = "+1000ms First" + Environment.NewLine
-                     + "+1000ms Second" + Environment.NewLine;
+        var expected = "+1000ms First" + Lf
+                     + "+1000ms Second" + Lf;
 
         var rendered = TimelineRenderer.Render(Epoch, events);
 

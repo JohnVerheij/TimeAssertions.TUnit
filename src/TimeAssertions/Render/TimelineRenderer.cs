@@ -38,6 +38,14 @@ namespace TimeAssertions.Render;
 /// All numeric formatting uses <see cref="CultureInfo.InvariantCulture"/> to keep
 /// snapshots stable across locales.
 /// </para>
+/// <para>
+/// <b>Deterministic line endings.</b> Lines are terminated with the literal LF byte
+/// (<c>'\n'</c>), not <see cref="Environment.NewLine"/>. The CRLF /
+/// LF split between Windows and Unix would break the "byte-stable output" contract:
+/// the same timeline would serialise differently per OS, producing snapshot mismatches
+/// on cross-platform CI. Hardcoding LF keeps snapshots committed on one platform
+/// compatible with test runs on every other.
+/// </para>
 /// </remarks>
 public static class TimelineRenderer
 {
@@ -66,7 +74,7 @@ public static class TimelineRenderer
             var ev = events[i];
             var deltaMs = (ev.Timestamp - epoch).TotalMilliseconds;
             var prefix = deltaMs >= 0 ? "+" : string.Empty;
-            sb.Append(CultureInfo.InvariantCulture, $"{prefix}{deltaMs:F0}ms {ev.Label}").AppendLine();
+            sb.Append(CultureInfo.InvariantCulture, $"{prefix}{deltaMs:F0}ms {ev.Label}\n");
         }
         return sb.ToString();
     }

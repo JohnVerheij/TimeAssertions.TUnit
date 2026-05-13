@@ -22,6 +22,10 @@ internal sealed class TimelineRendererCoverageExercise
 {
     private static readonly DateTimeOffset Epoch = new(2026, 5, 13, 0, 0, 0, TimeSpan.Zero);
 
+    /// <summary>Cross-platform-deterministic LF the renderer emits; see
+    /// <c>TimelineRenderer</c> XML docs for the rationale on hardcoding it.</summary>
+    private const string Lf = "\n";
+
     [Test]
     public async Task ExercisesAllBranches(CancellationToken ct)
     {
@@ -32,7 +36,7 @@ internal sealed class TimelineRendererCoverageExercise
 
         // Single event at epoch
         var single = TimelineRenderer.Render(Epoch, [new TimelineEvent(Epoch, "Start")]);
-        await Assert.That(single).IsEqualTo("+0ms Start" + Environment.NewLine);
+        await Assert.That(single).IsEqualTo("+0ms Start" + Lf);
 
         // Multiple ascending events
         var multi = TimelineRenderer.Render(Epoch, new[]
@@ -40,11 +44,11 @@ internal sealed class TimelineRendererCoverageExercise
             new TimelineEvent(Epoch, "A"),
             new TimelineEvent(Epoch.AddMilliseconds(100), "B"),
         });
-        await Assert.That(multi).IsEqualTo("+0ms A" + Environment.NewLine + "+100ms B" + Environment.NewLine);
+        await Assert.That(multi).IsEqualTo("+0ms A" + Lf + "+100ms B" + Lf);
 
         // Negative delta (event before epoch)
         var negative = TimelineRenderer.Render(Epoch, [new TimelineEvent(Epoch.AddMilliseconds(-50), "Pre")]);
-        await Assert.That(negative).IsEqualTo("-50ms Pre" + Environment.NewLine);
+        await Assert.That(negative).IsEqualTo("-50ms Pre" + Lf);
 
         // Duplicate timestamps: input order preserved
         var dup = TimelineRenderer.Render(Epoch, new[]
@@ -52,7 +56,7 @@ internal sealed class TimelineRendererCoverageExercise
             new TimelineEvent(Epoch, "First"),
             new TimelineEvent(Epoch, "Second"),
         });
-        await Assert.That(dup).IsEqualTo("+0ms First" + Environment.NewLine + "+0ms Second" + Environment.NewLine);
+        await Assert.That(dup).IsEqualTo("+0ms First" + Lf + "+0ms Second" + Lf);
     }
 
     [Test]
