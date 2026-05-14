@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **TUnit dependency bumped `1.44.0` -> `1.44.39`** (and the external-consumer smoke-test pin). 1.44.39 carries the `[GenerateAssertion]` source-generator fix for value-type optional parameters; no behavioural change for this package, taken for family lockstep.
+- **`CONVENTIONS.md` updated to v0.4**: added `JsonAssertions.TUnit` (the fifth family package, JSON path / value / shape assertions) to the family roster. The file is copied identically across all five repos.
+
 ## [0.4.0] - 2026-05-13: TimelineRenderer, obsolete alias removal, upstream-Eventually migration cookbook
 
 Minor release that adds the first concrete renderer under the family-shared `*.Render` namespace convention, fulfils the v0.2.0 CHANGELOG commitment to remove the renamed `HasAdvanced` / `HasAdvancedBy` aliases, and documents the canonical upstream polling pattern for consumers crossing async-state-machine boundaries after `FakeTimeProvider.Advance(...)`.
