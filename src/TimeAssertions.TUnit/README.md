@@ -17,9 +17,9 @@ TUnit-native fluent time-assertion DSL on top of `Microsoft.Extensions.Time.Test
 dotnet add package TimeAssertions.TUnit
 ```
 
-`TimeAssertions` (the framework-agnostic core) and `Microsoft.Extensions.TimeProvider.Testing` come transitively. **Requirements:** TUnit 1.44.0 or later, .NET 10.
+`TimeAssertions` (the framework-agnostic core) and `Microsoft.Extensions.TimeProvider.Testing` come transitively. **Requirements:** TUnit 1.45.0 or later, .NET 10.
 
-The source-generated entry points (`HasAdvancedExactly`, `HasAdvancedApproximately`, `HasUtcNow`, `HasUtcNowApproximately`, `IsRecent`, `IsBeforeNow`, `IsAfterNow`, `WithinTimeBudget`, `WithinTimeBudgetCapturing`) auto-import via `TUnit.Assertions.Extensions`. Add the following to a `GlobalUsings.cs` in your test project for the call-site and `FakeTimeProvider` namespaces:
+The source-generated entry points (`HasAdvancedExactly`, `HasAdvancedApproximately`, `HasUtcNow`, `HasUtcNowApproximately`, `IsRecent`, `IsBeforeNow`, `IsAfterNow`, `WithinTimeBudget`, `WithinTimeBudgetCapturing`, `WasInvokedAtMostOncePer`) auto-import via `TUnit.Assertions.Extensions`. Add the following to a `GlobalUsings.cs` in your test project for the call-site and `FakeTimeProvider` namespaces:
 
 ```csharp
 global using Microsoft.Extensions.Time.Testing;
@@ -58,6 +58,7 @@ public async Task PreReleaseExpiration_advances_state_after_clock_moves_forward(
 | `IsBeforeNow(TimeProvider)` / `IsAfterNow(TimeProvider)` | `DateTimeOffset` ordering relative to supplied clock |
 | `WithinTimeBudget(TimeSpan)` | Cross-cutting timing budget; chains via `.And` after any behavioural assertion |
 | `WithinTimeBudgetCapturing(TimeSpan, Action<TimeSpan>)` | Same as `WithinTimeBudget` plus a callback that always receives the measured elapsed (added in v0.2.0) |
+| `WasInvokedAtMostOncePer(this IReadOnlyList<DateTimeOffset>, TimeSpan interval)` | Rate-limit assertion on a recorded invocation log: every consecutive gap is at least `interval` (added in v0.5.0) |
 
 ## Failure diagnostics
 
@@ -72,6 +73,8 @@ Part of an assertion family for TUnit:
 - [LogAssertions.TUnit](https://github.com/JohnVerheij/LogAssertions.TUnit)
 - [SnapshotAssertions.TUnit](https://github.com/JohnVerheij/SnapshotAssertions.TUnit)
 - [MathAssertions.TUnit](https://github.com/JohnVerheij/MathAssertions.TUnit)
+- [JsonAssertions.TUnit](https://github.com/JohnVerheij/JsonAssertions.TUnit)
+- [SseAssertions.TUnit](https://github.com/JohnVerheij/SseAssertions.TUnit)
 
 ## License
 

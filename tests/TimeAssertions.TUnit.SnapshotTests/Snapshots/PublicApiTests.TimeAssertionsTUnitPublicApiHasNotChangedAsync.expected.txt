@@ -67,6 +67,18 @@ namespace TUnit.Assertions.Extensions
         protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<Microsoft.Extensions.Time.Testing.FakeTimeProvider> metadata) { }
         protected override string GetExpectation() { }
     }
+    public sealed class IReadOnlyListDateTimeOffset_WasInvokedAtMostOncePer_TimeSpan_Assertion : TUnit.Assertions.Core.Assertion<System.Collections.Generic.IReadOnlyList<System.DateTimeOffset>>
+    {
+        public IReadOnlyListDateTimeOffset_WasInvokedAtMostOncePer_TimeSpan_Assertion(TUnit.Assertions.Core.AssertionContext<System.Collections.Generic.IReadOnlyList<System.DateTimeOffset>> context, System.TimeSpan interval) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<System.Collections.Generic.IReadOnlyList<System.DateTimeOffset>> metadata) { }
+        protected override string GetExpectation() { }
+    }
+    public static class RateLimitAssertions
+    {
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2091", Justification="Generic type parameter is only used for property access, not instantiation")]
+        public static TUnit.Assertions.Extensions.IReadOnlyListDateTimeOffset_WasInvokedAtMostOncePer_TimeSpan_Assertion WasInvokedAtMostOncePer<TActual>(this TUnit.Assertions.Core.IAssertionSource<TActual> source, System.TimeSpan interval, [System.Runtime.CompilerServices.CallerArgumentExpression("interval")] string? intervalExpression = null)
+            where TActual : System.Collections.Generic.IReadOnlyList<System.DateTimeOffset> { }
+    }
     public static class WithinTimeBudgetAssertionExtensions
     {
         public static TimeAssertions.TUnit.WithinTimeBudgetAssertion<T> WithinTimeBudget<T>(this TUnit.Assertions.Core.IAssertionSource<T> source, System.TimeSpan budget, [System.Runtime.CompilerServices.CallerArgumentExpression("budget")] string? budgetExpression = null) { }
@@ -97,6 +109,11 @@ namespace TimeAssertions.TUnit
         public static bool HasUtcNow(this Microsoft.Extensions.Time.Testing.FakeTimeProvider value, System.DateTimeOffset expected) { }
         [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have UTC now approximately {expected} within tolerance {tolerance}", InlineMethodBody=true)]
         public static bool HasUtcNowApproximately(this Microsoft.Extensions.Time.Testing.FakeTimeProvider value, System.DateTimeOffset expected, System.TimeSpan tolerance) { }
+    }
+    public static class RateLimitAssertions
+    {
+        [TUnit.Assertions.Attributes.GenerateAssertion(InlineMethodBody=false)]
+        public static TUnit.Assertions.Core.AssertionResult WasInvokedAtMostOncePer(this System.Collections.Generic.IReadOnlyList<System.DateTimeOffset> timestamps, System.TimeSpan interval) { }
     }
     [TUnit.Assertions.Attributes.AssertionExtension("WithinTimeBudget")]
     public sealed class WithinTimeBudgetAssertion<T> : TUnit.Assertions.Core.Assertion<T>

@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Text;
 
 namespace TimeAssertions;
 
@@ -72,5 +74,49 @@ public static class TimeRenderingHelpers
         return string.Create(
             CultureInfo.InvariantCulture,
             $"completed in {FormatDuration(elapsed)}: exceeded budget of {FormatDuration(budget)} by {FormatDuration(excess)} (elapsed={elapsedMs:F0}ms, budget={budgetMs:F0}ms, overrun={excessMs:F0}ms)");
+    }
+
+    /// <summary>
+    /// Formats a rate-limit violation summary for the failure message of
+    /// <c>WasInvokedAtMostOncePer(...)</c>. Names the first violating consecutive pair by
+    /// index, the observed gap, and the configured minimum interval.
+    /// </summary>
+    /// <remarks>
+    /// The rendered shape pins a one-line headline with the violation index and gap,
+    /// followed by the two violating timestamps in ISO 8601 round-trip form, and a
+    /// grep-friendly fixed-unit parenthetical (analogous to
+    /// <see cref="FormatBudgetOverrun"/>'s <c>(elapsed=, budget=, overrun=)</c> trailer)
+    /// so CI log scrapers can extract the numbers without parsing the prose.
+    /// </remarks>
+    /// <param name="timestamps">The invocation-timestamp sequence the assertion examined.</param>
+    /// <param name="violatingIndex">The zero-based index of the second timestamp in the
+    /// violating pair. The pair is (<c>timestamps[violatingIndex - 1]</c>,
+    /// <c>timestamps[violatingIndex]</c>).</param>
+    /// <param name="gap">The observed gap between the two timestamps.</param>
+    /// <param name="interval">The configured minimum interval that was violated.</param>
+    /// <returns>A multi-line human-readable summary in
+    /// <see cref="CultureInfo.InvariantCulture"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="timestamps"/> is
+    /// <see langword="null"/>.</exception>
+    public static string FormatRateLimitViolation(
+        IReadOnlyList<DateTimeOffset> timestamps,
+        int violatingIndex,
+        TimeSpan gap,
+        TimeSpan interval)
+    {
+        ArgumentNullException.ThrowIfNull(timestamps);
+
+        var prior = timestamps[violatingIndex - 1];
+        var current = timestamps[violatingIndex];
+        var gapMs = gap.TotalMilliseconds;
+        var intervalMs = interval.TotalMilliseconds;
+
+        var sb = new StringBuilder();
+        sb.Append(CultureInfo.InvariantCulture,
+            $"interval violation at index {violatingIndex}: gap was {FormatDuration(gap)} (minimum {FormatDuration(interval)})").AppendLine();
+        sb.Append(CultureInfo.InvariantCulture, $"  timestamps[{violatingIndex - 1}]: {prior:O}").AppendLine();
+        sb.Append(CultureInfo.InvariantCulture, $"  timestamps[{violatingIndex}]:   {current:O}").AppendLine();
+        sb.Append(CultureInfo.InvariantCulture, $"  (gap={gapMs:F0}ms, minimum={intervalMs:F0}ms)");
+        return sb.ToString();
     }
 }

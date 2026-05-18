@@ -26,6 +26,7 @@ A TUnit-native fluent time-assertion DSL on top of `Microsoft.Extensions.Time.Te
   - [`FakeTimeProvider` state assertions](#faketimeprovider-state-assertions)
   - [`TimeProvider`-aware `DateTimeOffset` assertions](#timeprovider-aware-datetimeoffset-assertions)
   - [Cross-cutting timing budget](#cross-cutting-timing-budget)
+  - [Rate-limit assertions on invocation timestamps](#rate-limit-assertions-on-invocation-timestamps)
 - [Failure diagnostics](#failure-diagnostics)
 - [Cookbook: common patterns](#cookbook--common-patterns)
 - [Modern .NET 10+ practices on display](#modern-net-10-practices-on-display)
@@ -54,7 +55,7 @@ This library replaces both with a fluent DSL on top of Microsoft's recommended `
 dotnet add package TimeAssertions.TUnit
 ```
 
-**Requirements:** TUnit 1.44.0 or later, .NET 10. `TimeAssertions` (the framework-agnostic core) and `Microsoft.Extensions.TimeProvider.Testing` come transitively. The package is AOT-compatible, trimmable, and uses no runtime reflection in the assertion path.
+**Requirements:** TUnit 1.45.0 or later, .NET 10. `TimeAssertions` (the framework-agnostic core) and `Microsoft.Extensions.TimeProvider.Testing` come transitively. The package is AOT-compatible, trimmable, and uses no runtime reflection in the assertion path.
 
 ## Package layout
 
@@ -63,7 +64,7 @@ This repo ships **two** NuGet packages:
 | Package | Purpose | Depends on |
 |---|---|---|
 | [`TimeAssertions`](https://www.nuget.org/packages/TimeAssertions/) | Framework-agnostic core: `TimeRenderingHelpers` for elapsed-duration / budget-overrun formatting | BCL only |
-| [`TimeAssertions.TUnit`](https://www.nuget.org/packages/TimeAssertions.TUnit/) | TUnit-specific entry points: `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()` | `TimeAssertions` + `TUnit.Assertions` + `TUnit.Core` + `Microsoft.Extensions.TimeProvider.Testing` |
+| [`TimeAssertions.TUnit`](https://www.nuget.org/packages/TimeAssertions.TUnit/) | TUnit-specific entry points: `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()`, `WasInvokedAtMostOncePer()` | `TimeAssertions` + `TUnit.Assertions` + `TUnit.Core` + `Microsoft.Extensions.TimeProvider.Testing` |
 
 You install `TimeAssertions.TUnit`; `TimeAssertions` and `Microsoft.Extensions.TimeProvider.Testing` come transitively. Adapters for other test frameworks (NUnit, xUnit, MSTest) are *not* shipped today: they would reuse the `TimeAssertions` core. Open a feature request if you need one.
 
@@ -73,7 +74,7 @@ The two packages place types in two namespaces with deliberately-different scope
 
 | Type / member | Namespace | Auto-imported? |
 |---|---|---|
-| `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()` (source-generated entries) | `TUnit.Assertions.Extensions` | **Yes**: TUnit auto-imports |
+| `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()`, `WasInvokedAtMostOncePer()` (source-generated entries) | `TUnit.Assertions.Extensions` | **Yes**: TUnit auto-imports |
 | `FakeTimeProvider` (the testable-clock type) | `Microsoft.Extensions.Time.Testing` | **No**: needed at the call site; recommended for `GlobalUsings.cs` |
 | `TimeRenderingHelpers` (formatting utilities for failure messages) | `TimeAssertions` | **No**: needed at the call site; recommended for `GlobalUsings.cs` |
 | `WithinTimeBudgetAssertion<T>`, `WithinTimeBudgetCapturingAssertion<T>` (the assertion classes behind `WithinTimeBudget()` and `WithinTimeBudgetCapturing()`) | `TimeAssertions.TUnit` | **No**: needed at the call site; recommended for `GlobalUsings.cs` |
@@ -137,7 +138,7 @@ For projects standardising on this pattern, TimeAssertions.TUnit is the TUnit-si
 
 ## Entry points
 
-Three groups of entry points cover three distinct testing concerns: fake-clock state, `TimeProvider`-aware `DateTimeOffset` checks, and assertion-level timing budgets.
+Four groups of entry points cover four distinct testing concerns: fake-clock state, `TimeProvider`-aware `DateTimeOffset` checks, assertion-level timing budgets, and rate-limit assertions on invocation timestamps.
 
 ### `FakeTimeProvider` state assertions
 
@@ -208,7 +209,28 @@ await Assert.That(asyncOp)
 TestContext.Current.OutputWriter.WriteLine($"asyncOp took {elapsed.TotalMilliseconds:F1}ms");
 ```
 
-The capture callback runs on **every** evaluation path, so failed-budget tests can still surface the observed timing in their failure diagnostic before the budget-overrun `AssertionException` propagates. If the source itself threw, the callback receives the partial elapsed reported by TUnit's `EvaluationMetadata<T>.Duration`.
+The capture callback runs on **every** evaluation path EXCEPT external cancellation (since v0.5.0), so failed-budget tests can still surface the observed timing in their failure diagnostic before the budget-overrun `AssertionException` propagates. If the source itself threw a non-`OperationCanceledException`, the callback receives the partial elapsed reported by TUnit's `EvaluationMetadata<T>.Duration`. When the source threw `OperationCanceledException` (parent `[Timeout]`, test-class CT, runner cancel), the assertion propagates the OCE to the test runner and the capture callback is deliberately not invoked: a partial elapsed from a cancelled operation would mislead consumers about the operation's real cost.
+
+### Rate-limit assertions on invocation timestamps
+
+`WasInvokedAtMostOncePer(TimeSpan interval)` asserts that consecutive timestamps in a recorded invocation log maintain at least the specified minimum interval. The classic use case is a periodic-probe contract: "the failure handler must fire at most once per 30 seconds; subsequent failures inside that window are suppressed".
+
+| Entry point | Behaviour |
+|---|---|
+| `WasInvokedAtMostOncePer(this IReadOnlyList<DateTimeOffset> timestamps, TimeSpan interval)` | Asserts every consecutive pair `(timestamps[i-1], timestamps[i])` is at least `interval` apart. The first violating pair fails the assertion with a message naming the violating index, observed gap, and required minimum. Empty / single-element sequences pass trivially; the boundary case `gap == interval` passes (minimum is inclusive). |
+
+```csharp
+// Production code records invocation timestamps somewhere observable; the test
+// extracts the timestamp list from that recording and asserts the rate-limit.
+List<DateTimeOffset> failureLogs = collector.Collected
+    .Where(r => r.Message.Contains("PingFailed", StringComparison.Ordinal))
+    .Select(r => r.Timestamp)
+    .ToList();
+
+await Assert.That(failureLogs).WasInvokedAtMostOncePer(TimeSpan.FromSeconds(30));
+```
+
+The receiver is the recorded log itself, NOT the action being invoked: the consumer's production code calls the rate-limited operation, the test records each invocation's timestamp, and the assertion examines the recording. Caller is responsible for chronological order; the assertion preserves input order verbatim.
 
 ---
 
@@ -367,6 +389,22 @@ await Assert.That(() => observable.ActiveTimerCount)
                 pollingInterval: TimeSpan.FromMilliseconds(25));
 ```
 
+Since TUnit 1.45.0, both `Eventually` and its alias `WaitsFor` accept a trailing `CancellationToken`. Plumb the test's own token so that an external cancel (parent `[Timeout]`, test-class CT, runner cancel) aborts the polling loop instead of waiting for the configured timeout argument:
+
+```csharp
+[Test]
+public async Task Heartbeat_fires_before_parent_timeout(CancellationToken cancellationToken)
+{
+    fakeTime.Advance(TimeSpan.FromMinutes(2));
+    await Assert.That(() => collector.HasLogged("[Heartbeat]"))
+        .Eventually(a => a.IsTrue(),
+                    timeout: TimeSpan.FromSeconds(10),
+                    cancellationToken: cancellationToken);
+}
+```
+
+The CT short-circuits the polling loop on external cancellation; the timeout argument remains the upper bound for the no-cancel case. The `WithinTimeBudget` / `WithinTimeBudgetCapturing` chains in this package also propagate `OperationCanceledException` intact since v0.5.0, so a chain like `Eventually(...).And.WithinTimeBudget(...)` surfaces cancellation as a cancelled test rather than an assertion failure.
+
 ### Pinning the moment-graph of a multi-event sequence
 
 When a test produces a sequence of named events at known fake-time moments, snapshot the whole graph rather than asserting on each event individually. `TimelineRenderer` produces a deterministic byte-stable string from a list of `(Timestamp, Label)` pairs; pair it with `MatchesSnapshot()` from `SnapshotAssertions.TUnit` to pin the graph against a committed baseline.
@@ -410,6 +448,54 @@ await Assert.That(httpClient.GetAsync("/health"))
 // Surface the measured latency in test output, even when the assertion passes.
 TestContext.Current.OutputWriter.WriteLine($"GET /health: {elapsed.TotalMilliseconds:F1}ms");
 ```
+
+### Verifying a periodic-probe suppression window
+
+A common production pattern: a background component periodically probes some external resource (HTTP health endpoint, message broker, database connectivity). When the probe fails, the first failure is logged; subsequent failures inside a suppression window are deliberately silenced so a sustained outage does not flood the log. The contract to verify is "the failure handler logs at most once per `<window>` seconds".
+
+`WasInvokedAtMostOncePer` asserts the consecutive-pair gap against a minimum interval. Extract the failure timestamps from whatever recording mechanism the test uses (a `FakeLogCollector`, a captured event probe, a list populated in a wrapped callback) and assert against the recording.
+
+```csharp
+[Test]
+public async Task PingHandler_suppresses_repeated_failures_within_30s_window(CancellationToken ct)
+{
+    var fakeTime = new FakeTimeProvider();
+    var collector = new FakeLogCollector();
+    var handler = new PingHandler(fakeTime, collector.GetLogger<PingHandler>());
+
+    // Simulate ten consecutive ping failures spaced 5s apart of fake time.
+    for (var i = 0; i < 10; i++)
+    {
+        await handler.HandleFailureAsync(ct);
+        fakeTime.Advance(TimeSpan.FromSeconds(5));
+    }
+
+    // Production code logs every failure as "[PingFailed]" but suppresses the second-and-later
+    // occurrence within any 30-second window. After ten failures spaced 5s apart, we expect at
+    // most one log entry per 30-second window: two failures total (at t=0 and t=30).
+    var failureTimestamps = collector.Collected
+        .Where(r => r.Message.Contains("[PingFailed]", StringComparison.Ordinal))
+        .Select(r => r.Timestamp)
+        .ToList();
+
+    await Assert.That(failureTimestamps).WasInvokedAtMostOncePer(TimeSpan.FromSeconds(30));
+}
+```
+
+The assertion preserves input order. If the underlying mechanism does not guarantee chronological order (rare; log collectors usually do), sort before asserting. The failure message names the first violating index, the observed gap, and the required minimum so a regression in the suppression-window code path is immediately legible:
+
+```text
+Expected:
+  to have at most one invocation per 30s
+
+Actual:
+  interval violation at index 4: gap was 5.0s (minimum 30s)
+    timestamps[3]: 2026-01-01T00:00:15.000+00:00
+    timestamps[4]: 2026-01-01T00:00:20.000+00:00
+    (gap=5000ms, minimum=30000ms)
+```
+
+`WasInvokedAtMostOncePer` is added in v0.5.0; consumers on earlier versions can hand-roll the equivalent gap check inline.
 
 ### Accommodating first-fixture cold-start
 
@@ -512,7 +598,7 @@ The 1.0 milestone signals API stability: see [Limitations and future work](#limi
 ### Deferred items
 
 - **`Stopwatch.GetTimestamp()`-based monotonic-clock variant** of `WithinTimeBudget`: candidate if benchmark-class precision is needed. Today, `WithinTimeBudget` uses TUnit's `EvaluationMetadata<T>.Duration` (`DateTimeOffset.Now`-based); system-clock jumps during a test method are vanishingly rare.
-- **`HasActiveTimers`**: filed upstream as [dotnet/extensions#7515](https://github.com/dotnet/extensions/issues/7515). `FakeTimeProvider.ActiveTimers` isn't part of the public `Microsoft.Extensions.Time.Testing` API surface yet; can't be observed without reflection. If Microsoft exposes it later, we add the assertion in a follow-up.
+- **`HasActiveTimers`** (tracked upstream): filed as [dotnet/extensions#7515](https://github.com/dotnet/extensions/issues/7515) (`[API Proposal] FakeTimeProvider: expose active-timer snapshot for testability`). `FakeTimeProvider.ActiveTimers` is not part of the public `Microsoft.Extensions.Time.Testing` API surface today, so the assertion cannot be implemented without runtime reflection, which the family forbids (see [CONVENTIONS.md no-reflection policy](CONVENTIONS.md#no-reflection-policy)). The shape is already settled (a boolean predicate plus an exact-count chain, mirroring `HasAdvancedExactly` / `HasAdvancedApproximately`); the assertion ships the day upstream lands. Consumers who need the check today can wrap `FakeTimeProvider` in a small `ObservableTimeProvider` that records timer creation via the timer factory hook and assert directly against that wrapper.
 
 ## Family compatibility
 

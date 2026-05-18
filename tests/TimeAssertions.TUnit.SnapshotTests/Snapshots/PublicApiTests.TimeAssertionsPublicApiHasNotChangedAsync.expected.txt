@@ -21,5 +21,6 @@ namespace TimeAssertions
     {
         public static string FormatBudgetOverrun(System.TimeSpan elapsed, System.TimeSpan budget) { }
         public static string FormatDuration(System.TimeSpan duration) { }
+        public static string FormatRateLimitViolation(System.Collections.Generic.IReadOnlyList<System.DateTimeOffset> timestamps, int violatingIndex, System.TimeSpan gap, System.TimeSpan interval) { }
     }
 }

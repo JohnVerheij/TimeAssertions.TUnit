@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using TimeAssertions;
 using TUnit.Assertions.Attributes;
@@ -18,6 +19,16 @@ namespace TimeAssertions.TUnit;
 /// <para>The capture callback runs even when the budget is exceeded, so a test can still
 /// surface the observed duration in its failure diagnostic before the budget-overrun
 /// assertion exception propagates.</para>
+/// <para>
+/// <b>External cancellation propagates intact AND skips the capture callback.</b> When the
+/// wrapped operation's <see cref="System.Threading.CancellationToken"/> cancels, the
+/// <see cref="OperationCanceledException"/> is re-thrown via
+/// <see cref="ExceptionDispatchInfo"/> so the test is recorded as cancelled, not failed.
+/// The capture callback is NOT invoked on cancellation: a partial elapsed time from a
+/// cancelled operation would mislead consumers since the operation did not complete
+/// normally. Non-OCE source exceptions still invoke the capture (the elapsed duration is
+/// meaningful in that case).
+/// </para>
 /// <para>Composes via <c>.And</c> like the non-capturing variant:</para>
 /// <code>
 /// var elapsed = TimeSpan.Zero;
@@ -57,11 +68,23 @@ public sealed class WithinTimeBudgetCapturingAssertion<T> : Assertion<T>
     /// <inheritdoc/>
     protected override Task<AssertionResult> CheckAsync(EvaluationMetadata<T> metadata)
     {
+        // External cancellation (parent [Timeout], test-class CT, runner cancel) reaches
+        // this assertion via metadata.Exception. We don't own a CancellationTokenSource here:
+        // any OperationCanceledException came from outside, not from an internal timeout, so
+        // re-throw it to the test runner so the test is recorded as cancelled rather than
+        // assertion-failed. The capture callback is NOT invoked: a partial elapsed from a
+        // cancelled operation would mislead consumers about the operation's real cost.
+        // ExceptionDispatchInfo preserves the original stack trace.
+        if (metadata.Exception is OperationCanceledException oce)
+        {
+            ExceptionDispatchInfo.Capture(oce).Throw();
+        }
+
         if (metadata.Exception is not null)
         {
-            // Source threw: capture is still invoked with the partial elapsed (TUnit reports
-            // metadata.Duration for thrown evaluators too) so consumers see consistent capture
-            // semantics regardless of pass / fail / throw.
+            // Source threw a non-OCE exception: capture is still invoked with the partial
+            // elapsed (TUnit reports metadata.Duration for thrown evaluators too) so consumers
+            // see consistent capture semantics regardless of pass / fail / throw.
             _capture(metadata.Duration);
             return Task.FromResult(AssertionResult.Failed(
                 $"threw {metadata.Exception.GetType().Name}: {metadata.Exception.Message}",

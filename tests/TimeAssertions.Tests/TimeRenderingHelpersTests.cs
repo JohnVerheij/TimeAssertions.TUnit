@@ -151,4 +151,60 @@ internal sealed class TimeRenderingHelpersTests
                 System.Globalization.CultureInfo.InvariantCulture,
                 $"(elapsed={elapsedMs}ms, budget={budgetMs}ms, overrun={expectedOverrunMs}ms)"));
     }
+
+    // ---- FormatRateLimitViolation (v0.5.0) ----
+
+    /// <summary>The headline line names the violating index, the observed gap, and the
+    /// minimum interval. Pins the user-visible prose without the grep-friendly trailer.</summary>
+    [Test]
+    public async Task FormatRateLimitViolation_HeadlineNamesIndexAndGap(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var epoch = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var timestamps = new[] { epoch, epoch + TimeSpan.FromSeconds(5) };
+
+        var formatted = TimeRenderingHelpers.FormatRateLimitViolation(
+            timestamps,
+            violatingIndex: 1,
+            gap: TimeSpan.FromSeconds(5),
+            interval: TimeSpan.FromSeconds(30));
+
+        await Assert.That(formatted).Contains("interval violation at index 1");
+        await Assert.That(formatted).Contains("gap was 5.0s");
+        await Assert.That(formatted).Contains("minimum 30");
+    }
+
+    /// <summary>The grep-friendly parenthetical carries `(gap=Xms, minimum=Yms)` in
+    /// fixed milliseconds for CI log scrapers, analogous to <c>FormatBudgetOverrun</c>'s
+    /// `(elapsed=, budget=, overrun=)` trailer.</summary>
+    [Test]
+    public async Task FormatRateLimitViolation_RendersGrepFriendlyParenthetical(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var epoch = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var timestamps = new[] { epoch, epoch + TimeSpan.FromMilliseconds(5_000) };
+
+        var formatted = TimeRenderingHelpers.FormatRateLimitViolation(
+            timestamps,
+            violatingIndex: 1,
+            gap: TimeSpan.FromMilliseconds(5_000),
+            interval: TimeSpan.FromMilliseconds(30_000));
+
+        await Assert.That(formatted).Contains("(gap=5000ms, minimum=30000ms)");
+    }
+
+    /// <summary>Argument validation: <see langword="null"/> timestamps list rejected
+    /// with <see cref="ArgumentNullException"/> rather than producing a confusing
+    /// downstream NRE.</summary>
+    [Test]
+    public async Task FormatRateLimitViolation_NullTimestamps_ThrowsArgumentNull(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await Assert.That(() => TimeRenderingHelpers.FormatRateLimitViolation(
+                timestamps: null!,
+                violatingIndex: 1,
+                gap: TimeSpan.FromSeconds(5),
+                interval: TimeSpan.FromSeconds(30)))
+            .Throws<ArgumentNullException>();
+    }
 }
