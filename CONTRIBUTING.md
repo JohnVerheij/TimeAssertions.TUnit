@@ -33,23 +33,6 @@ For larger ideas (new entry points, breaking changes, cross-cutting refactors), 
 - **String comparison:** explicit `StringComparison.Ordinal` (or `OrdinalIgnoreCase` where appropriate). Meziantou.Analyzer enforces this via MA0006.
 - **No reflection:** the package does not use runtime reflection. Adding any usage of `MethodBase.Invoke`, `PropertyInfo.GetValue/SetValue`, `Activator.CreateInstance(Type)`, or `Type.GetMethod`/`Type.GetProperty` requires explicit justification in PR review.
 
-## Editing the README, bug-report form, or smoke-test csproj
-
-These four files are generated from `*.template.*` siblings via the `SyncVersionRefs` MSBuild target so the TUnit version literal stays in lockstep with `Directory.Packages.props`:
-
-- `README.md` ← `README.template.md`
-- `src/TimeAssertions.TUnit/README.md` ← `src/TimeAssertions.TUnit/README.template.md`
-- `.github/ISSUE_TEMPLATE/bug_report.yml` ← `.github/ISSUE_TEMPLATE/bug_report.template.yml`
-- `tests/TimeAssertions.TUnit.SmokeTest/TimeAssertions.TUnit.SmokeTest.csproj` ← `...csproj.template`
-
-Edit the `*.template.*` file (it carries the `{{TUnitVersion}}` placeholder), then regenerate the flat output:
-
-```bash
-dotnet build TimeAssertions.TUnit.slnx -t:SyncVersionRefs
-```
-
-Commit both the template and the regenerated flat file. The `sync-version-refs` CI workflow fails the PR if they drift; on Dependabot PRs it auto-commits the regeneration so a TUnit bump lands with docs already in lockstep.
-
 ## Tests
 
 - Tests live in `tests/TimeAssertions.TUnit.Tests/` (main behavior), `tests/TimeAssertions.Tests/` (framework-agnostic core, no TUnit reference), `tests/TimeAssertions.TUnit.SnapshotTests/` (public API surface pin via `MatchesSnapshot()`), and `tests/TimeAssertions.TUnit.SmokeTest/` (external-consumer smoke + AOT-publish gate against the locally-packed nupkg).

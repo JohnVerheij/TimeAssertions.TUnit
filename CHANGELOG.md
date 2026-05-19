@@ -9,18 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Infra: introduced a template-based version-ref sync pipeline so the TUnit package version
-  is sourced from `Directory.Packages.props` and rendered into the four flat files that
-  carry the literal (`README.md`, `src/TimeAssertions.TUnit/README.md`,
-  `.github/ISSUE_TEMPLATE/bug_report.yml`, and
-  `tests/TimeAssertions.TUnit.SmokeTest/TimeAssertions.TUnit.SmokeTest.csproj`). The
-  rendered files are committed alongside their `*.template.*` sources; a new
-  `SyncVersionRefs` MSBuild target in `Directory.Build.targets` regenerates them via
-  `dotnet build TimeAssertions.TUnit.slnx -t:SyncVersionRefs`, and the
-  `sync-version-refs` GitHub Actions workflow runs the same target on every PR. The
-  workflow auto-commits the regeneration onto Dependabot PRs (so a TUnit dependency
-  bump lands with docs already in lockstep) and fails the build on human PRs whose
-  rendered files have drifted from their templates. No effect on shipped packages.
+- Adopted `Renovate` (`.github/renovate.json`) for dependency updates and version-literal sync in place of the prior `Dependabot` + `SyncVersionRefs` MSBuild pipeline. `Renovate` bumps `Directory.Packages.props` and the four files that carry the TUnit version literal (`README.md`, `src/TimeAssertions.TUnit/README.md`, `.github/ISSUE_TEMPLATE/bug_report.yml`, and `tests/TimeAssertions.TUnit.SmokeTest/TimeAssertions.TUnit.SmokeTest.csproj`) in a single PR via `customManagers`. Patch- and minor-bump auto-merge is preserved through Renovate's `platformAutomerge: true` once CI passes; major bumps stay manual. No effect on shipped packages.
+
+### Removed
+
+- `.github/workflows/sync-version-refs.yml` and the `SyncVersionRefs` MSBuild target in `Directory.Build.targets`. The template/render duplication (the `*.template.*` siblings of the four version-bearing files) is replaced by the `Renovate` `customManagers` regex described above; the rendered files are now the only files.
+- `.github/dependabot.yml` and `.github/workflows/dependabot-auto-merge.yml`. `Renovate` covers the same NuGet and GitHub Actions ecosystems; running both would produce duplicate PRs.
+
+### Fixed
+
+- `README.md`: the table-of-contents entry for the cookbook section now points to `#cookbook-common-patterns`. GitHub's slugger drops the colon from `Cookbook: common patterns` to produce a single-hyphen anchor; the previous `#cookbook--common-patterns` was a broken link.
+- `README.md`: the "Since TUnit X.Y.Z" reference in the cookbook section that documents the upstream `Eventually` / `WaitsFor` `CancellationToken` overload now correctly cites `1.45.0` (the version that shipped the feature) rather than `1.45.8` (the package's current TUnit pin at the time the section was written; the prior `SyncVersionRefs` target was substituting the current version into a historical reference).
+
+### Security
+
+- Closed an arbitrary-code-execution vector in the now-removed `sync-version-refs` workflow. The workflow ran under `pull_request_target` with `contents: write` and executed `dotnet restore` / `dotnet build` against the PR head, which would have allowed any non-Dependabot PR author to execute code with a write-scoped repository token (via custom MSBuild tasks, `.targets` files, or analyzers in the PR). The workflow shipped only in this unreleased line and the vulnerability does not affect any released package.
 
 ## [0.5.0] - 2026-05-19: rate-limit assertion, OCE propagation, TUnit 1.45.8
 
