@@ -51,9 +51,9 @@ A **coordinated disclosure** (public CVE filing + advisory + patched release) is
 
 | Version line | Status | Receives security fixes |
 |---|---|---|
-| `0.3.x` (TimeAssertions.TUnit) | **Current** | ✅ Yes |
-| `0.2.x` | Previous stable | ✅ Yes (security fixes only; no new features) |
-| `< 0.2.0` | Pre-stable | ❌ No |
+| `0.5.x` (TimeAssertions.TUnit) | **Current** | ✅ Yes |
+| `0.4.x` | Previous stable | ✅ Yes (security fixes only; no new features) |
+| `< 0.4.0` | Pre-stable | ❌ No |
 
 This table is updated alongside each release that bumps the current line. Coverage of older lines for security-only fixes follows the [.NET LTS / STS rotation](CONVENTIONS.md#tfm-policy): when the package's TFM changes at a major-version boundary, security fixes for the previous line continue to ship for one minor cycle.
 
@@ -87,7 +87,7 @@ To set expectations correctly:
 
 Every release shipped to nuget.org and GitHub Releases carries cryptographic supply-chain attestations stored in GitHub's public transparency log. A security-conscious consumer can verify the chain end-to-end before adopting:
 
-Replace `<package>` (one of `TimeAssertions` or `TimeAssertions.TUnit`) and `<version>` (e.g. `0.3.0`) with the artifact you downloaded:
+Replace `<package>` (one of `TimeAssertions` or `TimeAssertions.TUnit`) and `<version>` (e.g. `0.5.0`) with the artifact you downloaded:
 
 ```bash
 # Verify SLSA v1.0 build provenance: was this nupkg built from this audited source tree?
@@ -103,9 +103,9 @@ Both attestations are signed via [Sigstore](https://www.sigstore.dev/) keyless s
 | Layer | Mechanism | Format / standard |
 |---|---|---|
 | Source code to build environment | GitHub Actions workflow with pinned action SHAs | (n/a) |
-| Build to nupkg artifact | `actions/attest-build-provenance@v2` | [SLSA v1.0 Provenance](https://slsa.dev/spec/v1.0/provenance) |
+| Build to nupkg artifact | `actions/attest-build-provenance@v4.1.0` | [SLSA v1.0 Provenance](https://slsa.dev/spec/v1.0/provenance) |
 | Build to SBOM (in-package) | `Microsoft.Sbom.Targets` at pack time | SPDX 3.0 (in `_manifest/spdx_3.0/`) |
-| Build to SBOM (sibling) | CycloneDX dotnet tool + `actions/attest@v4` | CycloneDX 1.6 + Sigstore signature |
+| Build to SBOM (sibling) | CycloneDX dotnet tool + `actions/attest@v4.1.0` | CycloneDX 1.6 + Sigstore signature |
 | Build to vulnerability disclosure | VEX (Vulnerability Exploitability eXchange) | [OpenVEX v0.2.0](https://github.com/openvex/spec) sibling release artifact |
 | Artifact to nuget.org | NuGet OIDC Trusted Publishing | (n/a) |
 | Git commits + tags | SSH-signed | (n/a) |

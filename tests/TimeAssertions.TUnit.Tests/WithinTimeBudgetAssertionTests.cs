@@ -246,4 +246,81 @@ internal sealed class WithinTimeBudgetAssertionTests
         cancellationToken.ThrowIfCancellationRequested();
         throw new InvalidOperationException("source threw");
     }
+
+    // ---- External cancellation tests (v0.5.0 OCE propagation) ----
+
+    /// <summary>External CT cancellation during a slow source surfaces as a plain
+    /// <see cref="OperationCanceledException"/>, NOT wrapped as
+    /// <see cref="AssertionException"/>. The test runner records the test as cancelled,
+    /// which is the correct outcome when a parent <c>[Timeout]</c> or test-class cancel
+    /// fires mid-operation.</summary>
+    [Test]
+    public async Task ExternalCancellation_PropagatesOperationCanceledException(CancellationToken cancellationToken)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(TimeSpan.FromMilliseconds(50));
+
+        await Assert.That(async () =>
+        {
+            await Assert.That(SlowSourceAsync(TimeSpan.FromSeconds(5), cts.Token))
+                .WithinTimeBudget<int>(TimeSpan.FromSeconds(10));
+        }).Throws<OperationCanceledException>();
+    }
+
+    /// <summary>Pre-cancelled CT: the source's first await throws
+    /// <see cref="OperationCanceledException"/>; the assertion propagates the OCE without
+    /// wrapping. Confirms the OCE-special-case fires before the generic exception-wrapping
+    /// branch.</summary>
+    [Test]
+    public async Task PreCancelledToken_PropagatesOperationCanceledException(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.That(async () =>
+        {
+            await Assert.That(SlowSourceAsync(TimeSpan.FromMilliseconds(100), cts.Token))
+                .WithinTimeBudget<int>(TimeSpan.FromSeconds(5));
+        }).Throws<OperationCanceledException>();
+    }
+
+    /// <summary>Capturing variant under external cancellation: the OCE propagates AND the
+    /// capture callback is NOT invoked. A partial elapsed from a cancelled operation would
+    /// mislead consumers about the operation's real cost, so the capture is deliberately
+    /// suppressed on cancellation.</summary>
+    [Test]
+    public async Task Capturing_ExternalCancellation_DoesNotInvokeCaptureAndPropagatesOce(CancellationToken cancellationToken)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(TimeSpan.FromMilliseconds(50));
+        var captureInvoked = false;
+
+        await Assert.That(async () =>
+        {
+            await Assert.That(SlowSourceAsync(TimeSpan.FromSeconds(5), cts.Token))
+                .WithinTimeBudgetCapturing<int>(TimeSpan.FromSeconds(10), _ => captureInvoked = true);
+        }).Throws<OperationCanceledException>();
+
+        await Assert.That(captureInvoked).IsFalse();
+    }
+
+    /// <summary>Capturing variant with a pre-cancelled CT: the OCE propagates and the
+    /// capture is suppressed. Same contract as the in-flight cancellation case.</summary>
+    [Test]
+    public async Task Capturing_PreCancelledToken_DoesNotInvokeCaptureAndPropagatesOce(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+        var captureInvoked = false;
+
+        await Assert.That(async () =>
+        {
+            await Assert.That(SlowSourceAsync(TimeSpan.FromMilliseconds(100), cts.Token))
+                .WithinTimeBudgetCapturing<int>(TimeSpan.FromSeconds(5), _ => captureInvoked = true);
+        }).Throws<OperationCanceledException>();
+
+        await Assert.That(captureInvoked).IsFalse();
+    }
 }
