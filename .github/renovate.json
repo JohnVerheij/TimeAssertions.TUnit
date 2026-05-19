@@ -29,11 +29,11 @@
     {
       "customType": "regex",
       "description": "Keep TUnit version literals (README Requirements line, smoketest csproj PackageReference, bug-report Issue Form placeholder) in lockstep with the central TUnit package version. Renovate updates these in the same PR that bumps Directory.Packages.props.",
-      "fileMatch": [
-        "^README\\.md$",
-        "^src/TimeAssertions\\.TUnit/README\\.md$",
-        "^tests/TimeAssertions\\.TUnit\\.SmokeTest/TimeAssertions\\.TUnit\\.SmokeTest\\.csproj$",
-        "^\\.github/ISSUE_TEMPLATE/bug_report\\.yml$"
+      "managerFilePatterns": [
+        "/^README\\.md$/",
+        "/^src/TimeAssertions\\.TUnit/README\\.md$/",
+        "/^tests/TimeAssertions\\.TUnit\\.SmokeTest/TimeAssertions\\.TUnit\\.SmokeTest\\.csproj$/",
+        "/^\\.github/ISSUE_TEMPLATE/bug_report\\.yml$/"
       ],
       "matchStrings": [
         "TUnit (?<currentValue>\\d+\\.\\d+\\.\\d+) or later",
