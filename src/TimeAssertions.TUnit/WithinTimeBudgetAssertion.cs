@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using TimeAssertions;
 using TUnit.Assertions.Attributes;
@@ -39,6 +40,15 @@ namespace TimeAssertions.TUnit;
 /// <c>LogAssertions.WithinTimeout</c>): <c>.WithinTimeBudget()</c> would let an unbounded
 /// poll run and only flag the overrun at the end.
 /// </para>
+/// <para>
+/// <b>External cancellation propagates intact.</b> When the wrapped operation's
+/// <see cref="System.Threading.CancellationToken"/> cancels (parent <c>[Timeout]</c>,
+/// test-class CT, runner cancel), the
+/// <see cref="OperationCanceledException"/> propagates through this assertion to the
+/// test runner via <see cref="ExceptionDispatchInfo"/> without being wrapped as an
+/// assertion failure. The test is recorded as cancelled, not failed. Non-OCE source
+/// exceptions continue to surface as <see cref="AssertionResult.Failed(string)"/>.
+/// </para>
 /// </remarks>
 [AssertionExtension("WithinTimeBudget")]
 public sealed class WithinTimeBudgetAssertion<T> : Assertion<T>
@@ -64,9 +74,19 @@ public sealed class WithinTimeBudgetAssertion<T> : Assertion<T>
     /// <inheritdoc/>
     protected override Task<AssertionResult> CheckAsync(EvaluationMetadata<T> metadata)
     {
-        // If the source threw, surface the exception via AssertionResult.Failed so TUnit's
-        // normal pipeline re-raises it as AssertionException with full context. Mirrors the
-        // pattern used by TUnit's own CompletesWithin assertions and our sibling
+        // External cancellation (parent [Timeout], test-class CT, runner cancel) reaches
+        // this assertion via metadata.Exception. We don't own a CancellationTokenSource here:
+        // any OperationCanceledException came from outside, not from an internal timeout, so
+        // re-throw it to the test runner so the test is recorded as cancelled rather than
+        // assertion-failed. ExceptionDispatchInfo preserves the original stack trace.
+        if (metadata.Exception is OperationCanceledException oce)
+        {
+            ExceptionDispatchInfo.Capture(oce).Throw();
+        }
+
+        // If the source threw any other exception, surface it via AssertionResult.Failed so
+        // TUnit's normal pipeline re-raises it as AssertionException with full context.
+        // Mirrors the pattern used by TUnit's own CompletesWithin assertions and our sibling
         // SnapshotAssertion: timing surface is additive, but a thrown source is the dominant
         // failure mode and should not be masked.
         if (metadata.Exception is not null)
