@@ -3,7 +3,7 @@
   "extends": [
     "config:recommended",
     ":timezone(Europe/Amsterdam)",
-    "schedule:earlyMondays",
+    "schedule:earlyMornings",
     ":semanticCommits"
   ],
   "labels": ["dependencies"],
