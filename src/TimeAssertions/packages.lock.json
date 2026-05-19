@@ -10,9 +10,9 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.86, )",
-        "resolved": "3.0.86",
-        "contentHash": "VEtSWk6HbnVpHlSOjiHj/T2B0BFs8biYZ04dEHd4Rxq7bG82Q0hmakXybgInazy8joknKom6OIx9UZnmZ/eWFw=="
+        "requested": "[3.0.88, )",
+        "resolved": "3.0.88",
+        "contentHash": "sJhIw0tXVGnsAp5Iwv/BOvlQvAZSbRGQm/gSaJLTYLYGa9wbrtP+iUNkK3kKQ+xw8q3AtyGpBKlj2Cfh7zqrkA=="
       },
       "Microsoft.CodeAnalysis.BannedApiAnalyzers": {
         "type": "Direct",
