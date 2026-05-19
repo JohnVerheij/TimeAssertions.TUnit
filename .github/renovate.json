@@ -16,6 +16,12 @@
       "semanticCommitScope": "nuget"
     },
     {
+      "description": "Override for `dotnet-sdk` (tracked via global.json). Renovate's nuget manager surfaces it, but it is the SDK itself, not a NuGet package; tag it as a CI/tooling concern with its own scope so PR titles read `ci(dotnet-sdk): ...`.",
+      "matchPackageNames": ["dotnet-sdk"],
+      "semanticCommitType": "ci",
+      "semanticCommitScope": "dotnet-sdk"
+    },
+    {
       "description": "Mirror the prior Dependabot commit convention: `ci(github-actions): ...` for workflow action bumps.",
       "matchManagers": ["github-actions"],
       "semanticCommitType": "ci",
