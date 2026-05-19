@@ -10,12 +10,16 @@
   "dependencyDashboard": true,
   "packageRules": [
     {
+      "description": "Mirror the prior Dependabot commit convention: `deps(nuget): ...` for NuGet bumps and the TUnit version-literal sync via customManagers (both resolve to the nuget datasource).",
       "matchManagers": ["nuget", "custom.regex"],
-      "semanticCommitType": "deps"
+      "semanticCommitType": "deps",
+      "semanticCommitScope": "nuget"
     },
     {
+      "description": "Mirror the prior Dependabot commit convention: `ci(github-actions): ...` for workflow action bumps.",
       "matchManagers": ["github-actions"],
-      "semanticCommitType": "ci"
+      "semanticCommitType": "ci",
+      "semanticCommitScope": "github-actions"
     },
     {
       "description": "Auto-merge patch and minor bumps once CI passes (requires 'Allow auto-merge' to be enabled on the repo). Major bumps stay manual.",
