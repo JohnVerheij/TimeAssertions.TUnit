@@ -105,10 +105,9 @@ internal sealed class RateLimitAssertionsTests
         await Assert.That(exception!.Message).Contains("interval violation at index 1");
     }
 
-    /// <summary>Zero interval: any strictly-ascending sequence passes (every gap is at
-    /// least zero). Duplicate-timestamp pairs would fail because their gap is zero, which
-    /// is not strictly less than zero but the check is <c>gap &lt; interval</c> so
-    /// <c>gap == 0</c> with <c>interval == 0</c> is inclusive-pass.</summary>
+    /// <summary>Zero interval: any non-decreasing sequence passes. The check is
+    /// <c>gap &lt; interval</c>; with <c>interval == 0</c> every non-negative gap is
+    /// inclusive-pass.</summary>
     [Test]
     public async Task ZeroInterval_StrictlyAscending_Passes(CancellationToken cancellationToken)
     {
@@ -120,6 +119,38 @@ internal sealed class RateLimitAssertionsTests
             Epoch + TimeSpan.FromMilliseconds(2),
         };
         await Assert.That(timestamps).WasInvokedAtMostOncePer(TimeSpan.Zero);
+    }
+
+    /// <summary>Zero interval, duplicate-timestamp pairs: passes. Pins the documented
+    /// degenerate semantics: at <c>interval == TimeSpan.Zero</c> the check is
+    /// <c>gap &lt; 0</c>, so a zero gap is inclusive-pass. A regression that flipped
+    /// the predicate to <c>gap &lt;= interval</c> would fail this case.</summary>
+    [Test]
+    public async Task ZeroInterval_DuplicateTimestamps_Passes(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        IReadOnlyList<DateTimeOffset> timestamps = new[] { Epoch, Epoch, Epoch };
+        await Assert.That(timestamps).WasInvokedAtMostOncePer(TimeSpan.Zero);
+    }
+
+    /// <summary>Zero interval, strictly-descending pair (negative gap): fails. Even at
+    /// <c>interval == TimeSpan.Zero</c> the check is <c>gap &lt; 0</c>, so an
+    /// out-of-order pair is reported with the violating index.</summary>
+    [Test]
+    public async Task ZeroInterval_OutOfOrder_Fails(CancellationToken cancellationToken)
+    {
+        IReadOnlyList<DateTimeOffset> timestamps = new[]
+        {
+            Epoch + TimeSpan.FromSeconds(1),
+            Epoch,
+        };
+
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(timestamps).WasInvokedAtMostOncePer(TimeSpan.Zero);
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains("interval violation at index 1");
     }
 
     /// <summary>Argument validation: negative interval rejected with

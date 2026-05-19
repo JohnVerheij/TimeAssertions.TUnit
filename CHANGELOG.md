@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.5.0] - 2026-05-18: rate-limit assertion, OCE propagation, TUnit 1.45.0
+## [0.5.0] - 2026-05-19: rate-limit assertion, OCE propagation, TUnit 1.45.8
 
-Minor release that adds the first rate-limit assertion (`WasInvokedAtMostOncePer`) to the package, fixes a latent cancellation-handling behaviour in `WithinTimeBudget` / `WithinTimeBudgetCapturing` (external `OperationCanceledException` was wrapped as an assertion failure rather than propagated), and bumps the TUnit dependency to 1.45.0.
+Minor release that adds the first rate-limit assertion (`WasInvokedAtMostOncePer`) to the package, fixes a latent cancellation-handling behaviour in `WithinTimeBudget` / `WithinTimeBudgetCapturing` (external `OperationCanceledException` was wrapped as an assertion failure rather than propagated), and bumps the TUnit dependency to 1.45.8.
 
 ### Added
 
@@ -19,7 +19,7 @@ Minor release that adds the first rate-limit assertion (`WasInvokedAtMostOncePer
 ### Changed
 
 - **BREAKING:** **`WithinTimeBudgetAssertion<T>` and `WithinTimeBudgetCapturingAssertion<T>`** now propagate external `OperationCanceledException` instead of wrapping it as an assertion failure. When a parent `[Timeout]` fires or the test runner cancels, the wrapped operation's `OperationCanceledException` flows through the assertion via `ExceptionDispatchInfo.Capture(...).Throw()` so the test is recorded as cancelled, not failed. The capturing variant additionally skips invoking the capture callback on cancellation: a partial elapsed from a cancelled operation would mislead consumers about the operation's real cost. Non-`OperationCanceledException` source exceptions continue to surface as `AssertionResult.Failed` exactly as before. Consumer tests that asserted `Throws<AssertionException>` against a cancelled `WithinTimeBudget` chain must update to expect `Throws<OperationCanceledException>` (or rely on the test runner's native cancellation reporting).
-- **TUnit dependency bumped `1.44.0` -> `1.45.0`** (and the external-consumer smoke-test pin). 1.45.0 adds `CancellationToken` overloads to upstream `Eventually` / `WaitsFor`; the cookbook section "Waiting for an asynchronous effect after `Advance(...)`" documents the CT-bearing variant. The packed `README.md` requirement line bumps to "TUnit 1.45.0 or later" accordingly.
+- **TUnit dependency bumped `1.44.0` -> `1.45.8`** (and the external-consumer smoke-test pin). The 1.45 line adds `CancellationToken` overloads to upstream `Eventually` / `WaitsFor`; the cookbook section "Waiting for an asynchronous effect after `Advance(...)`" documents the CT-bearing variant. The packed `README.md` requirement line bumps to "TUnit 1.45.8 or later" accordingly.
 - `README.md`: added a fourth Entry-points subgroup "Rate-limit assertions on invocation timestamps" (with matching TOC anchor), plus updates to Package layout, Namespaces, and Install/Requirements that reference `WasInvokedAtMostOncePer()`.
 - `README.md`: added the cookbook section "Verifying a periodic-probe suppression window", pairing recorded log timestamps with `WasInvokedAtMostOncePer` for the ping-escalation pattern.
 - `README.md`: reframed the "Deferred items" entry for `HasActiveTimers` as "tracked upstream", explicit about the no-reflection rule and the consumer-side `ObservableTimeProvider` bridge workaround.

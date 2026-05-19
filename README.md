@@ -55,7 +55,7 @@ This library replaces both with a fluent DSL on top of Microsoft's recommended `
 dotnet add package TimeAssertions.TUnit
 ```
 
-**Requirements:** TUnit 1.45.0 or later, .NET 10. `TimeAssertions` (the framework-agnostic core) and `Microsoft.Extensions.TimeProvider.Testing` come transitively. The package is AOT-compatible, trimmable, and uses no runtime reflection in the assertion path.
+**Requirements:** TUnit 1.45.8 or later, .NET 10. `TimeAssertions` (the framework-agnostic core) and `Microsoft.Extensions.TimeProvider.Testing` come transitively. The package is AOT-compatible, trimmable, and uses no runtime reflection in the assertion path.
 
 ## Package layout
 
@@ -195,7 +195,7 @@ await Assert.That(collector)
 
 #### Capturing the elapsed time: `WithinTimeBudgetCapturing` (v0.2.0+)
 
-When you need the measured elapsed value (e.g. to log it, or to feed it into a follow-up assertion), use `WithinTimeBudgetCapturing(TimeSpan budget, Action<TimeSpan> capture)`. Same wall-clock-budget behaviour as `WithinTimeBudget`, plus an `Action<TimeSpan>` callback that always receives the measured elapsed: whether the budget passed, was exceeded, or the source threw.
+When you need the measured elapsed value (e.g. to log it, or to feed it into a follow-up assertion), use `WithinTimeBudgetCapturing(TimeSpan budget, Action<TimeSpan> capture)`. Same wall-clock-budget behaviour as `WithinTimeBudget`, plus an `Action<TimeSpan>` callback that receives the measured elapsed on every evaluation path EXCEPT external cancellation (since v0.5.0): whether the budget passed, was exceeded, or the source threw a non-`OperationCanceledException`. See the paragraph after the example for the cancellation contract.
 
 ```csharp
 var elapsed = TimeSpan.Zero;
@@ -389,7 +389,7 @@ await Assert.That(() => observable.ActiveTimerCount)
                 pollingInterval: TimeSpan.FromMilliseconds(25));
 ```
 
-Since TUnit 1.45.0, both `Eventually` and its alias `WaitsFor` accept a trailing `CancellationToken`. Plumb the test's own token so that an external cancel (parent `[Timeout]`, test-class CT, runner cancel) aborts the polling loop instead of waiting for the configured timeout argument:
+Since TUnit 1.45.8, both `Eventually` and its alias `WaitsFor` accept a trailing `CancellationToken`. Plumb the test's own token so that an external cancel (parent `[Timeout]`, test-class CT, runner cancel) aborts the polling loop instead of waiting for the configured timeout argument:
 
 ```csharp
 [Test]

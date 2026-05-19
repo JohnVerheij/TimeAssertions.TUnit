@@ -98,6 +98,11 @@ public static class TimeRenderingHelpers
     /// <see cref="CultureInfo.InvariantCulture"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="timestamps"/> is
     /// <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="violatingIndex"/>
+    /// is less than <c>1</c> or greater than or equal to
+    /// <c><paramref name="timestamps"/>.Count</c>: the pair
+    /// (<c>timestamps[violatingIndex - 1]</c>, <c>timestamps[violatingIndex]</c>)
+    /// must reference two in-range entries.</exception>
     public static string FormatRateLimitViolation(
         IReadOnlyList<DateTimeOffset> timestamps,
         int violatingIndex,
@@ -105,6 +110,8 @@ public static class TimeRenderingHelpers
         TimeSpan interval)
     {
         ArgumentNullException.ThrowIfNull(timestamps);
+        ArgumentOutOfRangeException.ThrowIfLessThan(violatingIndex, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(violatingIndex, timestamps.Count);
 
         var prior = timestamps[violatingIndex - 1];
         var current = timestamps[violatingIndex];

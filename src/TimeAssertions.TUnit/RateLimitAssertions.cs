@@ -35,10 +35,11 @@ public static class RateLimitAssertions
     /// </summary>
     /// <remarks>
     /// <para>The boundary case <c>gap == interval</c> passes (the minimum is
-    /// inclusive).</para>
-    /// <para>A value of <see cref="TimeSpan.Zero"/> for <paramref name="interval"/>
-    /// degenerates to "no two invocations may share the same instant" (any non-zero
-    /// gap is at least zero and therefore passes; zero-gap duplicates fail).</para>
+    /// inclusive). The violation predicate is <c>gap &lt; interval</c>, so any
+    /// non-decreasing sequence with <paramref name="interval"/> of
+    /// <see cref="TimeSpan.Zero"/> trivially passes (including duplicate-timestamp
+    /// pairs whose gap is exactly zero). Strictly out-of-order pairs (negative gap)
+    /// fail at any non-negative interval.</para>
     /// </remarks>
     /// <param name="timestamps">The recorded invocation timestamps in chronological
     /// order. The first violating pair is reported by index; reporting stops at the

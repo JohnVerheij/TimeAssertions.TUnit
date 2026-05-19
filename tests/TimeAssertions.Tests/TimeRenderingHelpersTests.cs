@@ -207,4 +207,42 @@ internal sealed class TimeRenderingHelpersTests
                 interval: TimeSpan.FromSeconds(30)))
             .Throws<ArgumentNullException>();
     }
+
+    /// <summary>Argument validation: a <c>violatingIndex</c> of <c>0</c> would name
+    /// a pair whose prior element is at index <c>-1</c>. Rejected with
+    /// <see cref="ArgumentOutOfRangeException"/> rather than producing a confusing
+    /// downstream <see cref="IndexOutOfRangeException"/>.</summary>
+    [Test]
+    public async Task FormatRateLimitViolation_ViolatingIndexZero_ThrowsArgumentOutOfRange(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var epoch = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var timestamps = new[] { epoch, epoch + TimeSpan.FromSeconds(5) };
+
+        await Assert.That(() => TimeRenderingHelpers.FormatRateLimitViolation(
+                timestamps,
+                violatingIndex: 0,
+                gap: TimeSpan.FromSeconds(5),
+                interval: TimeSpan.FromSeconds(30)))
+            .Throws<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>Argument validation: a <c>violatingIndex</c> equal to or beyond
+    /// <c>timestamps.Count</c> would index out of range. Rejected with
+    /// <see cref="ArgumentOutOfRangeException"/> rather than producing a confusing
+    /// downstream <see cref="IndexOutOfRangeException"/>.</summary>
+    [Test]
+    public async Task FormatRateLimitViolation_ViolatingIndexAtCount_ThrowsArgumentOutOfRange(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var epoch = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var timestamps = new[] { epoch, epoch + TimeSpan.FromSeconds(5) };
+
+        await Assert.That(() => TimeRenderingHelpers.FormatRateLimitViolation(
+                timestamps,
+                violatingIndex: 2,
+                gap: TimeSpan.FromSeconds(5),
+                interval: TimeSpan.FromSeconds(30)))
+            .Throws<ArgumentOutOfRangeException>();
+    }
 }
