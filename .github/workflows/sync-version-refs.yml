@@ -1,0 +1,86 @@
+name: sync-version-refs
+
+# Drift gate for the SyncVersionRefs MSBuild target.
+#
+# For Dependabot PRs: regenerates the rendered files from their templates against the bumped
+# package version, commits the regeneration into the PR branch via the standard GITHUB_TOKEN
+# (which does not retrigger workflow runs, so no loop), and exits clean. The existing
+# dependabot-auto-merge workflow then takes over on CI green.
+#
+# For human PRs: fails the workflow when the rendered files have drifted from their templates
+# so the author cannot land a template-only edit (rendered file would stay stale) or a
+# rendered-only edit (template would not capture the change). The fix is a single command:
+#
+#     dotnet build TimeAssertions.TUnit.slnx -t:SyncVersionRefs
+#
+# The workflow uses `pull_request_target` so it runs in the base branch's workflow context
+# (cannot be modified by an in-flight PR) and so the push back to the PR head branch has
+# write permissions. Fork PRs are out of scope: push would fail, but Dependabot operates
+# same-repo and human contributors push to feature branches in this repo.
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-version-refs-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    name: Sync version refs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
+        with:
+          dotnet-version: |
+            10.0.x
+
+      - name: Restore
+        run: dotnet restore TimeAssertions.TUnit.slnx
+
+      - name: Run SyncVersionRefs target
+        run: dotnet build TimeAssertions.TUnit.slnx -t:SyncVersionRefs --no-restore -p:RuntimeIdentifier=
+
+      - name: Detect drift
+        id: drift
+        run: |
+          if [[ -z "$(git status --porcelain)" ]]; then
+            echo "No drift detected."
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "drift=true" >> "$GITHUB_OUTPUT"
+          echo "--- git status ---"
+          git status
+          echo "--- git diff ---"
+          git diff
+
+      - name: Auto-commit regeneration on Dependabot PRs
+        if: steps.drift.outputs.drift == 'true' && github.actor == 'dependabot[bot]'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: regenerate version refs after dependency bump"
+          git push
+
+      - name: Fail on drift for non-Dependabot PRs
+        if: steps.drift.outputs.drift == 'true' && github.actor != 'dependabot[bot]'
+        run: |
+          echo "::error::Version-ref drift detected. Run 'dotnet build TimeAssertions.TUnit.slnx -t:SyncVersionRefs' locally and commit the regenerated files."
+          exit 1

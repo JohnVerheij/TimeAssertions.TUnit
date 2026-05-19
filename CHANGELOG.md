@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Infra: introduced a template-based version-ref sync pipeline so the TUnit package version
+  is sourced from `Directory.Packages.props` and rendered into the four flat files that
+  carry the literal (`README.md`, `src/TimeAssertions.TUnit/README.md`,
+  `.github/ISSUE_TEMPLATE/bug_report.yml`, and
+  `tests/TimeAssertions.TUnit.SmokeTest/TimeAssertions.TUnit.SmokeTest.csproj`). The
+  rendered files are committed alongside their `*.template.*` sources; a new
+  `SyncVersionRefs` MSBuild target in `Directory.Build.targets` regenerates them via
+  `dotnet build TimeAssertions.TUnit.slnx -t:SyncVersionRefs`, and the
+  `sync-version-refs` GitHub Actions workflow runs the same target on every PR. The
+  workflow auto-commits the regeneration onto Dependabot PRs (so a TUnit dependency
+  bump lands with docs already in lockstep) and fails the build on human PRs whose
+  rendered files have drifted from their templates. No effect on shipped packages.
+
 ## [0.5.0] - 2026-05-19: rate-limit assertion, OCE propagation, TUnit 1.45.8
 
 Minor release that adds the first rate-limit assertion (`WasInvokedAtMostOncePer`) to the package, fixes a latent cancellation-handling behaviour in `WithinTimeBudget` / `WithinTimeBudgetCapturing` (external `OperationCanceledException` was wrapped as an assertion failure rather than propagated), and bumps the TUnit dependency to 1.45.8.
