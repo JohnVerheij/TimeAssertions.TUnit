@@ -28,7 +28,7 @@ A TUnit-native fluent time-assertion DSL on top of `Microsoft.Extensions.Time.Te
   - [Cross-cutting timing budget](#cross-cutting-timing-budget)
   - [Rate-limit assertions on invocation timestamps](#rate-limit-assertions-on-invocation-timestamps)
 - [Failure diagnostics](#failure-diagnostics)
-- [Cookbook: common patterns](#cookbook--common-patterns)
+- [Cookbook: common patterns](#cookbook-common-patterns)
 - [Modern .NET 10+ practices on display](#modern-net-10-practices-on-display)
 - [Design notes](#design-notes)
 - [Stability intent (pre-1.0)](#stability-intent-pre-10)
@@ -389,7 +389,7 @@ await Assert.That(() => observable.ActiveTimerCount)
                 pollingInterval: TimeSpan.FromMilliseconds(25));
 ```
 
-Since TUnit 1.45.8, both `Eventually` and its alias `WaitsFor` accept a trailing `CancellationToken`. Plumb the test's own token so that an external cancel (parent `[Timeout]`, test-class CT, runner cancel) aborts the polling loop instead of waiting for the configured timeout argument:
+Since TUnit 1.45.0, both `Eventually` and its alias `WaitsFor` accept a trailing `CancellationToken`. Plumb the test's own token so that an external cancel (parent `[Timeout]`, test-class CT, runner cancel) aborts the polling loop instead of waiting for the configured timeout argument:
 
 ```csharp
 [Test]
