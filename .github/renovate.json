@@ -3,9 +3,9 @@
   "extends": [
     "config:recommended",
     ":timezone(Europe/Amsterdam)",
-    "schedule:earlyMornings",
     ":semanticCommits"
   ],
+  "schedule": ["before 4am"],
   "labels": ["dependencies"],
   "dependencyDashboard": true,
   "packageRules": [
