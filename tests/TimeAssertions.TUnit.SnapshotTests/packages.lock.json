@@ -170,7 +170,7 @@
         "dependencies": {
           "Microsoft.Extensions.TimeProvider.Testing": "[10.6.0, )",
           "TUnit.Assertions": "[1.45.8, )",
-          "TUnit.Core": "[1.45.8, )",
+          "TUnit.Core": "[1.45.22, )",
           "TimeAssertions": "[0.5.0, )"
         }
       },
@@ -188,9 +188,9 @@
       },
       "TUnit.Core": {
         "type": "CentralTransitive",
-        "requested": "[1.45.8, )",
-        "resolved": "1.45.8",
-        "contentHash": "YB6Fhs/gT/whZjwSSOYWqeo85Zr/jNf7pLNrZbrp8X9prENqVKZUq51QsWP6Wcu0Ilgi4WTYAU/4SMpi7u5dCA=="
+        "requested": "[1.45.22, )",
+        "resolved": "1.45.22",
+        "contentHash": "Ee3UgUa/UVOErcspTDyeOD+iWgH4DDzLf9IMPeVfNSM+vJ1trrWh3DYE3SUgU5cM1KkoZTlU5LT12rUYSXmy7A=="
       }
     }
   }

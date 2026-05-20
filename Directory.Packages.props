@@ -18,7 +18,7 @@
     <PackageVersion Include="SnapshotAssertions.TUnit" Version="0.4.0" />
     <PackageVersion Include="TUnit" Version="1.45.8" />
     <PackageVersion Include="TUnit.Assertions" Version="1.45.8" />
-    <PackageVersion Include="TUnit.Core" Version="1.45.8" />
+    <PackageVersion Include="TUnit.Core" Version="1.45.22" />
   </ItemGroup>
 
   <!-- Analyzer pack (applied to every project automatically via GlobalPackageReference) -->
