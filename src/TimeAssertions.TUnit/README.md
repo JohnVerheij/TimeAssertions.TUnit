@@ -17,7 +17,7 @@ TUnit-native fluent time-assertion DSL on top of `Microsoft.Extensions.Time.Test
 dotnet add package TimeAssertions.TUnit
 ```
 
-`TimeAssertions` (the framework-agnostic core) and `Microsoft.Extensions.TimeProvider.Testing` come transitively. **Requirements:** TUnit 1.45.22 or later, .NET 10.
+`TimeAssertions` (the framework-agnostic core) and `Microsoft.Extensions.TimeProvider.Testing` come transitively. **Requirements:** TUnit 1.45.29 or later, .NET 10.
 
 The source-generated entry points (`HasAdvancedExactly`, `HasAdvancedApproximately`, `HasUtcNow`, `HasUtcNowApproximately`, `IsRecent`, `IsBeforeNow`, `IsAfterNow`, `WithinTimeBudget`, `WithinTimeBudgetCapturing`, `WasInvokedAtMostOncePer`) auto-import via `TUnit.Assertions.Extensions`. Add the following to a `GlobalUsings.cs` in your test project for the call-site and `FakeTimeProvider` namespaces:
 
