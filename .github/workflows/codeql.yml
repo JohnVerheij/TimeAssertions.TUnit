@@ -24,8 +24,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
-  actions: read
 
 concurrency:
   group: codeql-${{ github.ref }}
@@ -36,6 +34,10 @@ jobs:
     name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read           # checkout + build (job-level perms override workflow-level)
+      security-events: write   # upload CodeQL results to code scanning
+      actions: read            # read workflow run metadata during analysis
 
     strategy:
       fail-fast: false
