@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Adopted `Renovate` (`.github/renovate.json`) for dependency updates and version-literal sync in place of the prior `Dependabot` + `SyncVersionRefs` MSBuild pipeline. `Renovate` bumps `Directory.Packages.props` and the four files that carry the TUnit version literal (`README.md`, `src/TimeAssertions.TUnit/README.md`, `.github/ISSUE_TEMPLATE/bug_report.yml`, and `tests/TimeAssertions.TUnit.SmokeTest/TimeAssertions.TUnit.SmokeTest.csproj`) in a single PR via `customManagers`. Patch- and minor-bump auto-merge is preserved through Renovate's `platformAutomerge: true` once CI passes; major bumps stay manual. No effect on shipped packages.
 - Extended the Renovate auto-merge `packageRule` to cover `digest`, `pin`, `pinDigest`, and `lockFileMaintenance` updateTypes alongside `minor` and `patch`. Closes a gap where SHA-pinned GitHub Actions digest bumps (Renovate's `updateType: "digest"`) would sit open with green CI but no auto-merge enabled.
 - Added a Renovate `packageRule` grouping the three TUnit packages (`TUnit`, `TUnit.Assertions`, `TUnit.Core`) into a single PR per release. They share a source repo and bump in lockstep; the default Renovate behavior of one PR per package wastes CI runs and risks partially-applied bumps if one merges before the others.
+- Added GitHub Actions workflow security scanning. `.github/workflows/zizmor.yml` runs `zizmor` (blocking, SARIF uploaded to code scanning) on every workflow change; `.github/workflows/codeql.yml` now analyzes the `actions` language alongside `csharp`; `.github/workflows/scorecard.yml` (OpenSSF Scorecard) and `.github/workflows/dependency-review.yml` (fails a PR that adds a high-severity-vulnerable dependency) are new. Added the Renovate `helpers:pinGitHubActionDigestsToSemver` preset so any newly-introduced action is auto-pinned to a commit SHA. CI-only; no effect on shipped packages.
 
 ### Removed
 
@@ -27,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - Closed an arbitrary-code-execution vector in the now-removed `sync-version-refs` workflow. The workflow ran under `pull_request_target` with `contents: write` and executed `dotnet restore` / `dotnet build` against the PR head, which would have allowed any non-Dependabot PR author to execute code with a write-scoped repository token (via custom MSBuild tasks, `.targets` files, or analyzers in the PR). The workflow shipped only in this unreleased line and the vulnerability does not affect any released package.
+- Set `persist-credentials: false` on every `actions/checkout` (`ci.yml`, `codeql.yml`, `release.yml`) so the job's repository token is not written into `.git/config`, where an artifact upload or later step could exfiltrate it, and moved the coverage-report path in `ci.yml` from inline `${{ }}` expansion into an `env:` variable to remove a shell template-injection vector. Both were surfaced by the new `zizmor` audit; CI-only, no released package is affected.
 
 ## [0.5.0] - 2026-05-19: rate-limit assertion, OCE propagation, TUnit 1.45.8
 
