@@ -28,7 +28,6 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
-      security-events: write   # upload SARIF results to GitHub code scanning
       actions: read
     steps:
       - name: Checkout
@@ -37,11 +36,14 @@ jobs:
           persist-credentials: false
 
       - name: Run zizmor
-        # Static analysis of every workflow under .github/. zizmor exits non-zero on any
-        # finding at/above the default severity, so this step fails the build on a new
-        # workflow-security regression (template injection, dangerous trigger, unpinned
-        # action, credential persistence, ...). Results also upload as SARIF to the
-        # Security tab. The pinned action version pins the zizmor release it runs.
+        # Static analysis of every workflow under .github/. advanced-security: false makes
+        # zizmor exit non-zero on any finding (template injection, dangerous trigger,
+        # unpinned action, credential persistence, ...), so this step blocks the PR on a new
+        # workflow-security regression; annotations: true surfaces each finding inline on the
+        # diff. The action's SARIF/code-scanning mode is deliberately not used: it does not
+        # fail the job, and blocking is the goal here. The pinned action version pins the
+        # zizmor release it runs.
         uses: zizmorcore/zizmor-action@5f14fd08f7cf1cb1609c1e344975f152c7ee938d # v0.5.6
         with:
+          advanced-security: false
           annotations: true
