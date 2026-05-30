@@ -26,6 +26,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@9a946fdbd5fb07b82b2f5a4466058b876ab72bb2 # v5
@@ -96,8 +97,10 @@ jobs:
         env:
           LINE_THRESHOLD: '0.90'
           BRANCH_THRESHOLD: '0.90'
+          # REPORT is passed via env, not inline ${{ }} in the run block, so the value
+          # reaches bash as data and can never be expanded as shell source (template-injection).
+          REPORT: ${{ steps.coverage.outputs.report }}
         run: |
-          REPORT='${{ steps.coverage.outputs.report }}'
           LINE_RATE=$(grep -oP 'line-rate="\K[^"]+' "$REPORT" | head -1)
           BRANCH_RATE=$(grep -oP 'branch-rate="\K[^"]+' "$REPORT" | head -1)
           if [ -z "$LINE_RATE" ] || [ -z "$BRANCH_RATE" ]; then
