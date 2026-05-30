@@ -7,10 +7,7 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+-*'
 
 permissions:
-  contents: write       # for GitHub Release creation
-  id-token: write       # for NuGet Trusted Publishing OIDC + Sigstore keyless signing
-  packages: write       # not strictly required for nuget.org but kept for symmetry
-  attestations: write   # for SLSA build-provenance + SBOM attestations
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -21,6 +18,11 @@ jobs:
     name: Build, pack & publish
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: write       # GitHub Release creation (job-level perms override workflow-level)
+      id-token: write       # NuGet Trusted Publishing OIDC + Sigstore keyless signing
+      packages: write       # kept for symmetry; not strictly required for nuget.org
+      attestations: write   # SLSA build-provenance + SBOM attestations
     environment:
       name: nuget
       url: https://www.nuget.org/packages/TimeAssertions/
