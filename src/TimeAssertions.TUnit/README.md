@@ -59,6 +59,7 @@ public async Task PreReleaseExpiration_advances_state_after_clock_moves_forward(
 | `WithinTimeBudget(TimeSpan)` | Cross-cutting timing budget; chains via `.And` after any behavioural assertion |
 | `WithinTimeBudgetCapturing(TimeSpan, Action<TimeSpan>)` | Same as `WithinTimeBudget` plus a callback that receives the measured elapsed on every evaluation path except external cancellation (added in v0.2.0; cancellation-skip behaviour added in v0.5.0) |
 | `WasInvokedAtMostOncePer(this IReadOnlyList<DateTimeOffset>, TimeSpan interval)` | Rate-limit assertion on a recorded invocation log: every consecutive gap is at least `interval` (added in v0.5.0) |
+| `HasNoActiveTimers()` / `HasActiveTimerCount(int)` on `ObservableTimeProvider` | Timer-leak assertions: no undisposed timers / exact active-timer count, naming each survivor by its schedule on failure (added in v0.6.0) |
 
 ## Failure diagnostics
 

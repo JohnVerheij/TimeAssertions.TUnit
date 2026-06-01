@@ -11,11 +11,11 @@
     <IsPackable>true</IsPackable>
     <PackageId>TimeAssertions</PackageId>
     <ProductName>TimeAssertions</ProductName>
-    <Version>0.5.0</Version>
-    <PackageValidationBaselineVersion>0.4.0</PackageValidationBaselineVersion>
+    <Version>0.6.0</Version>
+    <PackageValidationBaselineVersion>0.5.0</PackageValidationBaselineVersion>
     <Authors>John Verheij</Authors>
     <Copyright>Copyright (c) 2026 John Verheij</Copyright>
-    <Description>Framework-agnostic core for assertion-level timing budgets. Provides duration formatting and rendering helpers for failure-message context. Test-framework-specific entry points live in adapter packages (TimeAssertions.TUnit ships today; xUnit, NUnit, MSTest adapters are possible if there is demand).</Description>
+    <Description>Framework-agnostic core for assertion-level timing budgets. Provides duration formatting and rendering helpers for failure-message context, plus ObservableTimeProvider, a TimeProvider decorator that tracks undisposed timers for leak detection in hosted-service tests. Test-framework-specific entry points live in adapter packages (TimeAssertions.TUnit ships today; xUnit, NUnit, MSTest adapters are possible if there is demand).</Description>
     <PackageTags>timing;testing;assertions;timespan;timeprovider;duration</PackageTags>
     <PackageProjectUrl>https://github.com/JohnVerheij/TimeAssertions.TUnit</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

@@ -1,0 +1,20 @@
+using System;
+using System.Runtime.InteropServices;
+using System.Threading;
+
+namespace TimeAssertions;
+
+/// <summary>
+/// An immutable description of a timer tracked by <see cref="ObservableTimeProvider"/>: the
+/// schedule it was created with, or last changed to. Used to render a deterministic
+/// "named survivor" diagnostic when a leak assertion fails, so a failure names <em>which</em>
+/// timer remained active by its schedule rather than reporting a bare count.
+/// </summary>
+/// <param name="DueTime">The delay before the timer's first (or next) callback, as supplied to
+/// <see cref="TimeProvider.CreateTimer(TimerCallback, object?, TimeSpan, TimeSpan)"/> or the most
+/// recent <see cref="ITimer.Change(TimeSpan, TimeSpan)"/>. A value of
+/// <see cref="Timeout.InfiniteTimeSpan"/> indicates a timer whose callback is currently disabled.</param>
+/// <param name="Period">The interval between successive callbacks. A value of
+/// <see cref="Timeout.InfiniteTimeSpan"/> indicates a one-shot timer that does not repeat.</param>
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct ActiveTimerInfo(TimeSpan DueTime, TimeSpan Period);
