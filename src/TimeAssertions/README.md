@@ -6,7 +6,7 @@
 
 > **Scope:** Test projects only. Not intended for production code.
 
-Framework-agnostic rendering helpers for the TimeAssertions package family. The actual `FakeTimeProvider` and `TimeProvider`-aware `DateTimeOffset` assertion APIs ship in the framework-specific adapter packages (currently `TimeAssertions.TUnit`).
+Framework-agnostic rendering helpers and test infrastructure for the TimeAssertions package family. The actual `FakeTimeProvider` and `TimeProvider`-aware `DateTimeOffset` assertion APIs ship in the framework-specific adapter packages (currently `TimeAssertions.TUnit`).
 
 > **Most users want [`TimeAssertions.TUnit`](https://www.nuget.org/packages/TimeAssertions.TUnit/), not this package directly.** This package only ships the shared rendering helpers; the adapter package adds the assertion entry points your test framework expects.
 
@@ -15,6 +15,9 @@ Framework-agnostic rendering helpers for the TimeAssertions package family. The 
 ## What's in this package
 
 - **`TimeRenderingHelpers`**: formatting utilities for elapsed durations and time budgets in failure-message context. Pure, allocation-conscious.
+- **`ObservableTimeProvider`**: a `TimeProvider` decorator that tracks the timers created against it (`ActiveTimerCount`, `ActiveTimers`) so adapter packages can assert on timer-disposal and leak behaviour. Reflection-free, AOT-compatible, thread-safe.
+- **`ActiveTimerInfo`**: a readonly record struct describing a tracked timer's schedule (`DueTime`, `Period`), returned by `ObservableTimeProvider.ActiveTimers`.
+- **`TimelineRenderer`** / **`TimelineEvent`**: render a sequence of timestamped events as deterministic, snapshot-friendly text.
 
 ## Test-framework adapters
 

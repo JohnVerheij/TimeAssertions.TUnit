@@ -7,8 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-02: active-timer leak assertions, Renovate + supply-chain hardening
+
+Minor release. Adds the family's first timer-leak assertions: `HasNoActiveTimers()` and `HasActiveTimerCount(int)` over a new framework-agnostic `ObservableTimeProvider` decorator, filling the gap `FakeTimeProvider` leaves open for hosted-service timer-disposal tests. Also folds in the dependency-automation switch to `Renovate` and the GitHub Actions supply-chain hardening that had accumulated on the unreleased line, and starts merging core + adapter coverage in CI so the gate measures the core suite directly.
+
+### Added
+
+- **`TimeAssertions.ObservableTimeProvider`** (framework-agnostic core) is a `TimeProvider` decorator that tracks the `ITimer` instances created against it, exposing `ActiveTimerCount` and an `ActiveTimers` snapshot. Wrap any inner provider (typically a `FakeTimeProvider`) to detect timers that a `BackgroundService` / `IHostedService` started but did not dispose. Fills the gap [dotnet/extensions#7515](https://github.com/dotnet/extensions/issues/7515) leaves open (`FakeTimeProvider` does not surface its own timers). Reflection-free, AOT-compatible, and thread-safe.
+- **`Assert.That(provider).HasNoActiveTimers()`** (TUnit adapter) is the canonical timer-leak check after a hosted service stops. On failure it names each surviving timer by the schedule it carries (`[dueTime=..., period=...]`; a one-shot timer renders as `period=one-shot`) with a grep-friendly `(count=N)` trailer, instead of reporting a bare integer. Source-generated via `[GenerateAssertion]`.
+- **`Assert.That(provider).HasActiveTimerCount(int)`** (TUnit adapter) asserts the exact number of active timers, for the registration half of a disposal test. On mismatch it renders the expected and actual counts plus each active timer's schedule, with an `(expected=N, actual=M)` trailer. For an asynchronous disposal race, poll the upstream primitive instead: `await Assert.That(() => provider.ActiveTimerCount).Eventually(c => c == 0, timeout)`.
+- **`TimeAssertions.ActiveTimerInfo`** (framework-agnostic core) is a readonly record struct describing a tracked timer's schedule (`DueTime`, `Period`), returned by `ObservableTimeProvider.ActiveTimers`.
+- **`TimeAssertions.TimeRenderingHelpers.FormatActiveTimerLeak(...)` and `FormatActiveTimerCountMismatch(...)`** (framework-agnostic core) render the two failure messages above, ordering survivors deterministically (by due time, then period) so the messages are snapshot-stable.
+
 ### Changed
 
+- CI collects code coverage from both the adapter and the framework-agnostic core test suites and merges the two cobertura reports (`ReportGenerator`) before the threshold gate, in place of measuring the adapter suite alone. The core suite exercises core types such as `ObservableTimeProvider`'s clock delegation and timer `Change` / `DisposeAsync` that no assertion chain reaches, so merging keeps the 90% line / 90% branch gate honest as the core grows. CI-only; no effect on shipped packages.
 - Removed `paths-ignore` from `.github/workflows/ci.yml` so the `Build, test & pack` required check always reports a status. Without the fix, docs-only PRs stuck in `Expected - Waiting for status to be reported` and could not satisfy branch protection. Cross-family sweep: identical fix applied to the other five family repos as part of their open `chore/infra-family-consistency-sweep` PRs (TimeAssertions has no open sweep PR, hence the dedicated PR for this repo).
 - Adopted `Renovate` (`.github/renovate.json`) for dependency updates and version-literal sync in place of the prior `Dependabot` + `SyncVersionRefs` MSBuild pipeline. `Renovate` bumps `Directory.Packages.props` and the four files that carry the TUnit version literal (`README.md`, `src/TimeAssertions.TUnit/README.md`, `.github/ISSUE_TEMPLATE/bug_report.yml`, and `tests/TimeAssertions.TUnit.SmokeTest/TimeAssertions.TUnit.SmokeTest.csproj`) in a single PR via `customManagers`. Patch- and minor-bump auto-merge is preserved through Renovate's `platformAutomerge: true` once CI passes; major bumps stay manual. No effect on shipped packages.
 - Extended the Renovate auto-merge `packageRule` to cover `digest`, `pin`, `pinDigest`, and `lockFileMaintenance` updateTypes alongside `minor` and `patch`. Closes a gap where SHA-pinned GitHub Actions digest bumps (Renovate's `updateType: "digest"`) would sit open with green CI but no auto-merge enabled.
@@ -289,7 +302,8 @@ argument; `.And.WithinTimeBudget(...)` is preferred.
 - **External-consumer smoke test + AOT-publish CI gate**: planned for 0.2.0.
 - **Recursive public-API self-test** via `SnapshotAssertions.TUnit`: planned for 0.1.1.
 
-[Unreleased]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/releases/tag/v0.6.0
 [0.5.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/releases/tag/v0.5.0
 [0.4.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/releases/tag/v0.4.0
 [0.3.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/releases/tag/v0.3.0

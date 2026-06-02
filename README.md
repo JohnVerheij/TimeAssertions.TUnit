@@ -65,7 +65,7 @@ This repo ships **two** NuGet packages:
 | Package | Purpose | Depends on |
 |---|---|---|
 | [`TimeAssertions`](https://www.nuget.org/packages/TimeAssertions/) | Framework-agnostic core: `TimeRenderingHelpers` for elapsed-duration / budget-overrun formatting | BCL only |
-| [`TimeAssertions.TUnit`](https://www.nuget.org/packages/TimeAssertions.TUnit/) | TUnit-specific entry points: `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()`, `WasInvokedAtMostOncePer()` | `TimeAssertions` + `TUnit.Assertions` + `TUnit.Core` + `Microsoft.Extensions.TimeProvider.Testing` |
+| [`TimeAssertions.TUnit`](https://www.nuget.org/packages/TimeAssertions.TUnit/) | TUnit-specific entry points: `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()`, `WasInvokedAtMostOncePer()`, `HasNoActiveTimers()`, `HasActiveTimerCount(int)` | `TimeAssertions` + `TUnit.Assertions` + `TUnit.Core` + `Microsoft.Extensions.TimeProvider.Testing` |
 
 You install `TimeAssertions.TUnit`; `TimeAssertions` and `Microsoft.Extensions.TimeProvider.Testing` come transitively. Adapters for other test frameworks (NUnit, xUnit, MSTest) are *not* shipped today: they would reuse the `TimeAssertions` core. Open a feature request if you need one.
 
@@ -75,7 +75,7 @@ The two packages place types in two namespaces with deliberately-different scope
 
 | Type / member | Namespace | Auto-imported? |
 |---|---|---|
-| `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()`, `WasInvokedAtMostOncePer()` (source-generated entries) | `TUnit.Assertions.Extensions` | **Yes**: TUnit auto-imports |
+| `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()`, `WasInvokedAtMostOncePer()`, `HasNoActiveTimers()`, `HasActiveTimerCount(int)` (source-generated entries) | `TUnit.Assertions.Extensions` | **Yes**: TUnit auto-imports |
 | `FakeTimeProvider` (the testable-clock type) | `Microsoft.Extensions.Time.Testing` | **No**: needed at the call site; recommended for `GlobalUsings.cs` |
 | `TimeRenderingHelpers` (formatting utilities for failure messages) | `TimeAssertions` | **No**: needed at the call site; recommended for `GlobalUsings.cs` |
 | `WithinTimeBudgetAssertion<T>`, `WithinTimeBudgetCapturingAssertion<T>` (the assertion classes behind `WithinTimeBudget()` and `WithinTimeBudgetCapturing()`) | `TimeAssertions.TUnit` | **No**: needed at the call site; recommended for `GlobalUsings.cs` |
@@ -139,7 +139,7 @@ For projects standardising on this pattern, TimeAssertions.TUnit is the TUnit-si
 
 ## Entry points
 
-Four groups of entry points cover four distinct testing concerns: fake-clock state, `TimeProvider`-aware `DateTimeOffset` checks, assertion-level timing budgets, and rate-limit assertions on invocation timestamps.
+Five groups of entry points cover five distinct testing concerns: fake-clock state, `TimeProvider`-aware `DateTimeOffset` checks, assertion-level timing budgets, rate-limit assertions on invocation timestamps, and timer-leak detection.
 
 ### `FakeTimeProvider` state assertions
 
@@ -232,6 +232,34 @@ await Assert.That(failureLogs).WasInvokedAtMostOncePer(TimeSpan.FromSeconds(30))
 ```
 
 The receiver is the recorded log itself, NOT the action being invoked: the consumer's production code calls the rate-limited operation, the test records each invocation's timestamp, and the assertion examines the recording. Caller is responsible for chronological order; the assertion preserves input order verbatim.
+
+### Active-timer leak assertions
+
+`HasNoActiveTimers()` and `HasActiveTimerCount(int)` assert on timer disposal: did a `BackgroundService` / `IHostedService` dispose every `ITimer` it started? `FakeTimeProvider` does not surface the timers created against it ([dotnet/extensions#7515](https://github.com/dotnet/extensions/issues/7515)), so wrap it in the framework-agnostic `ObservableTimeProvider` (shipped in the `TimeAssertions` core package), run the code under test, then assert.
+
+| Entry point | Behaviour |
+|---|---|
+| `HasNoActiveTimers()` | Asserts every timer created through the `ObservableTimeProvider` has been disposed. On failure the message names each survivor by its schedule (`[dueTime=..., period=...]`; one-shot timers as `period=one-shot`) with a grep-friendly `(count=N)` trailer, instead of a bare integer. |
+| `HasActiveTimerCount(int expected)` | Asserts the exact number of active (undisposed) timers: the registration half of a disposal test. On mismatch the message renders expected vs actual counts plus each active timer's schedule, with an `(expected=N, actual=M)` trailer. |
+
+```csharp
+var time = new ObservableTimeProvider(new FakeTimeProvider());
+var service = new HeartbeatService(time);
+
+await service.StartAsync(ct);
+await Assert.That(time).HasActiveTimerCount(1);   // the heartbeat timer registered
+
+await service.StopAsync(ct);
+await Assert.That(time).HasNoActiveTimers();       // ...and was disposed on stop
+```
+
+For an asynchronous disposal race (the timer is disposed on a background `StopAsync` that has not completed when the assertion runs), poll the active count with the upstream `Eventually` primitive rather than a family-specific overload:
+
+```csharp
+await service.StopAsync(ct);
+await Assert.That(() => time.ActiveTimerCount)
+    .Eventually(a => a.IsEqualTo(0), TimeSpan.FromSeconds(1));
+```
 
 ---
 
@@ -596,14 +624,17 @@ The 1.0 milestone signals API stability: see [Limitations and future work](#limi
 - ✅ **External-consumer smoke test + AOT-publish CI gate.** `tests/TimeAssertions.TUnit.SmokeTest/` consumes `TimeAssertions.TUnit` ONLY via `PackageReference` against the just-packed local feed; CI publishes that consumer with `PublishAot=true` on `linux-x64` so any future reflection / DynamicCode regression fails the build before the package can ship. The `IsAotCompatible=true` build-time analyzer remains the first gate; the smoke + AOT-publish steps add end-to-end parity with the rest of the family as a defensive backup.
 - ✅ **Recursive public-API self-test project.** `tests/TimeAssertions.TUnit.SnapshotTests/` pins the public surface using `SnapshotAssertions.TUnit.MatchesSnapshot()` against `PublicApiGenerator` output: pure dogfooding for the family, no Verify dependency.
 
+### Resolved in v0.6.0
+
+- ✅ **Timer-leak assertions.** Originally deferred pending `FakeTimeProvider.ActiveTimers` upstream ([dotnet/extensions#7515](https://github.com/dotnet/extensions/issues/7515)). Shipped instead as `HasNoActiveTimers()` / `HasActiveTimerCount(int)` over the framework-agnostic `ObservableTimeProvider` decorator, which records timer creation through the `CreateTimer` hook with no reflection (the family's [no-reflection policy](CONVENTIONS.md#no-reflection-policy) is honored). See [Active-timer leak assertions](#active-timer-leak-assertions). If the upstream proposal lands, the implementation can move to the BCL API behind the same assertion surface with no consumer change.
+
 ### Deferred items
 
 - **`Stopwatch.GetTimestamp()`-based monotonic-clock variant** of `WithinTimeBudget`: candidate if benchmark-class precision is needed. Today, `WithinTimeBudget` uses TUnit's `EvaluationMetadata<T>.Duration` (`DateTimeOffset.Now`-based); system-clock jumps during a test method are vanishingly rare.
-- **`HasActiveTimers`** (tracked upstream): filed as [dotnet/extensions#7515](https://github.com/dotnet/extensions/issues/7515) (`[API Proposal] FakeTimeProvider: expose active-timer snapshot for testability`). `FakeTimeProvider.ActiveTimers` is not part of the public `Microsoft.Extensions.Time.Testing` API surface today, so the assertion cannot be implemented without runtime reflection, which the family forbids (see [CONVENTIONS.md no-reflection policy](CONVENTIONS.md#no-reflection-policy)). The shape is already settled (a boolean predicate plus an exact-count chain, mirroring `HasAdvancedExactly` / `HasAdvancedApproximately`); the assertion ships the day upstream lands. Consumers who need the check today can wrap `FakeTimeProvider` in a small `ObservableTimeProvider` that records timer creation via the timer factory hook and assert directly against that wrapper.
 
 ## Family compatibility
 
-The six assertion-family packages: `LogAssertions.TUnit`, `TimeAssertions.TUnit`, `SnapshotAssertions.TUnit`, `MathAssertions.TUnit`, `JsonAssertions.TUnit`, and `SseAssertions.TUnit`: release independently and target the same .NET TFM at any moment (LTS-anchored, multi-target during STS support windows; see the [TFM policy in CONVENTIONS.md](CONVENTIONS.md#tfm-policy) for the rotation schedule). **Mix versions freely.** Each package ships under SemVer with `EnablePackageValidation` strict-mode ApiCompat against its previous baseline, so binary breaks within a version line are caught at pack time.
+The seven assertion-family packages: `LogAssertions.TUnit`, `TimeAssertions.TUnit`, `SnapshotAssertions.TUnit`, `MathAssertions.TUnit`, `JsonAssertions.TUnit`, `SseAssertions.TUnit`, and `GrpcAssertions.TUnit`: release independently and target the same .NET TFM at any moment (LTS-anchored, multi-target during STS support windows; see the [TFM policy in CONVENTIONS.md](CONVENTIONS.md#tfm-policy) for the rotation schedule). **Mix versions freely.** Each package ships under SemVer with `EnablePackageValidation` strict-mode ApiCompat against its previous baseline, so binary breaks within a version line are caught at pack time.
 
 For per-package release notes:
 - [LogAssertions.TUnit CHANGELOG](https://github.com/JohnVerheij/LogAssertions.TUnit/blob/main/CHANGELOG.md)
@@ -612,6 +643,7 @@ For per-package release notes:
 - [MathAssertions.TUnit CHANGELOG](https://github.com/JohnVerheij/MathAssertions.TUnit/blob/main/CHANGELOG.md)
 - [JsonAssertions.TUnit CHANGELOG](https://github.com/JohnVerheij/JsonAssertions.TUnit/blob/main/CHANGELOG.md)
 - [SseAssertions.TUnit CHANGELOG](https://github.com/JohnVerheij/SseAssertions.TUnit/blob/main/CHANGELOG.md)
+- [GrpcAssertions.TUnit CHANGELOG](https://github.com/JohnVerheij/GrpcAssertions.TUnit/blob/main/CHANGELOG.md)
 
 ## Pair with
 
@@ -620,6 +652,7 @@ For per-package release notes:
 - **[`MathAssertions.TUnit`](https://www.nuget.org/packages/MathAssertions.TUnit/)**: tolerance-aware fluent assertions over numeric and geometric types (vectors, quaternions, matrices, planes, complex numbers, arrays).
 - **[`JsonAssertions.TUnit`](https://www.nuget.org/packages/JsonAssertions.TUnit/)**: fluent JSON assertions over `System.Text.Json`, HTTP response bodies (including RFC 7807 ProblemDetails), and source-generated `JsonSerializerContext` registration.
 - **[`SseAssertions.TUnit`](https://www.nuget.org/packages/SseAssertions.TUnit/)**: Server-Sent Events (SSE) wire-format assertions: event-count, field shape (`event:`, `data:`, `id:`, `retry:`), and stream content validation.
+- **[`GrpcAssertions.TUnit`](https://www.nuget.org/packages/GrpcAssertions.TUnit/)**: fluent gRPC outcome assertions (`ThrowsGrpcException` with `StatusCode` shorthands and detail refinements) plus the `GrpcCallBuilder` test-double helper.
 
 ## Contributing
 

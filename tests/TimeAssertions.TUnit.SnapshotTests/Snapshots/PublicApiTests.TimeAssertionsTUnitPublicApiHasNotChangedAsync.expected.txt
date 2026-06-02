@@ -4,6 +4,11 @@
 [assembly: System.Runtime.Versioning.TargetFramework(".NETCoreApp,Version=v10.0", FrameworkDisplayName=".NET 10.0")]
 namespace TUnit.Assertions.Extensions
 {
+    public static class ActiveTimerAssertions
+    {
+        public static TUnit.Assertions.Extensions.ObservableTimeProvider_HasActiveTimerCount_Int_Assertion HasActiveTimerCount(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, int expected, [System.Runtime.CompilerServices.CallerArgumentExpression("expected")] string? expectedExpression = null) { }
+        public static TUnit.Assertions.Extensions.ObservableTimeProvider_HasNoActiveTimers_Assertion HasNoActiveTimers(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source) { }
+    }
     public static class DateTimeOffsetAssertions
     {
         public static TUnit.Assertions.Extensions.DateTimeOffset_IsAfterNow_TimeProvider_Assertion IsAfterNow(this TUnit.Assertions.Core.IAssertionSource<System.DateTimeOffset> source, System.TimeProvider timeProvider, [System.Runtime.CompilerServices.CallerArgumentExpression("timeProvider")] string? timeProviderExpression = null) { }
@@ -73,6 +78,18 @@ namespace TUnit.Assertions.Extensions
         protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<System.Collections.Generic.IReadOnlyList<System.DateTimeOffset>> metadata) { }
         protected override string GetExpectation() { }
     }
+    public sealed class ObservableTimeProvider_HasActiveTimerCount_Int_Assertion : TUnit.Assertions.Core.Assertion<TimeAssertions.ObservableTimeProvider>
+    {
+        public ObservableTimeProvider_HasActiveTimerCount_Int_Assertion(TUnit.Assertions.Core.AssertionContext<TimeAssertions.ObservableTimeProvider> context, int expected) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<TimeAssertions.ObservableTimeProvider> metadata) { }
+        protected override string GetExpectation() { }
+    }
+    public sealed class ObservableTimeProvider_HasNoActiveTimers_Assertion : TUnit.Assertions.Core.Assertion<TimeAssertions.ObservableTimeProvider>
+    {
+        public ObservableTimeProvider_HasNoActiveTimers_Assertion(TUnit.Assertions.Core.AssertionContext<TimeAssertions.ObservableTimeProvider> context) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<TimeAssertions.ObservableTimeProvider> metadata) { }
+        protected override string GetExpectation() { }
+    }
     public static class RateLimitAssertions
     {
         [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2091", Justification="Generic type parameter is only used for property access, not instantiation")]
@@ -90,6 +107,13 @@ namespace TUnit.Assertions.Extensions
 }
 namespace TimeAssertions.TUnit
 {
+    public static class ActiveTimerAssertions
+    {
+        [TUnit.Assertions.Attributes.GenerateAssertion(InlineMethodBody=false)]
+        public static TUnit.Assertions.Core.AssertionResult HasActiveTimerCount(this TimeAssertions.ObservableTimeProvider value, int expected) { }
+        [TUnit.Assertions.Attributes.GenerateAssertion(InlineMethodBody=false)]
+        public static TUnit.Assertions.Core.AssertionResult HasNoActiveTimers(this TimeAssertions.ObservableTimeProvider value) { }
+    }
     public static class DateTimeOffsetAssertions
     {
         [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to be strictly after the supplied time provider\'s UTC now", InlineMethodBody=true)]
