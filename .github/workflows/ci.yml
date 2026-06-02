@@ -55,8 +55,37 @@ jobs:
             -- \
             --coverage \
             --coverage-settings .config/codecoverage.settings.xml \
-            --coverage-output coverage.cobertura.xml \
+            --coverage-output coverage.adapter.cobertura.xml \
             --coverage-output-format=cobertura
+
+      - name: Test framework-agnostic core suite (with coverage)
+        # tests/TimeAssertions.Tests references ONLY the TimeAssertions core package, NOT
+        # TimeAssertions.TUnit, so it still doubles as a coupling guard: a refactor that made the
+        # core depend on TUnit would fail this project's compile. It is ALSO collected with
+        # --coverage because the core types now carry logic that no assertion chain reaches
+        # (e.g. ObservableTimeProvider's clock delegation and timer Change / DisposeAsync). That
+        # code is exercised here; the merge step below folds this report into the gated total.
+        run: |
+          dotnet run --project tests/TimeAssertions.Tests/TimeAssertions.Tests.csproj \
+            --configuration Release --no-build \
+            -- \
+            --coverage \
+            --coverage-settings .config/codecoverage.settings.xml \
+            --coverage-output coverage.core.cobertura.xml \
+            --coverage-output-format=cobertura
+
+      - name: Merge coverage reports
+        # The gate measures core + adapter together. The adapter suite covers the TUnit assertion
+        # surface (and the core code reachable through it); the core suite covers the BCL-only core
+        # types directly. ReportGenerator merges both cobertura reports by union into one report
+        # whose top-level line-rate / branch-rate the threshold step reads.
+        run: |
+          dotnet tool install --global dotnet-reportgenerator-globaltool
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          reportgenerator \
+            "-reports:tests/**/coverage.adapter.cobertura.xml;tests/**/coverage.core.cobertura.xml" \
+            "-targetdir:coverage-merged" \
+            "-reporttypes:Cobertura"
 
       - name: Locate coverage report
         id: coverage
@@ -66,9 +95,9 @@ jobs:
           # when coverage collection itself breaks (tool version drift, MTP schema change,
           # instrumentation regression). The downstream threshold step's `if:` guard then
           # acts as defensive belt-and-suspenders rather than the actual gate.
-          REPORT=$(find tests -name 'coverage.cobertura.xml' -print -quit)
+          REPORT=$(find coverage-merged -name 'Cobertura.xml' -print -quit)
           if [ -z "$REPORT" ]; then
-            echo "::error::No cobertura coverage report found; coverage collection broken"
+            echo "::error::No merged cobertura coverage report found; coverage collection broken"
             exit 1
           fi
           echo "report=$REPORT" >> "$GITHUB_OUTPUT"
@@ -125,16 +154,6 @@ jobs:
             FAILED=1
           fi
           [ "$FAILED" = "0" ]
-
-      - name: Test framework-agnostic core suite (no coverage)
-        # tests/TimeAssertions.Tests references ONLY the TimeAssertions core package, NOT
-        # TimeAssertions.TUnit. Catches accidental coupling: if a refactor made the core depend
-        # on TUnit, this project would fail to compile. Coverage of the core types is already
-        # captured in the main suite via the TUnit chain, so coverage is intentionally not
-        # collected here.
-        run: |
-          dotnet run --project tests/TimeAssertions.Tests/TimeAssertions.Tests.csproj \
-            --configuration Release --no-build
 
       - name: Test snapshot suite (no coverage)
         # SnapshotTests pins the public API surface using SnapshotAssertions.TUnit's

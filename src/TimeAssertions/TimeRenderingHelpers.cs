@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using System.Threading;
 
 namespace TimeAssertions;
 
@@ -125,5 +126,77 @@ public static class TimeRenderingHelpers
         sb.Append(CultureInfo.InvariantCulture, $"  timestamps[{violatingIndex}]:   {current:O}").AppendLine();
         sb.Append(CultureInfo.InvariantCulture, $"  (gap={gapMs:F0}ms, minimum={intervalMs:F0}ms)");
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Formats the failure message for <c>HasNoActiveTimers()</c>: names each timer that remained
+    /// active by the schedule it was created with (or last changed to), so a leak failure reports
+    /// <em>which</em> timers survived rather than a bare count. Survivors are listed in a
+    /// deterministic order (by due time, then period) so the message is snapshot-stable.
+    /// </summary>
+    /// <param name="survivors">The timers still active when the assertion ran. Expected non-empty:
+    /// the assertion only renders a failure when at least one timer leaked.</param>
+    /// <returns>A multi-line human-readable summary in <see cref="CultureInfo.InvariantCulture"/>,
+    /// with a grep-friendly <c>(count=N)</c> trailer on the headline.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="survivors"/> is
+    /// <see langword="null"/>.</exception>
+    public static string FormatActiveTimerLeak(IReadOnlyList<ActiveTimerInfo> survivors)
+    {
+        ArgumentNullException.ThrowIfNull(survivors);
+
+        var sb = new StringBuilder();
+        sb.Append(CultureInfo.InvariantCulture,
+            $"expected no active timers but {survivors.Count} remained (count={survivors.Count}):");
+        AppendTimerSchedules(sb, survivors);
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Formats the failure message for <c>HasActiveTimerCount(expected)</c>: the expected and actual
+    /// active-timer counts, followed by each active timer's schedule in deterministic order (by due
+    /// time, then period). When no timers are active the schedule list is omitted.
+    /// </summary>
+    /// <param name="active">The timers active when the assertion ran.</param>
+    /// <param name="expected">The expected active-timer count that was not met. Must be
+    /// non-negative.</param>
+    /// <returns>A multi-line human-readable summary in <see cref="CultureInfo.InvariantCulture"/>,
+    /// with a grep-friendly <c>(expected=N, actual=M)</c> trailer on the headline.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="active"/> is
+    /// <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="expected"/> is negative.</exception>
+    public static string FormatActiveTimerCountMismatch(IReadOnlyList<ActiveTimerInfo> active, int expected)
+    {
+        ArgumentNullException.ThrowIfNull(active);
+        ArgumentOutOfRangeException.ThrowIfNegative(expected);
+
+        var sb = new StringBuilder();
+        sb.Append(CultureInfo.InvariantCulture,
+            $"expected {expected} active timer(s) but found {active.Count} (expected={expected}, actual={active.Count}):");
+        AppendTimerSchedules(sb, active);
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Appends each timer's schedule on its own indented line, sorted by due time then period for
+    /// deterministic (snapshot-stable) output. A <see cref="Timeout.InfiniteTimeSpan"/> period
+    /// renders as <c>one-shot</c>; an infinite due time renders as <c>infinite</c>.
+    /// </summary>
+    /// <param name="sb">The target builder; the schedule lines are appended after its current content.</param>
+    /// <param name="timers">The timers to render. May be empty, in which case nothing is appended.</param>
+    private static void AppendTimerSchedules(StringBuilder sb, IReadOnlyList<ActiveTimerInfo> timers)
+    {
+        var ordered = new List<ActiveTimerInfo>(timers);
+        ordered.Sort(static (a, b) =>
+        {
+            var byDue = a.DueTime.CompareTo(b.DueTime);
+            return byDue is not 0 ? byDue : a.Period.CompareTo(b.Period);
+        });
+
+        foreach (var timer in ordered)
+        {
+            var due = timer.DueTime == Timeout.InfiniteTimeSpan ? "infinite" : FormatDuration(timer.DueTime);
+            var period = timer.Period == Timeout.InfiniteTimeSpan ? "one-shot" : FormatDuration(timer.Period);
+            sb.AppendLine().Append(CultureInfo.InvariantCulture, $"  [dueTime={due}, period={period}]");
+        }
     }
 }

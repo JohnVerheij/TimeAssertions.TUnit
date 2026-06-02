@@ -245,4 +245,118 @@ internal sealed class TimeRenderingHelpersTests
                 interval: TimeSpan.FromSeconds(30)))
             .Throws<ArgumentOutOfRangeException>();
     }
+
+    // ---- FormatActiveTimerLeak / FormatActiveTimerCountMismatch (v0.6.0) ----
+
+    /// <summary>A single leaked timer is named by its schedule, with the grep-friendly count
+    /// trailer on the headline.</summary>
+    [Test]
+    public async Task FormatActiveTimerLeak_NamesSurvivorScheduleAndCount(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var survivors = new[] { new ActiveTimerInfo(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(5)) };
+
+        var formatted = TimeRenderingHelpers.FormatActiveTimerLeak(survivors);
+
+        await Assert.That(formatted).Contains("expected no active timers but 1 remained");
+        await Assert.That(formatted).Contains("(count=1)");
+        await Assert.That(formatted).Contains("[dueTime=1.0s, period=5.0s]");
+    }
+
+    /// <summary>Survivors render in a deterministic order (by due time, then period) regardless of
+    /// input order, so the message is snapshot-stable. Exercises both the due-time ordering and the
+    /// period tie-break.</summary>
+    [Test]
+    public async Task FormatActiveTimerLeak_SortsSurvivorsDeterministically(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var survivors = new[]
+        {
+            new ActiveTimerInfo(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10)),
+            new ActiveTimerInfo(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(5)),
+            new ActiveTimerInfo(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)),
+        };
+
+        var formatted = TimeRenderingHelpers.FormatActiveTimerLeak(survivors);
+
+        var first = formatted.IndexOf("dueTime=1.0s, period=1.0s", StringComparison.Ordinal);
+        var second = formatted.IndexOf("dueTime=1.0s, period=5.0s", StringComparison.Ordinal);
+        var third = formatted.IndexOf("dueTime=2.0s, period=10.0s", StringComparison.Ordinal);
+
+        await Assert.That(first).IsGreaterThanOrEqualTo(0);
+        await Assert.That(first).IsLessThan(second);
+        await Assert.That(second).IsLessThan(third);
+    }
+
+    /// <summary>A one-shot timer (infinite period) renders as <c>one-shot</c>, and an infinite due
+    /// time as <c>infinite</c>, rather than as negative durations.</summary>
+    [Test]
+    public async Task FormatActiveTimerLeak_RendersInfiniteScheduleWords(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var survivors = new[] { new ActiveTimerInfo(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan) };
+
+        var formatted = TimeRenderingHelpers.FormatActiveTimerLeak(survivors);
+
+        await Assert.That(formatted).Contains("[dueTime=infinite, period=one-shot]");
+    }
+
+    /// <summary>Argument validation: a <see langword="null"/> survivor list is rejected.</summary>
+    [Test]
+    public async Task FormatActiveTimerLeak_NullSurvivors_ThrowsArgumentNull(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await Assert.That(() => TimeRenderingHelpers.FormatActiveTimerLeak(null!))
+            .Throws<ArgumentNullException>();
+    }
+
+    /// <summary>A count mismatch renders the expected and actual counts plus the active timers'
+    /// schedules, with the grep-friendly trailer.</summary>
+    [Test]
+    public async Task FormatActiveTimerCountMismatch_RendersExpectedActualAndSchedules(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var active = new[] { new ActiveTimerInfo(TimeSpan.Zero, TimeSpan.FromSeconds(5)) };
+
+        var formatted = TimeRenderingHelpers.FormatActiveTimerCountMismatch(active, expected: 2);
+
+        await Assert.That(formatted).Contains("expected 2 active timer(s) but found 1");
+        await Assert.That(formatted).Contains("(expected=2, actual=1)");
+        await Assert.That(formatted).Contains("period=5.0s");
+    }
+
+    /// <summary>When no timers are active, the schedule list is omitted (nothing to render): only
+    /// the headline with the expected and actual counts appears.</summary>
+    [Test]
+    public async Task FormatActiveTimerCountMismatch_EmptyActive_OmitsScheduleList(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var active = Array.Empty<ActiveTimerInfo>();
+
+        var formatted = TimeRenderingHelpers.FormatActiveTimerCountMismatch(active, expected: 1);
+
+        await Assert.That(formatted).Contains("expected 1 active timer(s) but found 0");
+        await Assert.That(formatted).Contains("(expected=1, actual=0)");
+        await Assert.That(formatted).DoesNotContain("[dueTime=");
+    }
+
+    /// <summary>Argument validation: a <see langword="null"/> active list is rejected.</summary>
+    [Test]
+    public async Task FormatActiveTimerCountMismatch_NullActive_ThrowsArgumentNull(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await Assert.That(() => TimeRenderingHelpers.FormatActiveTimerCountMismatch(null!, expected: 1))
+            .Throws<ArgumentNullException>();
+    }
+
+    /// <summary>Argument validation: a negative expected count is rejected.</summary>
+    [Test]
+    public async Task FormatActiveTimerCountMismatch_NegativeExpected_ThrowsArgumentOutOfRange(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var active = Array.Empty<ActiveTimerInfo>();
+
+        await Assert.That(() => TimeRenderingHelpers.FormatActiveTimerCountMismatch(active, expected: -1))
+            .Throws<ArgumentOutOfRangeException>();
+    }
 }
