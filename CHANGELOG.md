@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.6.0] - 2026-06-01: active-timer leak assertions, Renovate + supply-chain hardening
+## [0.6.0] - 2026-06-02: active-timer leak assertions, Renovate + supply-chain hardening
 
 Minor release. Adds the family's first timer-leak assertions: `HasNoActiveTimers()` and `HasActiveTimerCount(int)` over a new framework-agnostic `ObservableTimeProvider` decorator, filling the gap `FakeTimeProvider` leaves open for hosted-service timer-disposal tests. Also folds in the dependency-automation switch to `Renovate` and the GitHub Actions supply-chain hardening that had accumulated on the unreleased line, and starts merging core + adapter coverage in CI so the gate measures the core suite directly.
 
