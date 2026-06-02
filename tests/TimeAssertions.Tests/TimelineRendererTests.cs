@@ -46,7 +46,7 @@ internal sealed class TimelineRendererTests
     }
 
     /// <summary>Multiple ascending events render in input order with one newline-terminated
-    /// line per event. Pins the canonical downstream use case: pre-sorted heartbeat / ping-loop
+    /// line per event. Pins the canonical use case: pre-sorted heartbeat / ping-loop
     /// timelines pinned via snapshot.</summary>
     [Test]
     public async Task Render_MultipleEvents_RendersAllInOrder(CancellationToken ct)
