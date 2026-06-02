@@ -71,4 +71,75 @@ public static class ActiveTimerAssertions
             ? AssertionResult.Passed
             : AssertionResult.Failed(TimeRenderingHelpers.FormatActiveTimerCountMismatch(active, expected));
     }
+
+    /// <summary>
+    /// Asserts that the next pending timer's due time is within <paramref name="tolerance"/> of
+    /// <paramref name="expected"/>, inspecting the schedule the timer currently carries
+    /// <em>without advancing the clock</em>. The "next" timer is the one with the smallest due time
+    /// among the enabled (non-infinite) active timers. This verifies which delay a loop just
+    /// scheduled (for example a step of an exponential backoff) rather than advancing fake time and
+    /// inferring the delay from when the callback fires.
+    /// </summary>
+    /// <param name="value">The observable provider that tracked the timers.</param>
+    /// <param name="expected">The expected due time of the next pending timer.</param>
+    /// <param name="tolerance">The allowed absolute tolerance around <paramref name="expected"/>.
+    /// Must be non-negative.</param>
+    /// <returns><see cref="AssertionResult.Passed"/> when an enabled timer is pending and its due
+    /// time is within <paramref name="tolerance"/> of <paramref name="expected"/>; otherwise
+    /// <see cref="AssertionResult.Failed(string)"/> with a message naming the expected and observed
+    /// due times, or noting that no enabled timer was pending.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="tolerance"/> is negative.</exception>
+    [GenerateAssertion(InlineMethodBody = false)]
+    public static AssertionResult HasNextTimerDueApproximately(
+        this ObservableTimeProvider value,
+        TimeSpan expected,
+        TimeSpan tolerance)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentOutOfRangeException.ThrowIfLessThan(tolerance, TimeSpan.Zero);
+
+        var actual = value.NextTimerDueTime;
+        if (actual is not null && (actual.Value - expected).Duration() <= tolerance)
+        {
+            return AssertionResult.Passed;
+        }
+
+        return AssertionResult.Failed(TimeRenderingHelpers.FormatNextTimerDueMismatch(actual, expected, tolerance));
+    }
+
+    /// <summary>
+    /// Asserts that the next pending timer's due time falls within the inclusive range
+    /// [<paramref name="min"/>, <paramref name="max"/>], inspecting the schedule the timer currently
+    /// carries <em>without advancing the clock</em>. The "next" timer is the one with the smallest
+    /// due time among the enabled (non-infinite) active timers.
+    /// </summary>
+    /// <param name="value">The observable provider that tracked the timers.</param>
+    /// <param name="min">The inclusive lower bound of the expected due-time range.</param>
+    /// <param name="max">The inclusive upper bound of the expected due-time range. Must be greater
+    /// than or equal to <paramref name="min"/>.</param>
+    /// <returns><see cref="AssertionResult.Passed"/> when an enabled timer is pending and its due
+    /// time is within [<paramref name="min"/>, <paramref name="max"/>]; otherwise
+    /// <see cref="AssertionResult.Failed(string)"/> with a message naming the range and observed due
+    /// time, or noting that no enabled timer was pending.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="max"/> is less than
+    /// <paramref name="min"/>.</exception>
+    [GenerateAssertion(InlineMethodBody = false)]
+    public static AssertionResult HasPendingTimerDueWithin(
+        this ObservableTimeProvider value,
+        TimeSpan min,
+        TimeSpan max)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentOutOfRangeException.ThrowIfLessThan(max, min);
+
+        var actual = value.NextTimerDueTime;
+        if (actual is not null && actual.Value >= min && actual.Value <= max)
+        {
+            return AssertionResult.Passed;
+        }
+
+        return AssertionResult.Failed(TimeRenderingHelpers.FormatNextTimerDueOutOfRange(actual, min, max));
+    }
 }

@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.6.0] - 2026-06-02: active-timer leak assertions, Renovate + supply-chain hardening
+## [0.6.0] - 2026-06-02: active-timer leak + pending-timer due-time assertions, Renovate + supply-chain hardening
 
-Minor release. Adds the family's first timer-leak assertions: `HasNoActiveTimers()` and `HasActiveTimerCount(int)` over a new framework-agnostic `ObservableTimeProvider` decorator, filling the gap `FakeTimeProvider` leaves open for hosted-service timer-disposal tests. Also folds in the dependency-automation switch to `Renovate` and the GitHub Actions supply-chain hardening that had accumulated on the unreleased line, and starts merging core + adapter coverage in CI so the gate measures the core suite directly.
+Minor release. Adds the family's first timer-leak assertions: `HasNoActiveTimers()` and `HasActiveTimerCount(int)` over a new framework-agnostic `ObservableTimeProvider` decorator, filling the gap `FakeTimeProvider` leaves open for hosted-service timer-disposal tests, plus pending-timer due-time assertions (`HasNextTimerDueApproximately()` / `HasPendingTimerDueWithin()`) that inspect a scheduled timer's due time without advancing the clock. Also folds in the dependency-automation switch to `Renovate` and the GitHub Actions supply-chain hardening that had accumulated on the unreleased line, and starts merging core + adapter coverage in CI so the gate measures the core suite directly.
 
 ### Added
 
@@ -18,6 +18,10 @@ Minor release. Adds the family's first timer-leak assertions: `HasNoActiveTimers
 - **`Assert.That(provider).HasActiveTimerCount(int)`** (TUnit adapter) asserts the exact number of active timers, for the registration half of a disposal test. On mismatch it renders the expected and actual counts plus each active timer's schedule, with an `(expected=N, actual=M)` trailer. For an asynchronous disposal race, poll the upstream primitive instead: `await Assert.That(() => provider.ActiveTimerCount).Eventually(c => c == 0, timeout)`.
 - **`TimeAssertions.ActiveTimerInfo`** (framework-agnostic core) is a readonly record struct describing a tracked timer's schedule (`DueTime`, `Period`), returned by `ObservableTimeProvider.ActiveTimers`.
 - **`TimeAssertions.TimeRenderingHelpers.FormatActiveTimerLeak(...)` and `FormatActiveTimerCountMismatch(...)`** (framework-agnostic core) render the two failure messages above, ordering survivors deterministically (by due time, then period) so the messages are snapshot-stable.
+- **`Assert.That(provider).HasNextTimerDueApproximately(TimeSpan expected, TimeSpan tolerance)`** (TUnit adapter) asserts that the next pending timer's due time is within `tolerance` of `expected`. The "next" timer is the one with the smallest due time among the enabled (non-infinite) active timers. The schedule is read from the timer without advancing the clock. On failure it names the expected and observed due times and the delta, or notes that no enabled timer was pending, with a grep-friendly `(expected=Xms, tolerance=Yms, actual=Zms, delta=Wms)` trailer. Source-generated via `[GenerateAssertion]`.
+- **`Assert.That(provider).HasPendingTimerDueWithin(TimeSpan min, TimeSpan max)`** (TUnit adapter) asserts that the next pending timer's due time falls within the inclusive range `[min, max]`. Shares the same pending-timer capability as `HasNextTimerDueApproximately`; useful when a bound rather than a point estimate is the natural expectation. On failure it renders the range and observed due time, or notes that no enabled timer was pending, with a `(min=Xms, max=Yms, actual=Zms)` trailer.
+- **`TimeAssertions.ObservableTimeProvider.NextTimerDueTime`** (framework-agnostic core) is a `TimeSpan?` read-only property exposing the smallest due time among the enabled active timers, or `null` when no enabled timer is pending. Timers whose due time is `Timeout.InfiniteTimeSpan` (disabled until re-armed) are excluded. Computed under the internal lock, so it is a consistent snapshot under concurrent timer activity. Reflection-free, AOT-compatible.
+- **`TimeAssertions.TimeRenderingHelpers.FormatNextTimerDueMismatch(...)` and `FormatNextTimerDueOutOfRange(...)`** (framework-agnostic core) render the two failure messages above, including the no-pending-timer case.
 
 ### Changed
 

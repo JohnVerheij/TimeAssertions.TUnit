@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -81,6 +82,49 @@ public sealed class ObservableTimeProvider : TimeProvider
         }
     }
 
+    /// <summary>
+    /// Gets the due time of the next pending timer: the smallest <see cref="ActiveTimerInfo.DueTime"/>
+    /// among the still-active timers that are currently enabled, or <see langword="null"/> when no
+    /// enabled timer is pending. A timer whose due time is <see cref="Timeout.InfiniteTimeSpan"/> is
+    /// disabled (its callback will not fire until a <see cref="ITimer.Change(TimeSpan, TimeSpan)"/>
+    /// re-arms it) and is excluded from the calculation.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This reads the schedule the timer carries without advancing the clock, so a test can assert
+    /// which delay a loop just scheduled (for example the next step of an exponential backoff)
+    /// rather than advancing fake time and inferring the delay from when the callback fires. The due
+    /// time is the value supplied at <see cref="TimeProvider.CreateTimer(TimerCallback, object?, TimeSpan, TimeSpan)"/>
+    /// or the most recent <see cref="ITimer.Change(TimeSpan, TimeSpan)"/>; it is relative to the
+    /// moment that schedule was set, not a remaining countdown.
+    /// </para>
+    /// <para>
+    /// The value is computed under the internal lock, so it is a consistent snapshot even while
+    /// background code creates, changes, or disposes timers concurrently.
+    /// </para>
+    /// </remarks>
+    public TimeSpan? NextTimerDueTime
+    {
+        get
+        {
+            lock (_lock)
+            {
+                TimeSpan? earliest = null;
+                foreach (var due in _activeTimers
+                    .Select(static timer => timer.DueTime)
+                    .Where(static due => due != Timeout.InfiniteTimeSpan))
+                {
+                    if (earliest is null || due < earliest.Value)
+                    {
+                        earliest = due;
+                    }
+                }
+
+                return earliest;
+            }
+        }
+    }
+
     /// <inheritdoc/>
     public override DateTimeOffset GetUtcNow() => _inner.GetUtcNow();
 
@@ -144,6 +188,9 @@ public sealed class ObservableTimeProvider : TimeProvider
 
             return _inner.Change(dueTime, period);
         }
+
+        /// <summary>Gets the current due time. Callers must hold the owner's lock.</summary>
+        public TimeSpan DueTime => _dueTime;
 
         /// <summary>Projects the current schedule. Callers must hold the owner's lock.</summary>
         public ActiveTimerInfo ToInfo() => new(_dueTime, _period);

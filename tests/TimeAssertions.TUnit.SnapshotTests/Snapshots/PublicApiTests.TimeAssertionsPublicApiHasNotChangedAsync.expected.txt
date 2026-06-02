@@ -16,6 +16,7 @@ namespace TimeAssertions
         public int ActiveTimerCount { get; }
         public System.Collections.Generic.IReadOnlyList<TimeAssertions.ActiveTimerInfo> ActiveTimers { get; }
         public override System.TimeZoneInfo LocalTimeZone { get; }
+        public System.TimeSpan? NextTimerDueTime { get; }
         public override long TimestampFrequency { get; }
         public override System.Threading.ITimer CreateTimer(System.Threading.TimerCallback callback, object? state, System.TimeSpan dueTime, System.TimeSpan period) { }
         public override long GetTimestamp() { }
@@ -27,6 +28,8 @@ namespace TimeAssertions
         public static string FormatActiveTimerLeak(System.Collections.Generic.IReadOnlyList<TimeAssertions.ActiveTimerInfo> survivors) { }
         public static string FormatBudgetOverrun(System.TimeSpan elapsed, System.TimeSpan budget) { }
         public static string FormatDuration(System.TimeSpan duration) { }
+        public static string FormatNextTimerDueMismatch(System.TimeSpan? actual, System.TimeSpan expected, System.TimeSpan tolerance) { }
+        public static string FormatNextTimerDueOutOfRange(System.TimeSpan? actual, System.TimeSpan min, System.TimeSpan max) { }
         public static string FormatRateLimitViolation(System.Collections.Generic.IReadOnlyList<System.DateTimeOffset> timestamps, int violatingIndex, System.TimeSpan gap, System.TimeSpan interval) { }
     }
 }
