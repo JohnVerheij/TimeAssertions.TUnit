@@ -359,4 +359,77 @@ internal sealed class TimeRenderingHelpersTests
         await Assert.That(() => TimeRenderingHelpers.FormatActiveTimerCountMismatch(active, expected: -1))
             .Throws<ArgumentOutOfRangeException>();
     }
+
+    // ---- FormatNextTimerDueMismatch / FormatNextTimerDueOutOfRange (v0.6.0) ----
+
+    /// <summary>An out-of-tolerance next-timer due time names the expected and observed due times,
+    /// the delta, and the grep-friendly trailer.</summary>
+    [Test]
+    public async Task FormatNextTimerDueMismatch_NamesExpectedActualAndDelta(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var formatted = TimeRenderingHelpers.FormatNextTimerDueMismatch(
+            actual: TimeSpan.FromMilliseconds(2400),
+            expected: TimeSpan.FromMilliseconds(2000),
+            tolerance: TimeSpan.FromMilliseconds(100));
+
+        await Assert.That(formatted).Contains("expected the next timer due in approximately 2.0s");
+        await Assert.That(formatted).Contains("(expected=2000ms, tolerance=100ms, actual=2400ms, delta=400ms)");
+    }
+
+    /// <summary>When no enabled timer is pending the message reads <c>actual=none</c> rather than
+    /// reporting a misleading numeric due time.</summary>
+    [Test]
+    public async Task FormatNextTimerDueMismatch_NoPendingTimer_RendersNone(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var formatted = TimeRenderingHelpers.FormatNextTimerDueMismatch(
+            actual: null,
+            expected: TimeSpan.FromSeconds(2),
+            tolerance: TimeSpan.FromMilliseconds(1));
+
+        await Assert.That(formatted).Contains("no enabled timer was pending");
+        await Assert.That(formatted).Contains("(expected=2000ms, tolerance=1ms, actual=none)");
+    }
+
+    /// <summary>Argument validation: a negative tolerance is rejected.</summary>
+    [Test]
+    public async Task FormatNextTimerDueMismatch_NegativeTolerance_ThrowsArgumentOutOfRange(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await Assert.That(() => TimeRenderingHelpers.FormatNextTimerDueMismatch(
+                actual: TimeSpan.FromSeconds(2),
+                expected: TimeSpan.FromSeconds(2),
+                tolerance: TimeSpan.FromMilliseconds(-1)))
+            .Throws<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>An out-of-range next-timer due time names the inclusive range, the observed due
+    /// time, and the grep-friendly trailer.</summary>
+    [Test]
+    public async Task FormatNextTimerDueOutOfRange_NamesRangeAndActual(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var formatted = TimeRenderingHelpers.FormatNextTimerDueOutOfRange(
+            actual: TimeSpan.FromMilliseconds(5000),
+            min: TimeSpan.FromMilliseconds(1000),
+            max: TimeSpan.FromMilliseconds(4000));
+
+        await Assert.That(formatted).Contains("expected a pending timer due within [1.0s, 4.0s]");
+        await Assert.That(formatted).Contains("(min=1000ms, max=4000ms, actual=5000ms)");
+    }
+
+    /// <summary>When no enabled timer is pending the range message reads <c>actual=none</c>.</summary>
+    [Test]
+    public async Task FormatNextTimerDueOutOfRange_NoPendingTimer_RendersNone(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var formatted = TimeRenderingHelpers.FormatNextTimerDueOutOfRange(
+            actual: null,
+            min: TimeSpan.FromMilliseconds(1000),
+            max: TimeSpan.FromMilliseconds(4000));
+
+        await Assert.That(formatted).Contains("no enabled timer was pending");
+        await Assert.That(formatted).Contains("(min=1000ms, max=4000ms, actual=none)");
+    }
 }

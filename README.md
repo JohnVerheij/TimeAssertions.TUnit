@@ -28,6 +28,8 @@ A TUnit-native fluent time-assertion DSL on top of `Microsoft.Extensions.Time.Te
   - [`TimeProvider`-aware `DateTimeOffset` assertions](#timeprovider-aware-datetimeoffset-assertions)
   - [Cross-cutting timing budget](#cross-cutting-timing-budget)
   - [Rate-limit assertions on invocation timestamps](#rate-limit-assertions-on-invocation-timestamps)
+  - [Active-timer leak assertions](#active-timer-leak-assertions)
+  - [Pending-timer due-time assertions](#pending-timer-due-time-assertions)
 - [Failure diagnostics](#failure-diagnostics)
 - [Cookbook: common patterns](#cookbook-common-patterns)
 - [Modern .NET 10+ practices on display](#modern-net-10-practices-on-display)
@@ -65,7 +67,7 @@ This repo ships **two** NuGet packages:
 | Package | Purpose | Depends on |
 |---|---|---|
 | [`TimeAssertions`](https://www.nuget.org/packages/TimeAssertions/) | Framework-agnostic core: `TimeRenderingHelpers` for elapsed-duration / budget-overrun formatting | BCL only |
-| [`TimeAssertions.TUnit`](https://www.nuget.org/packages/TimeAssertions.TUnit/) | TUnit-specific entry points: `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()`, `WasInvokedAtMostOncePer()`, `HasNoActiveTimers()`, `HasActiveTimerCount(int)` | `TimeAssertions` + `TUnit.Assertions` + `TUnit.Core` + `Microsoft.Extensions.TimeProvider.Testing` |
+| [`TimeAssertions.TUnit`](https://www.nuget.org/packages/TimeAssertions.TUnit/) | TUnit-specific entry points: `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()`, `WasInvokedAtMostOncePer()`, `HasNoActiveTimers()`, `HasActiveTimerCount(int)`, `HasNextTimerDueApproximately()`, `HasPendingTimerDueWithin()` | `TimeAssertions` + `TUnit.Assertions` + `TUnit.Core` + `Microsoft.Extensions.TimeProvider.Testing` |
 
 You install `TimeAssertions.TUnit`; `TimeAssertions` and `Microsoft.Extensions.TimeProvider.Testing` come transitively. Adapters for other test frameworks (NUnit, xUnit, MSTest) are *not* shipped today: they would reuse the `TimeAssertions` core. Open a feature request if you need one.
 
@@ -75,7 +77,7 @@ The two packages place types in two namespaces with deliberately-different scope
 
 | Type / member | Namespace | Auto-imported? |
 |---|---|---|
-| `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()`, `WasInvokedAtMostOncePer()`, `HasNoActiveTimers()`, `HasActiveTimerCount(int)` (source-generated entries) | `TUnit.Assertions.Extensions` | **Yes**: TUnit auto-imports |
+| `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()`, `WasInvokedAtMostOncePer()`, `HasNoActiveTimers()`, `HasActiveTimerCount(int)`, `HasNextTimerDueApproximately()`, `HasPendingTimerDueWithin()` (source-generated entries) | `TUnit.Assertions.Extensions` | **Yes**: TUnit auto-imports |
 | `FakeTimeProvider` (the testable-clock type) | `Microsoft.Extensions.Time.Testing` | **No**: needed at the call site; recommended for `GlobalUsings.cs` |
 | `TimeRenderingHelpers` (formatting utilities for failure messages) | `TimeAssertions` | **No**: needed at the call site; recommended for `GlobalUsings.cs` |
 | `WithinTimeBudgetAssertion<T>`, `WithinTimeBudgetCapturingAssertion<T>` (the assertion classes behind `WithinTimeBudget()` and `WithinTimeBudgetCapturing()`) | `TimeAssertions.TUnit` | **No**: needed at the call site; recommended for `GlobalUsings.cs` |
@@ -139,7 +141,7 @@ For projects standardising on this pattern, TimeAssertions.TUnit is the TUnit-si
 
 ## Entry points
 
-Five groups of entry points cover five distinct testing concerns: fake-clock state, `TimeProvider`-aware `DateTimeOffset` checks, assertion-level timing budgets, rate-limit assertions on invocation timestamps, and timer-leak detection.
+Six groups of entry points cover six distinct testing concerns: fake-clock state, `TimeProvider`-aware `DateTimeOffset` checks, assertion-level timing budgets, rate-limit assertions on invocation timestamps, timer-leak detection, and pending-timer due-time inspection.
 
 ### `FakeTimeProvider` state assertions
 
@@ -259,6 +261,25 @@ For an asynchronous disposal race (the timer is disposed on a background `StopAs
 await service.StopAsync(ct);
 await Assert.That(() => time.ActiveTimerCount)
     .Eventually(a => a.IsEqualTo(0), TimeSpan.FromSeconds(1));
+```
+
+### Pending-timer due-time assertions
+
+`HasNextTimerDueApproximately(expected, tolerance)` and `HasPendingTimerDueWithin(min, max)` inspect the schedule a pending timer carries on an `ObservableTimeProvider` **without advancing the clock**, so a test can verify which delay a loop just scheduled (for example a step of an exponential backoff) rather than advancing fake time and inferring the delay from when the callback fires. The "next" timer is the one with the smallest due time among the enabled (non-infinite) active timers; the underlying `ObservableTimeProvider.NextTimerDueTime` property exposes that value (or `null` when no enabled timer is pending).
+
+| Entry point | Behaviour |
+|---|---|
+| `HasNextTimerDueApproximately(TimeSpan expected, TimeSpan tolerance)` | Asserts the next pending timer's due time is within `tolerance` of `expected`. On failure the message names the expected and observed due times and the delta, with a grep-friendly `(expected=Xms, tolerance=Yms, actual=Zms, delta=Wms)` trailer, or `actual=none` when no enabled timer is pending. |
+| `HasPendingTimerDueWithin(TimeSpan min, TimeSpan max)` | Asserts the next pending timer's due time falls within the inclusive range `[min, max]`. On failure the message names the range and observed due time, with a `(min=Xms, max=Yms, actual=Zms)` trailer, or `actual=none` when no enabled timer is pending. |
+
+```csharp
+var time = new ObservableTimeProvider(new FakeTimeProvider());
+var client = new ReconnectingClient(time);
+
+await client.OnDisconnect();   // first reconnect attempt scheduled
+// Assert the scheduled backoff delay directly, without advancing the clock:
+await Assert.That(time).HasNextTimerDueApproximately(
+    TimeSpan.FromMilliseconds(500), tolerance: TimeSpan.FromMilliseconds(1));
 ```
 
 ---

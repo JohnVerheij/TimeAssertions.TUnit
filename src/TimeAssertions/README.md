@@ -15,7 +15,7 @@ Framework-agnostic rendering helpers and test infrastructure for the TimeAsserti
 ## What's in this package
 
 - **`TimeRenderingHelpers`**: formatting utilities for elapsed durations and time budgets in failure-message context. Pure, allocation-conscious.
-- **`ObservableTimeProvider`**: a `TimeProvider` decorator that tracks the timers created against it (`ActiveTimerCount`, `ActiveTimers`) so adapter packages can assert on timer-disposal and leak behaviour. Reflection-free, AOT-compatible, thread-safe.
+- **`ObservableTimeProvider`**: a `TimeProvider` decorator that tracks the timers created against it (`ActiveTimerCount`, `ActiveTimers`, `NextTimerDueTime`) so adapter packages can assert on timer-disposal, leak, and pending-due-time behaviour without advancing the clock. Reflection-free, AOT-compatible, thread-safe.
 - **`ActiveTimerInfo`**: a readonly record struct describing a tracked timer's schedule (`DueTime`, `Period`), returned by `ObservableTimeProvider.ActiveTimers`.
 - **`TimelineRenderer`** / **`TimelineEvent`**: render a sequence of timestamped events as deterministic, snapshot-friendly text.
 

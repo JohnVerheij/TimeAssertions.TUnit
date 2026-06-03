@@ -123,4 +123,166 @@ internal sealed class ActiveTimerAssertionsTests
             await Assert.That(time).HasActiveTimerCount(-1);
         }).Throws<ArgumentOutOfRangeException>();
     }
+
+    /// <summary>The next pending timer's due time within tolerance passes. This is the headline use
+    /// case: assert a scheduled backoff delay without advancing the clock.</summary>
+    [Test]
+    public async Task HasNextTimerDueApproximately_WithinTolerance_Passes(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(2), Timeout.InfiniteTimeSpan);
+
+        await Assert.That(time).HasNextTimerDueApproximately(TimeSpan.FromSeconds(2), tolerance: TimeSpan.FromMilliseconds(1));
+    }
+
+    /// <summary>The smallest enabled due time is the one inspected when several timers are pending.</summary>
+    [Test]
+    public async Task HasNextTimerDueApproximately_PicksSmallestDueTime(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(4), Timeout.InfiniteTimeSpan);
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(1), Timeout.InfiniteTimeSpan);
+
+        await Assert.That(time).HasNextTimerDueApproximately(TimeSpan.FromSeconds(1), tolerance: TimeSpan.FromMilliseconds(1));
+    }
+
+    /// <summary>An out-of-tolerance due time fails with the expected/actual/delta message.</summary>
+    [Test]
+    public async Task HasNextTimerDueApproximately_OutOfTolerance_Fails(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromMilliseconds(2400), Timeout.InfiniteTimeSpan);
+
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(time).HasNextTimerDueApproximately(TimeSpan.FromSeconds(2), tolerance: TimeSpan.FromMilliseconds(100));
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains("expected the next timer due in approximately 2.0s");
+        await Assert.That(exception.Message).Contains("(expected=2000ms, tolerance=100ms, actual=2400ms, delta=400ms)");
+    }
+
+    /// <summary>No enabled timer pending fails with the <c>actual=none</c> message rather than
+    /// passing vacuously.</summary>
+    [Test]
+    public async Task HasNextTimerDueApproximately_NoPendingTimer_Fails(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(time).HasNextTimerDueApproximately(TimeSpan.FromSeconds(2), tolerance: TimeSpan.FromMilliseconds(1));
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains("no enabled timer was pending");
+        await Assert.That(exception.Message).Contains("actual=none");
+    }
+
+    /// <summary>Argument validation: a negative tolerance is rejected.</summary>
+    [Test]
+    public async Task HasNextTimerDueApproximately_NegativeTolerance_ThrowsArgumentOutOfRange(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(2), Timeout.InfiniteTimeSpan);
+
+        await Assert.That(async () =>
+        {
+            await Assert.That(time).HasNextTimerDueApproximately(TimeSpan.FromSeconds(2), tolerance: TimeSpan.FromMilliseconds(-1));
+        }).Throws<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>The exponential-backoff motivating scenario: each scheduled step is asserted on the
+    /// pending timer without advancing the clock, walking the 500/1000/2000/4000/5000ms ladder.</summary>
+    [Test]
+    [Arguments(500)]
+    [Arguments(1000)]
+    [Arguments(2000)]
+    [Arguments(4000)]
+    [Arguments(5000)]
+    public async Task HasNextTimerDueApproximately_BackoffLadder_Passes(int dueMs, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromMilliseconds(dueMs), Timeout.InfiniteTimeSpan);
+
+        await Assert.That(time).HasNextTimerDueApproximately(
+            TimeSpan.FromMilliseconds(dueMs),
+            tolerance: TimeSpan.FromMilliseconds(1));
+    }
+
+    /// <summary>The next pending timer's due time inside the inclusive range passes.</summary>
+    [Test]
+    public async Task HasPendingTimerDueWithin_InRange_Passes(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(2), Timeout.InfiniteTimeSpan);
+
+        await Assert.That(time).HasPendingTimerDueWithin(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(4));
+    }
+
+    /// <summary>The inclusive bounds pass at both ends of the range.</summary>
+    [Test]
+    [Arguments(1000)]
+    [Arguments(4000)]
+    public async Task HasPendingTimerDueWithin_InclusiveBounds_Pass(int dueMs, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromMilliseconds(dueMs), Timeout.InfiniteTimeSpan);
+
+        await Assert.That(time).HasPendingTimerDueWithin(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(4));
+    }
+
+    /// <summary>An out-of-range due time fails naming the range and observed due time.</summary>
+    [Test]
+    public async Task HasPendingTimerDueWithin_OutOfRange_Fails(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(5), Timeout.InfiniteTimeSpan);
+
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(time).HasPendingTimerDueWithin(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(4));
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains("expected a pending timer due within [1.0s, 4.0s]");
+        await Assert.That(exception.Message).Contains("(min=1000ms, max=4000ms, actual=5000ms)");
+    }
+
+    /// <summary>No enabled timer pending fails with the <c>actual=none</c> message.</summary>
+    [Test]
+    public async Task HasPendingTimerDueWithin_NoPendingTimer_Fails(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(time).HasPendingTimerDueWithin(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(4));
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains("no enabled timer was pending");
+        await Assert.That(exception.Message).Contains("actual=none");
+    }
+
+    /// <summary>Argument validation: a max less than min is rejected.</summary>
+    [Test]
+    public async Task HasPendingTimerDueWithin_MaxLessThanMin_ThrowsArgumentOutOfRange(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(2), Timeout.InfiniteTimeSpan);
+
+        await Assert.That(async () =>
+        {
+            await Assert.That(time).HasPendingTimerDueWithin(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(1));
+        }).Throws<ArgumentOutOfRangeException>();
+    }
 }

@@ -177,6 +177,82 @@ public static class TimeRenderingHelpers
     }
 
     /// <summary>
+    /// Formats the failure message for <c>HasNextTimerDueApproximately(expected, tolerance)</c>: the
+    /// expected due time, the allowed tolerance, and either the observed next-timer due time and how
+    /// far it fell outside tolerance, or a note that no enabled timer was pending.
+    /// </summary>
+    /// <remarks>
+    /// The rendered shape pins a one-line headline followed by a grep-friendly fixed-unit
+    /// parenthetical (<c>(expected=Xms, tolerance=Yms, actual=Zms, delta=Wms)</c>) so CI log scrapers
+    /// can extract the numbers without parsing the prose, analogous to
+    /// <see cref="FormatBudgetOverrun"/>. When no enabled timer is pending the parenthetical reads
+    /// <c>(expected=Xms, tolerance=Yms, actual=none)</c>.
+    /// </remarks>
+    /// <param name="actual">The observed next-timer due time, or <see langword="null"/> when no
+    /// enabled timer is pending.</param>
+    /// <param name="expected">The expected next-timer due time.</param>
+    /// <param name="tolerance">The allowed absolute tolerance around <paramref name="expected"/>.
+    /// Must be non-negative.</param>
+    /// <returns>A single-line human-readable summary in <see cref="CultureInfo.InvariantCulture"/>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="tolerance"/> is negative.</exception>
+    public static string FormatNextTimerDueMismatch(TimeSpan? actual, TimeSpan expected, TimeSpan tolerance)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(tolerance, TimeSpan.Zero);
+
+        var expectedMs = expected.TotalMilliseconds;
+        var toleranceMs = tolerance.TotalMilliseconds;
+
+        if (actual is null)
+        {
+            return string.Create(
+                CultureInfo.InvariantCulture,
+                $"expected the next timer due in approximately {FormatDuration(expected)} (±{FormatDuration(tolerance)}) but no enabled timer was pending (expected={expectedMs:F0}ms, tolerance={toleranceMs:F0}ms, actual=none)");
+        }
+
+        var actualValue = actual.Value;
+        var delta = (actualValue - expected).Duration();
+        var actualMs = actualValue.TotalMilliseconds;
+        var deltaMs = delta.TotalMilliseconds;
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"expected the next timer due in approximately {FormatDuration(expected)} (±{FormatDuration(tolerance)}) but it was due in {FormatDuration(actualValue)}, off by {FormatDuration(delta)} (expected={expectedMs:F0}ms, tolerance={toleranceMs:F0}ms, actual={actualMs:F0}ms, delta={deltaMs:F0}ms)");
+    }
+
+    /// <summary>
+    /// Formats the failure message for <c>HasPendingTimerDueWithin(min, max)</c>: the inclusive
+    /// range, and either the observed next-timer due time, or a note that no enabled timer was
+    /// pending.
+    /// </summary>
+    /// <remarks>
+    /// The rendered shape pins a one-line headline followed by a grep-friendly fixed-unit
+    /// parenthetical (<c>(min=Xms, max=Yms, actual=Zms)</c>); when no enabled timer is pending the
+    /// parenthetical reads <c>(min=Xms, max=Yms, actual=none)</c>.
+    /// </remarks>
+    /// <param name="actual">The observed next-timer due time, or <see langword="null"/> when no
+    /// enabled timer is pending.</param>
+    /// <param name="min">The inclusive lower bound of the expected due-time range.</param>
+    /// <param name="max">The inclusive upper bound of the expected due-time range.</param>
+    /// <returns>A single-line human-readable summary in <see cref="CultureInfo.InvariantCulture"/>.</returns>
+    public static string FormatNextTimerDueOutOfRange(TimeSpan? actual, TimeSpan min, TimeSpan max)
+    {
+        var minMs = min.TotalMilliseconds;
+        var maxMs = max.TotalMilliseconds;
+
+        if (actual is null)
+        {
+            return string.Create(
+                CultureInfo.InvariantCulture,
+                $"expected a pending timer due within [{FormatDuration(min)}, {FormatDuration(max)}] but no enabled timer was pending (min={minMs:F0}ms, max={maxMs:F0}ms, actual=none)");
+        }
+
+        var actualValue = actual.Value;
+        var actualMs = actualValue.TotalMilliseconds;
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"expected a pending timer due within [{FormatDuration(min)}, {FormatDuration(max)}] but it was due in {FormatDuration(actualValue)} (min={minMs:F0}ms, max={maxMs:F0}ms, actual={actualMs:F0}ms)");
+    }
+
+    /// <summary>
     /// Appends each timer's schedule on its own indented line, sorted by due time then period for
     /// deterministic (snapshot-stable) output. A <see cref="Timeout.InfiniteTimeSpan"/> period
     /// renders as <c>one-shot</c>; an infinite due time renders as <c>infinite</c>.

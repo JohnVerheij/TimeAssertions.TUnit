@@ -67,7 +67,7 @@ public static class TimelineRenderer
         }
 
         // Average rendered line: '+' + up to 10 digit delta + 'ms ' + ~10-char label + newline.
-        // 32 bytes per line is a conservative upper-bound for the common downstream shape.
+        // 32 bytes per line is a conservative upper-bound for the common heartbeat/ping-loop shape.
         var sb = new StringBuilder(capacity: events.Count * 32);
         for (var i = 0; i < events.Count; i++)
         {

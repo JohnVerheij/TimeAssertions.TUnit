@@ -113,6 +113,80 @@ internal sealed class ObservableTimeProviderTests
     }
 
     [Test]
+    public async Task NextTimerDueTime_FreshProvider_IsNull(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = new ObservableTimeProvider(new StubTimeProvider(Epoch));
+        await Assert.That(time.NextTimerDueTime).IsNull();
+    }
+
+    [Test]
+    public async Task NextTimerDueTime_SingleTimer_ReturnsItsDueTime(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = new ObservableTimeProvider(new StubTimeProvider(Epoch));
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(2), Timeout.InfiniteTimeSpan);
+
+        await Assert.That(time.NextTimerDueTime).IsEqualTo(TimeSpan.FromSeconds(2));
+    }
+
+    [Test]
+    public async Task NextTimerDueTime_MultipleTimers_ReturnsSmallestDueTime(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = new ObservableTimeProvider(new StubTimeProvider(Epoch));
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(4), Timeout.InfiniteTimeSpan);
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(1), Timeout.InfiniteTimeSpan);
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(2), Timeout.InfiniteTimeSpan);
+
+        await Assert.That(time.NextTimerDueTime).IsEqualTo(TimeSpan.FromSeconds(1));
+    }
+
+    [Test]
+    public async Task NextTimerDueTime_ExcludesDisabledTimers(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = new ObservableTimeProvider(new StubTimeProvider(Epoch));
+        _ = time.CreateTimer(static _ => { }, state: null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(3), Timeout.InfiniteTimeSpan);
+
+        await Assert.That(time.NextTimerDueTime).IsEqualTo(TimeSpan.FromSeconds(3));
+    }
+
+    [Test]
+    public async Task NextTimerDueTime_OnlyDisabledTimers_IsNull(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = new ObservableTimeProvider(new StubTimeProvider(Epoch));
+        _ = time.CreateTimer(static _ => { }, state: null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+
+        await Assert.That(time.NextTimerDueTime).IsNull();
+    }
+
+    [Test]
+    public async Task NextTimerDueTime_ReflectsScheduleChange(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = new ObservableTimeProvider(new StubTimeProvider(Epoch));
+        var timer = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(5), Timeout.InfiniteTimeSpan);
+        await Assert.That(time.NextTimerDueTime).IsEqualTo(TimeSpan.FromSeconds(5));
+
+        _ = timer.Change(TimeSpan.FromSeconds(1), Timeout.InfiniteTimeSpan);
+        await Assert.That(time.NextTimerDueTime).IsEqualTo(TimeSpan.FromSeconds(1));
+    }
+
+    [Test]
+    public async Task NextTimerDueTime_ChangedToDisabled_IsExcluded(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = new ObservableTimeProvider(new StubTimeProvider(Epoch));
+        var timer = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(5), Timeout.InfiniteTimeSpan);
+
+        _ = timer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        await Assert.That(time.NextTimerDueTime).IsNull();
+    }
+
+    [Test]
     public async Task DelegatesClockMembersToInner(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
