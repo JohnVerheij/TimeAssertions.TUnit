@@ -177,6 +177,32 @@ public static class TimeRenderingHelpers
     }
 
     /// <summary>
+    /// Formats the failure message for <c>HasActiveTimers()</c> and
+    /// <c>HasAtLeastActiveTimerCount(count)</c>: the minimum that was required and the actual count,
+    /// followed by each active timer's schedule in deterministic order (by due time, then period).
+    /// When no timers are active the schedule list is omitted.
+    /// </summary>
+    /// <param name="active">The timers active when the assertion ran.</param>
+    /// <param name="minimum">The minimum active-timer count that was required. Must be
+    /// non-negative.</param>
+    /// <returns>A multi-line human-readable summary in <see cref="CultureInfo.InvariantCulture"/>,
+    /// with a grep-friendly <c>(minimum=N, actual=M)</c> trailer on the headline.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="active"/> is
+    /// <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minimum"/> is negative.</exception>
+    public static string FormatActiveTimerAtLeastShortfall(IReadOnlyList<ActiveTimerInfo> active, int minimum)
+    {
+        ArgumentNullException.ThrowIfNull(active);
+        ArgumentOutOfRangeException.ThrowIfNegative(minimum);
+
+        var sb = new StringBuilder();
+        sb.Append(CultureInfo.InvariantCulture,
+            $"expected at least {minimum} active timer(s) but found {active.Count} (minimum={minimum}, actual={active.Count}):");
+        AppendTimerSchedules(sb, active);
+        return sb.ToString();
+    }
+
+    /// <summary>
     /// Formats the failure message for <c>HasNextTimerDueApproximately(expected, tolerance)</c>: the
     /// expected due time, the allowed tolerance, and either the observed next-timer due time and how
     /// far it fell outside tolerance, or a note that no enabled timer was pending.
@@ -250,6 +276,29 @@ public static class TimeRenderingHelpers
         return string.Create(
             CultureInfo.InvariantCulture,
             $"expected a pending timer due within [{FormatDuration(min)}, {FormatDuration(max)}] but it was due in {FormatDuration(actualValue)} (min={minMs:F0}ms, max={maxMs:F0}ms, actual={actualMs:F0}ms)");
+    }
+
+    /// <summary>
+    /// Formats the schedule list of the timers that survived a poll-until-clear deadline, for the
+    /// failure message of <c>HasNoActiveTimersEventually(...)</c> / <c>HasActiveTimerCountEventually(...)</c>.
+    /// Returns each survivor's schedule on its own indented line, sorted by due time then period for
+    /// deterministic (snapshot-stable) output, prefixed with a grep-friendly <c>(count=N)</c> trailer.
+    /// The caller supplies the headline (which names the timeout); this renders only the survivor list.
+    /// </summary>
+    /// <param name="survivors">The timers still active when the deadline elapsed.</param>
+    /// <returns>A multi-line string in <see cref="CultureInfo.InvariantCulture"/> beginning with the
+    /// <c>(count=N)</c> trailer, followed by one indented schedule line per survivor. Empty survivors
+    /// render the trailer alone.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="survivors"/> is
+    /// <see langword="null"/>.</exception>
+    public static string FormatActiveTimerSurvivors(IReadOnlyList<ActiveTimerInfo> survivors)
+    {
+        ArgumentNullException.ThrowIfNull(survivors);
+
+        var sb = new StringBuilder();
+        sb.Append(CultureInfo.InvariantCulture, $" (count={survivors.Count})");
+        AppendTimerSchedules(sb, survivors);
+        return sb.ToString();
     }
 
     /// <summary>

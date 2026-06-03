@@ -67,7 +67,7 @@ This repo ships **two** NuGet packages:
 | Package | Purpose | Depends on |
 |---|---|---|
 | [`TimeAssertions`](https://www.nuget.org/packages/TimeAssertions/) | Framework-agnostic core: `TimeRenderingHelpers` for elapsed-duration / budget-overrun formatting | BCL only |
-| [`TimeAssertions.TUnit`](https://www.nuget.org/packages/TimeAssertions.TUnit/) | TUnit-specific entry points: `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()`, `WasInvokedAtMostOncePer()`, `HasNoActiveTimers()`, `HasActiveTimerCount(int)`, `HasNextTimerDueApproximately()`, `HasPendingTimerDueWithin()` | `TimeAssertions` + `TUnit.Assertions` + `TUnit.Core` + `Microsoft.Extensions.TimeProvider.Testing` |
+| [`TimeAssertions.TUnit`](https://www.nuget.org/packages/TimeAssertions.TUnit/) | TUnit-specific entry points: `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()`, `WasInvokedAtMostOncePer()`, `HasNoActiveTimers()`, `HasActiveTimerCount(int)`, `HasActiveTimers()`, `HasAtLeastActiveTimerCount(int)`, `HasNoActiveTimersEventually()`, `HasActiveTimerCountEventually()`, `HasNextTimerDueApproximately()`, `HasPendingTimerDueWithin()` | `TimeAssertions` + `TUnit.Assertions` + `TUnit.Core` + `Microsoft.Extensions.TimeProvider.Testing` |
 
 You install `TimeAssertions.TUnit`; `TimeAssertions` and `Microsoft.Extensions.TimeProvider.Testing` come transitively. Adapters for other test frameworks (NUnit, xUnit, MSTest) are *not* shipped today: they would reuse the `TimeAssertions` core. Open a feature request if you need one.
 
@@ -77,7 +77,7 @@ The two packages place types in two namespaces with deliberately-different scope
 
 | Type / member | Namespace | Auto-imported? |
 |---|---|---|
-| `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()`, `WasInvokedAtMostOncePer()`, `HasNoActiveTimers()`, `HasActiveTimerCount(int)`, `HasNextTimerDueApproximately()`, `HasPendingTimerDueWithin()` (source-generated entries) | `TUnit.Assertions.Extensions` | **Yes**: TUnit auto-imports |
+| `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()`, `WasInvokedAtMostOncePer()`, `HasNoActiveTimers()`, `HasActiveTimerCount(int)`, `HasActiveTimers()`, `HasAtLeastActiveTimerCount(int)`, `HasNoActiveTimersEventually()`, `HasActiveTimerCountEventually()`, `HasNextTimerDueApproximately()`, `HasPendingTimerDueWithin()` (source-generated entries) | `TUnit.Assertions.Extensions` | **Yes**: TUnit auto-imports |
 | `FakeTimeProvider` (the testable-clock type) | `Microsoft.Extensions.Time.Testing` | **No**: needed at the call site; recommended for `GlobalUsings.cs` |
 | `TimeRenderingHelpers` (formatting utilities for failure messages) | `TimeAssertions` | **No**: needed at the call site; recommended for `GlobalUsings.cs` |
 | `WithinTimeBudgetAssertion<T>`, `WithinTimeBudgetCapturingAssertion<T>` (the assertion classes behind `WithinTimeBudget()` and `WithinTimeBudgetCapturing()`) | `TimeAssertions.TUnit` | **No**: needed at the call site; recommended for `GlobalUsings.cs` |
@@ -243,6 +243,10 @@ The receiver is the recorded log itself, NOT the action being invoked: the consu
 |---|---|
 | `HasNoActiveTimers()` | Asserts every timer created through the `ObservableTimeProvider` has been disposed. On failure the message names each survivor by its schedule (`[dueTime=..., period=...]`; one-shot timers as `period=one-shot`) with a grep-friendly `(count=N)` trailer, instead of a bare integer. |
 | `HasActiveTimerCount(int expected)` | Asserts the exact number of active (undisposed) timers: the registration half of a disposal test. On mismatch the message renders expected vs actual counts plus each active timer's schedule, with an `(expected=N, actual=M)` trailer. |
+| `HasActiveTimers()` | Asserts at least one timer is active: the positive-presence counterpart for the registration half of a disposal test, without pinning the exact count. |
+| `HasAtLeastActiveTimerCount(int count)` | Asserts the active count is at least `count`, for a lower bound rather than an exact count. On a shortfall the message renders the required minimum vs actual count plus each active timer's schedule, with a `(minimum=N, actual=M)` trailer. |
+| `HasNoActiveTimersEventually(TimeSpan timeout, ...)` | Polls the active count on the real wall clock until it reaches zero, or `timeout` elapses. For the asynchronous disposal race a synchronous check cannot see (see below). On timeout the message names each survivor by its schedule with a `(count=N)` trailer. |
+| `HasActiveTimerCountEventually(int count, TimeSpan timeout, ...)` | The count-targeted sibling: polls until the active count equals `count`, or `timeout` elapses. On timeout the message renders the expected and actual counts with an `(expected=N, actual=M)` trailer. |
 
 ```csharp
 var time = new ObservableTimeProvider(new FakeTimeProvider());
@@ -255,13 +259,18 @@ await service.StopAsync(ct);
 await Assert.That(time).HasNoActiveTimers();       // ...and was disposed on stop
 ```
 
-For an asynchronous disposal race (the timer is disposed on a background `StopAsync` that has not completed when the assertion runs), poll the active count with the upstream `Eventually` primitive rather than a family-specific overload:
+An `IHostedService` commonly disposes its timer on a continuation that runs *after* `StopAsync` returns to the caller, so a synchronous `HasNoActiveTimers()` just after stop can still see the timer. `HasNoActiveTimersEventually(timeout)` handles that race: it polls the live active count on the real wall clock until it reaches zero, giving the pending disposal continuation time to run.
 
 ```csharp
 await service.StopAsync(ct);
-await Assert.That(() => time.ActiveTimerCount)
-    .Eventually(a => a.IsEqualTo(0), TimeSpan.FromSeconds(1));
+await Assert.That(time).HasNoActiveTimersEventually(TimeSpan.FromSeconds(2));
 ```
+
+The poll uses a real `Task.Delay` loop against a wall-clock deadline, not a fake-time advance: disposal happens on a real asynchronous continuation, which a fake clock cannot drive. The default poll interval is 10 ms (override it with the optional `pollingInterval`); the condition is checked once before the first delay, so an already-clean provider passes without waiting. Pass a `CancellationToken` to honor an external cancel; it can follow the timeout positionally, `HasNoActiveTimersEventually(timeout, ct)`, without the named `ct:` form. `HasActiveTimerCountEventually(count, timeout)` is the same shape when the active set settles to a non-zero steady state.
+
+#### Migrating from a hand-rolled `ObservableTimeProvider`
+
+If you already wrap `FakeTimeProvider` in your own tracking decorator, note one deliberate shape difference: `ActiveTimers` returns `IReadOnlyList<ActiveTimerInfo>` describing each timer's **schedule** (`DueTime` / `Period`), not the `ITimer` references themselves. That is intentional. A leak diagnostic needs to answer "which timer survived, and what was it scheduled to do", and the schedule is exactly that answer; an `ITimer` identity is not portable across runs and carries no diagnostic value in a failure message. Exposing only the schedule also keeps the snapshot immutable: the returned list is a point-in-time copy that later creations or disposals do not mutate.
 
 ### Pending-timer due-time assertions
 
@@ -685,7 +694,7 @@ Issues and pull requests welcome. Before opening a PR:
 
 For larger ideas (new entry points, breaking changes, cross-cutting refactors), open a [Discussion](https://github.com/JohnVerheij/TimeAssertions.TUnit/discussions) first to align on direction before investing implementation time.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full PR review checklist and API design principles, and [CONVENTIONS.md](CONVENTIONS.md) for the family-wide code conventions shared across `LogAssertions.TUnit`, `SnapshotAssertions.TUnit`, `TimeAssertions.TUnit`, `MathAssertions.TUnit`, `JsonAssertions.TUnit`, and `SseAssertions.TUnit`.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full PR review checklist and API design principles, and [CONVENTIONS.md](CONVENTIONS.md) for the family-wide code conventions shared across `LogAssertions.TUnit`, `SnapshotAssertions.TUnit`, `TimeAssertions.TUnit`, `MathAssertions.TUnit`, `JsonAssertions.TUnit`, `SseAssertions.TUnit`, and `GrpcAssertions.TUnit`.
 
 ## License
 

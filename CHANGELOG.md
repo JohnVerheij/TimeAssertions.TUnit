@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-06-04: eventually + positive-count active-timer assertions
+
+Minor release. Adds real-time "eventually" active-timer assertions for the asynchronous timer-disposal race a synchronous leak check cannot see, plus synchronous positive-count assertions to express a lower bound on the active set.
+
+### Added
+
+- **`Assert.That(provider).HasNoActiveTimersEventually(TimeSpan timeout, TimeSpan? pollingInterval = null, CancellationToken ct = default)`** (TUnit adapter) polls the live `ActiveTimerCount` on the real wall clock until it reaches zero, or the timeout elapses. A `BackgroundService` / `IHostedService` commonly disposes its timer on a continuation that runs after `StopAsync` returns to the caller, so a synchronous `HasNoActiveTimers()` check just after stop can still see the timer; the poll gives that continuation time to run. The condition is checked once before the first delay, so an already-clean provider passes without waiting. On timeout the failure names each surviving timer by its schedule with a grep-friendly `(count=N)` trailer.
+- **`Assert.That(provider).HasActiveTimerCountEventually(int count, TimeSpan timeout, TimeSpan? pollingInterval = null, CancellationToken ct = default)`** (TUnit adapter) is the count-targeted sibling: polls until `ActiveTimerCount` equals `count`, for an active set that settles to a steady state on a background continuation. On timeout it renders the expected and actual counts with an `(expected=N, actual=M)` trailer plus the active timers' schedules.
+- **`Assert.That(provider).HasActiveTimers()`** (TUnit adapter) passes when at least one timer is active: the positive-presence counterpart of `HasNoActiveTimers()` for the registration half of a leak test, without pinning the exact count. Source-generated via `[GenerateAssertion]`.
+- **`Assert.That(provider).HasAtLeastActiveTimerCount(int count)`** (TUnit adapter) passes when the active count is at least `count`, for when a lower bound rather than an exact count is the natural expectation. On a shortfall it renders the required minimum and the actual count with a `(minimum=N, actual=M)` trailer plus the active timers' schedules. Source-generated via `[GenerateAssertion]`.
+- **Positional-`CancellationToken` overloads** of `HasNoActiveTimersEventually` and `HasActiveTimerCountEventually` (TUnit adapter) let a token follow the timeout positionally while keeping the default poll interval, so the common case reads as `(timeout, ct)` / `(count, timeout, ct)` instead of the named `ct:` form. They forward to the canonical chain with `pollingInterval: null`; the token parameter has no default, so a bare `(timeout)` call stays unambiguous, matching TUnit's `WaitsFor` convention.
+- **`TimeAssertions.TimeRenderingHelpers.FormatActiveTimerSurvivors(...)` and `FormatActiveTimerAtLeastShortfall(...)`** (framework-agnostic core) render the survivor list for the eventually-timeout messages and the at-least shortfall message, ordering survivors deterministically (by due time, then period) so the messages are snapshot-stable.
+
+The poll uses a real `Task.Delay` loop against a wall-clock deadline rather than a fake-time advance: hosted-service timer disposal happens on a real asynchronous continuation, which a fake clock cannot drive. The default poll interval is 10 ms; supply your own via the optional `pollingInterval`. A canceled `CancellationToken` throws `OperationCanceledException` so the test is recorded as canceled rather than failed.
+
 ## [0.6.0] - 2026-06-03: active-timer leak + pending-timer due-time assertions, Renovate + supply-chain hardening
 
 Minor release. Adds the family's first timer-leak assertions: `HasNoActiveTimers()` and `HasActiveTimerCount(int)` over a new framework-agnostic `ObservableTimeProvider` decorator, filling the gap `FakeTimeProvider` leaves open for hosted-service timer-disposal tests, plus pending-timer due-time assertions (`HasNextTimerDueApproximately()` / `HasPendingTimerDueWithin()`) that inspect a scheduled timer's due time without advancing the clock. Also folds in the dependency-automation switch to `Renovate` and the GitHub Actions supply-chain hardening that had accumulated on the unreleased line, and starts merging core + adapter coverage in CI so the gate measures the core suite directly.
@@ -306,7 +321,8 @@ argument; `.And.WithinTimeBudget(...)` is preferred.
 - **External-consumer smoke test + AOT-publish CI gate**: planned for 0.2.0.
 - **Recursive public-API self-test** via `SnapshotAssertions.TUnit`: planned for 0.1.1.
 
-[Unreleased]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/releases/tag/v0.7.0
 [0.6.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/releases/tag/v0.6.0
 [0.5.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/releases/tag/v0.5.0
 [0.4.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/releases/tag/v0.4.0

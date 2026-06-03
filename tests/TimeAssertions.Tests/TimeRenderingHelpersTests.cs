@@ -360,6 +360,95 @@ internal sealed class TimeRenderingHelpersTests
             .Throws<ArgumentOutOfRangeException>();
     }
 
+    // ---- FormatActiveTimerSurvivors / FormatActiveTimerAtLeastShortfall (v0.7.0) ----
+
+    /// <summary>The survivor list renders the grep-friendly count trailer followed by each survivor's
+    /// schedule, sorted deterministically.</summary>
+    [Test]
+    public async Task FormatActiveTimerSurvivors_RendersCountTrailerAndSchedules(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var survivors = new[]
+        {
+            new ActiveTimerInfo(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10)),
+            new ActiveTimerInfo(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(5)),
+        };
+
+        var formatted = TimeRenderingHelpers.FormatActiveTimerSurvivors(survivors);
+
+        await Assert.That(formatted).Contains("(count=2)");
+        var first = formatted.IndexOf("dueTime=1.0s, period=5.0s", StringComparison.Ordinal);
+        var second = formatted.IndexOf("dueTime=2.0s, period=10.0s", StringComparison.Ordinal);
+        await Assert.That(first).IsGreaterThanOrEqualTo(0);
+        await Assert.That(first).IsLessThan(second);
+    }
+
+    /// <summary>An empty survivor list renders the <c>(count=0)</c> trailer alone, with no schedule
+    /// lines.</summary>
+    [Test]
+    public async Task FormatActiveTimerSurvivors_Empty_RendersCountTrailerOnly(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var formatted = TimeRenderingHelpers.FormatActiveTimerSurvivors(Array.Empty<ActiveTimerInfo>());
+
+        await Assert.That(formatted).Contains("(count=0)");
+        await Assert.That(formatted).DoesNotContain("[dueTime=");
+    }
+
+    /// <summary>Argument validation: a <see langword="null"/> survivor list is rejected.</summary>
+    [Test]
+    public async Task FormatActiveTimerSurvivors_Null_ThrowsArgumentNull(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await Assert.That(() => TimeRenderingHelpers.FormatActiveTimerSurvivors(null!))
+            .Throws<ArgumentNullException>();
+    }
+
+    /// <summary>An at-least shortfall renders the required minimum and the actual count plus the
+    /// active timers' schedules, with the grep-friendly trailer.</summary>
+    [Test]
+    public async Task FormatActiveTimerAtLeastShortfall_RendersMinimumActualAndSchedules(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var active = new[] { new ActiveTimerInfo(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(5)) };
+
+        var formatted = TimeRenderingHelpers.FormatActiveTimerAtLeastShortfall(active, minimum: 3);
+
+        await Assert.That(formatted).Contains("expected at least 3 active timer(s) but found 1");
+        await Assert.That(formatted).Contains("(minimum=3, actual=1)");
+        await Assert.That(formatted).Contains("[dueTime=1.0s, period=5.0s]");
+    }
+
+    /// <summary>When no timers are active, the schedule list is omitted: only the headline appears.</summary>
+    [Test]
+    public async Task FormatActiveTimerAtLeastShortfall_EmptyActive_OmitsScheduleList(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var formatted = TimeRenderingHelpers.FormatActiveTimerAtLeastShortfall(Array.Empty<ActiveTimerInfo>(), minimum: 1);
+
+        await Assert.That(formatted).Contains("expected at least 1 active timer(s) but found 0");
+        await Assert.That(formatted).Contains("(minimum=1, actual=0)");
+        await Assert.That(formatted).DoesNotContain("[dueTime=");
+    }
+
+    /// <summary>Argument validation: a <see langword="null"/> active list is rejected.</summary>
+    [Test]
+    public async Task FormatActiveTimerAtLeastShortfall_NullActive_ThrowsArgumentNull(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await Assert.That(() => TimeRenderingHelpers.FormatActiveTimerAtLeastShortfall(null!, minimum: 1))
+            .Throws<ArgumentNullException>();
+    }
+
+    /// <summary>Argument validation: a negative minimum is rejected.</summary>
+    [Test]
+    public async Task FormatActiveTimerAtLeastShortfall_NegativeMinimum_ThrowsArgumentOutOfRange(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await Assert.That(() => TimeRenderingHelpers.FormatActiveTimerAtLeastShortfall(Array.Empty<ActiveTimerInfo>(), minimum: -1))
+            .Throws<ArgumentOutOfRangeException>();
+    }
+
     // ---- FormatNextTimerDueMismatch / FormatNextTimerDueOutOfRange (v0.6.0) ----
 
     /// <summary>An out-of-tolerance next-timer due time names the expected and observed due times,
