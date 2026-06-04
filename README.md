@@ -32,7 +32,6 @@ A TUnit-native fluent time-assertion DSL on top of `Microsoft.Extensions.Time.Te
   - [Pending-timer due-time assertions](#pending-timer-due-time-assertions)
 - [Failure diagnostics](#failure-diagnostics)
 - [Cookbook: common patterns](#cookbook-common-patterns)
-- [Modern .NET 10+ practices on display](#modern-net-10-practices-on-display)
 - [Design notes](#design-notes)
 - [Stability intent (pre-1.0)](#stability-intent-pre-10)
 - [Limitations and future work](#limitations-and-future-work)
@@ -600,43 +599,11 @@ TestContext.Current.OutputWriter.WriteLine($"steady-state: {elapsed.TotalMillise
 
 ---
 
-## Modern .NET 10+ practices on display
-
-The package is a deliberate showcase of modern .NET conventions:
-
-- **AOT-compatible** (`IsAotCompatible=true`), trimmable (`IsTrimmable=true`), no runtime reflection in the assertion path.
-- **`TimeProvider`-first.** All time-dependent assertions accept an optional `TimeProvider` parameter; defaults to `TimeProvider.System` only when no fake clock is needed.
-- **Source-generated assertion entries** via TUnit's `[AssertionExtension]`. No interface implementation required, no reflection at runtime.
-- **`CallerArgumentExpression`** on tolerance / budget parameters surfaces the caller's expression in failure messages without manual string passing.
-- **Allocation-conscious failure rendering** (`string.Create` with culture-invariant interpolation; struct-based budget overrun renderer).
-
 ## Design notes
 
-### Why `WithinTimeBudget` (not `Within`)
-
-TUnit core already uses `.Within(...)` on tolerance assertions (`TimeSpanEqualsAssertion.Within(TimeSpan tolerance)`, `IntEqualsAssertion.Within(int days)`, etc.). Reusing `.Within` for timing budgets would collide with the existing tolerance API and confuse overload resolution. `.WithinTimeBudget` reads naturally with `.And` ("and within time budget of 500ms") and is unambiguous about timing-budget intent.
-
-### Direct-on-source vs `.And.WithinTimeBudget` (type inference note)
-
-`.WithinTimeBudget()` is generic in the source's value type. Two patterns work; the first infers types automatically, the second requires an explicit type argument:
-
-```csharp
-// Canonical: infers cleanly via .And continuation
-await Assert.That(asyncTask).IsEqualTo(42).And.WithinTimeBudget(TimeSpan.FromSeconds(5));
-
-// Direct-on-source: requires explicit type argument
-await Assert.That(asyncTask).WithinTimeBudget<int>(TimeSpan.FromSeconds(5));
-```
-
-Use `.And.WithinTimeBudget` whenever you have a behavioural assertion to chain after; the explicit-type-argument form is a fallback for source-only timing.
-
-### Why `IsBeforeNow` / `IsAfterNow` (not `IsInPast` / `IsInFuture`)
-
-TUnit core ships `DateTimeOffset.IsInPast()` / `IsInFuture()` against `DateTimeOffset.Now` (system clock, no `TimeProvider`). Our `IsBeforeNow(TimeProvider)` / `IsAfterNow(TimeProvider)` add the `TimeProvider`-aware variants: distinct names so the reader sees at a glance which mechanism the test relies on. For system-clock tests, prefer TUnit's existing methods; for `FakeTimeProvider`-driven tests, use ours.
-
-### `Microsoft.Extensions.TimeProvider.Testing` propagated, not `PrivateAssets="all"`
-
-Consumers writing `Assert.That(fakeTime).HasUtcNow(...)` need `FakeTimeProvider` itself in scope. Making the dependency transitive avoids an extra explicit reference in every test project that consumes us.
+- **`WithinTimeBudget`, not `Within`.** TUnit core already uses `.Within(...)` for tolerance assertions, so a separate name avoids the overload collision and reads naturally after `.And`. It is generic in the source's value type: `.And.WithinTimeBudget(...)` infers it, while the direct `.WithinTimeBudget<int>(...)` form needs an explicit type argument.
+- **`IsBeforeNow` / `IsAfterNow`, not `IsInPast` / `IsInFuture`.** TUnit core's versions use the system clock; ours take a `TimeProvider`. Distinct names make the mechanism obvious: use TUnit's for system-clock tests, ours for `FakeTimeProvider`-driven ones.
+- **`Microsoft.Extensions.TimeProvider.Testing` is propagated, not `PrivateAssets="all"`.** Consumers asserting on `FakeTimeProvider` need it in scope; making it transitive saves an explicit reference per test project.
 
 ## Stability intent (pre-1.0)
 
@@ -650,20 +617,7 @@ The 1.0 milestone signals API stability: see [Limitations and future work](#limi
 
 ## Limitations and future work
 
-### Resolved in v0.2.0
-
-- ✅ **Capturing the elapsed time of an assertion chain.** Originally planned as `.Elapsed(out TimeSpan)` (unimplementable: `out` parameters are assigned synchronously before any await). Shipped as `WithinTimeBudgetCapturing(TimeSpan budget, Action<TimeSpan> capture)`. See [Cross-cutting timing budget: Capturing the elapsed time](#capturing-the-elapsed-time-withintimebudgetcapturing-v020).
-- ✅ **`HasAdvanced` / `HasAdvancedBy` naming asymmetry.** Renamed to `HasAdvancedExactly` / `HasAdvancedApproximately` in v0.2.0 to mirror `HasUtcNow` / `HasUtcNowApproximately`. The old names lived as `[Obsolete]` aliases through v0.3.x; removed in v0.4.0.
-- ✅ **External-consumer smoke test + AOT-publish CI gate.** `tests/TimeAssertions.TUnit.SmokeTest/` consumes `TimeAssertions.TUnit` ONLY via `PackageReference` against the just-packed local feed; CI publishes that consumer with `PublishAot=true` on `linux-x64` so any future reflection / DynamicCode regression fails the build before the package can ship. The `IsAotCompatible=true` build-time analyzer remains the first gate; the smoke + AOT-publish steps add end-to-end parity with the rest of the family as a defensive backup.
-- ✅ **Recursive public-API self-test project.** `tests/TimeAssertions.TUnit.SnapshotTests/` pins the public surface using `SnapshotAssertions.TUnit.MatchesSnapshot()` against `PublicApiGenerator` output: pure dogfooding for the family, no Verify dependency.
-
-### Resolved in v0.6.0
-
-- ✅ **Timer-leak assertions.** Originally deferred pending `FakeTimeProvider.ActiveTimers` upstream ([dotnet/extensions#7515](https://github.com/dotnet/extensions/issues/7515)). Shipped instead as `HasNoActiveTimers()` / `HasActiveTimerCount(int)` over the framework-agnostic `ObservableTimeProvider` decorator, which records timer creation through the `CreateTimer` hook with no reflection (the family's [no-reflection policy](CONVENTIONS.md#no-reflection-policy) is honored). See [Active-timer leak assertions](#active-timer-leak-assertions). If the upstream proposal lands, the implementation can move to the BCL API behind the same assertion surface with no consumer change.
-
-### Deferred items
-
-- **`Stopwatch.GetTimestamp()`-based monotonic-clock variant** of `WithinTimeBudget`: candidate if benchmark-class precision is needed. Today, `WithinTimeBudget` uses TUnit's `EvaluationMetadata<T>.Duration` (`DateTimeOffset.Now`-based); system-clock jumps during a test method are vanishingly rare.
+Deferred (demand-driven): a `Stopwatch.GetTimestamp()`-based monotonic-clock variant of `WithinTimeBudget`, for benchmark-class precision. Today `WithinTimeBudget` uses TUnit's `EvaluationMetadata<T>.Duration` (`DateTimeOffset.Now`-based); system-clock jumps mid-test are vanishingly rare.
 
 ## Family compatibility
 
@@ -699,7 +653,7 @@ Issues and pull requests welcome. Before opening a PR:
 
 For larger ideas (new entry points, breaking changes, cross-cutting refactors), open a [Discussion](https://github.com/JohnVerheij/TimeAssertions.TUnit/discussions) first to align on direction before investing implementation time.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full PR review checklist and API design principles, and [CONVENTIONS.md](CONVENTIONS.md) for the family-wide code conventions shared across `LogAssertions.TUnit`, `SnapshotAssertions.TUnit`, `TimeAssertions.TUnit`, `MathAssertions.TUnit`, `JsonAssertions.TUnit`, `SseAssertions.TUnit`, and `GrpcAssertions.TUnit`.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full PR review checklist and API design principles, and [CONVENTIONS.md](CONVENTIONS.md) for the family-wide code conventions shared across the assertion family.
 
 ## License
 
