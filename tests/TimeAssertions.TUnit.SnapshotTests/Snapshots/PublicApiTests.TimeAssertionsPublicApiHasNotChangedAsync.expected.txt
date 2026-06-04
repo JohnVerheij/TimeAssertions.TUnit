@@ -24,8 +24,10 @@ namespace TimeAssertions
     }
     public static class TimeRenderingHelpers
     {
+        public static string FormatActiveTimerAtLeastShortfall(System.Collections.Generic.IReadOnlyList<TimeAssertions.ActiveTimerInfo> active, int minimum) { }
         public static string FormatActiveTimerCountMismatch(System.Collections.Generic.IReadOnlyList<TimeAssertions.ActiveTimerInfo> active, int expected) { }
         public static string FormatActiveTimerLeak(System.Collections.Generic.IReadOnlyList<TimeAssertions.ActiveTimerInfo> survivors) { }
+        public static string FormatActiveTimerSurvivors(System.Collections.Generic.IReadOnlyList<TimeAssertions.ActiveTimerInfo> survivors) { }
         public static string FormatBudgetOverrun(System.TimeSpan elapsed, System.TimeSpan budget) { }
         public static string FormatDuration(System.TimeSpan duration) { }
         public static string FormatNextTimerDueMismatch(System.TimeSpan? actual, System.TimeSpan expected, System.TimeSpan tolerance) { }

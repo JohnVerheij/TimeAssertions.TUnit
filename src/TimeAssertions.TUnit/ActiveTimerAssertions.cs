@@ -73,6 +73,51 @@ public static class ActiveTimerAssertions
     }
 
     /// <summary>
+    /// Asserts that at least one timer created through the <see cref="ObservableTimeProvider"/> is
+    /// currently active. The positive-presence counterpart of <see cref="HasNoActiveTimers"/>: useful
+    /// for the registration half of a leak test ("the loop did start a timer") without pinning the
+    /// exact count.
+    /// </summary>
+    /// <param name="value">The observable provider that tracked the timers.</param>
+    /// <returns><see cref="AssertionResult.Passed"/> when at least one timer is active; otherwise
+    /// <see cref="AssertionResult.Failed(string)"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion(InlineMethodBody = false)]
+    public static AssertionResult HasActiveTimers(this ObservableTimeProvider value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        return value.ActiveTimerCount >= 1
+            ? AssertionResult.Passed
+            : AssertionResult.Failed(TimeRenderingHelpers.FormatActiveTimerAtLeastShortfall(value.ActiveTimers, 1));
+    }
+
+    /// <summary>
+    /// Asserts that at least <paramref name="count"/> timers created through the
+    /// <see cref="ObservableTimeProvider"/> are currently active. Use it when a lower bound rather
+    /// than an exact count is the natural expectation (for example "the pool started at least its
+    /// minimum number of workers").
+    /// </summary>
+    /// <param name="value">The observable provider that tracked the timers.</param>
+    /// <param name="count">The minimum expected active-timer count. Must be non-negative.</param>
+    /// <returns><see cref="AssertionResult.Passed"/> when the active count is at least
+    /// <paramref name="count"/>; otherwise <see cref="AssertionResult.Failed(string)"/> naming the
+    /// active timers' schedules.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="count"/> is negative.</exception>
+    [GenerateAssertion(InlineMethodBody = false)]
+    public static AssertionResult HasAtLeastActiveTimerCount(this ObservableTimeProvider value, int count)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+
+        var active = value.ActiveTimers;
+        return active.Count >= count
+            ? AssertionResult.Passed
+            : AssertionResult.Failed(TimeRenderingHelpers.FormatActiveTimerAtLeastShortfall(active, count));
+    }
+
+    /// <summary>
     /// Asserts that the next pending timer's due time is within <paramref name="tolerance"/> of
     /// <paramref name="expected"/>, inspecting the schedule the timer currently carries
     /// <em>without advancing the clock</em>. The "next" timer is the one with the smallest due time
