@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-06-05: bounded-count eventually assertions, CancellationToken naming convention
+
+Minor release. Adds asynchronous lower-bound, upper-bound, and at-least-one active-timer assertions, completing the bounded-count set begun in `0.7.0`. Aligns the active-timer "eventually" assertions with the BCL `CancellationToken` naming and discoverability convention. Contains breaking changes (parameter rename and a namespace move); see Breaking below.
+
+### Added
+
+- **`Assert.That(time).HasAtLeastActiveTimerCountEventually(count, timeout, ...)`** polls the live active-timer count until it is at least `count`. The asynchronous lower-bound sibling of the synchronous `HasAtLeastActiveTimerCount(count)` and the exact-count `HasActiveTimerCountEventually`: the right shape for an asynchronous registration wait where more than one timer may register, where the exact-count form would flake once an additional timer registers and the synchronous form would race a not-yet-registered timer.
+- **`Assert.That(time).HasAtMostActiveTimerCountEventually(count, timeout, ...)`** polls until the active-timer count is at most `count`. The upper-bound sibling for "the active set settles to no more than N" without pinning the exact survivor count. `HasAtMostActiveTimerCountEventually(0, ...)` is equivalent to `HasNoActiveTimersEventually`.
+- **`Assert.That(time).HasActiveTimersEventually(timeout, ...)`** polls until at least one timer is active. The asynchronous counterpart of `HasActiveTimers()` and a named shorthand for `HasAtLeastActiveTimerCountEventually(1, ...)`.
+- Positional-`CancellationToken` sugar overloads for all three new assertions, matching the existing `(timeout, token)` and `(count, timeout, token)` shapes.
+
+### Changed
+
+- The positional-`CancellationToken` sugar (`EventuallyTimerAssertionExtensions`) now lives in the globally imported `TUnit.Assertions.Extensions` namespace, the same namespace the source generator emits the canonical extensions into, so the `(timeout, token)` / `(count, timeout, token)` forms are discoverable wherever the generated extensions are, without an extra `using TimeAssertions.TUnit;`.
+- Bumped `PackageValidationBaselineVersion` from `0.6.0` to `0.7.0` on both packages and regenerated `CompatibilitySuppressions.xml` for the new public types, the namespace move, and the parameter rename.
+
+### Breaking
+
+- The `CancellationToken` parameter on `HasNoActiveTimersEventually` and `HasActiveTimerCountEventually` is renamed from `ct` to `cancellationToken`, matching the BCL convention and the new bounded-count assertions. A call that passed the token by name (`ct: token`) must use `cancellationToken: token`; positional calls are unaffected.
+- `EventuallyTimerAssertionExtensions` moved from the `TimeAssertions.TUnit` namespace to `TUnit.Assertions.Extensions`. Code that referenced the type by its full name must update the namespace; code that used the extension methods through `Assert.That(...)` is unaffected (and no longer needs `using TimeAssertions.TUnit;` for them).
+
 ## [0.7.0] - 2026-06-04: eventually + positive-count active-timer assertions
 
 Minor release. Adds real-time "eventually" active-timer assertions for the asynchronous timer-disposal race a synchronous leak check cannot see, plus synchronous positive-count assertions to express a lower bound on the active set.

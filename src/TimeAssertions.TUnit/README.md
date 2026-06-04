@@ -19,7 +19,7 @@ dotnet add package TimeAssertions.TUnit
 
 `TimeAssertions` (the framework-agnostic core) and `Microsoft.Extensions.TimeProvider.Testing` come transitively. **Requirements:** TUnit 1.49.0 or later, .NET 10.
 
-The source-generated entry points (`HasAdvancedExactly`, `HasAdvancedApproximately`, `HasUtcNow`, `HasUtcNowApproximately`, `IsRecent`, `IsBeforeNow`, `IsAfterNow`, `WithinTimeBudget`, `WithinTimeBudgetCapturing`, `WasInvokedAtMostOncePer`, `HasNoActiveTimers`, `HasActiveTimerCount`, `HasActiveTimers`, `HasAtLeastActiveTimerCount`, `HasNoActiveTimersEventually`, `HasActiveTimerCountEventually`, `HasNextTimerDueApproximately`, `HasPendingTimerDueWithin`) auto-import via `TUnit.Assertions.Extensions`. Add the following to a `GlobalUsings.cs` in your test project for the call-site and `FakeTimeProvider` namespaces:
+The source-generated entry points (`HasAdvancedExactly`, `HasAdvancedApproximately`, `HasUtcNow`, `HasUtcNowApproximately`, `IsRecent`, `IsBeforeNow`, `IsAfterNow`, `WithinTimeBudget`, `WithinTimeBudgetCapturing`, `WasInvokedAtMostOncePer`, `HasNoActiveTimers`, `HasActiveTimerCount`, `HasActiveTimers`, `HasAtLeastActiveTimerCount`, `HasNoActiveTimersEventually`, `HasActiveTimerCountEventually`, `HasAtLeastActiveTimerCountEventually`, `HasAtMostActiveTimerCountEventually`, `HasActiveTimersEventually`, `HasNextTimerDueApproximately`, `HasPendingTimerDueWithin`) auto-import via `TUnit.Assertions.Extensions`. Add the following to a `GlobalUsings.cs` in your test project for the call-site and `FakeTimeProvider` namespaces:
 
 ```csharp
 global using Microsoft.Extensions.Time.Testing;
