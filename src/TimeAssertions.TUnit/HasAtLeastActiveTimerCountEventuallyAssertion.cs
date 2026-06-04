@@ -10,17 +10,22 @@ namespace TimeAssertions.TUnit;
 
 /// <summary>
 /// TUnit assertion that polls an <see cref="ObservableTimeProvider"/> in real time until its active
-/// timer count equals an expected value, or a timeout elapses. Generates the
-/// <c>HasActiveTimerCountEventually(int, TimeSpan, ...)</c> chain extension via TUnit's
+/// timer count is at least an expected lower bound, or a timeout elapses. Generates the
+/// <c>HasAtLeastActiveTimerCountEventually(int, TimeSpan, ...)</c> chain extension via TUnit's
 /// <see cref="AssertionExtensionAttribute"/> source generator.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The count-targeted sibling of <see cref="HasNoActiveTimersEventuallyAssertion"/>. Use it when a
-/// timer is expected to be created (or disposed down to a steady-state count) on a real asynchronous
-/// continuation rather than synchronously: the active set settles to <c>count</c> shortly after the
-/// observed call returns. Polls the live <see cref="ObservableTimeProvider.ActiveTimerCount"/>
-/// against a wall-clock deadline; the condition is checked once before the first delay.
+/// The asynchronous lower-bound sibling of the synchronous <c>HasAtLeastActiveTimerCount(int)</c> and
+/// the exact-count <see cref="HasActiveTimerCountEventuallyAssertion"/>. Use it for an asynchronous
+/// registration wait where more than one timer may register: a process that starts <c>count</c> or
+/// more timers on real continuations passes as soon as the lower bound is reached, where the
+/// exact-count form would flake once an additional timer registers and the synchronous
+/// <c>HasAtLeastActiveTimerCount</c> would race a not-yet-registered timer.
+/// </para>
+/// <para>
+/// The condition is checked once before the first delay, so an already-satisfied provider passes
+/// without waiting.
 /// </para>
 /// <para>
 /// <b>Cancellation.</b> When the supplied <see cref="CancellationToken"/> is canceled the poll loop
@@ -29,27 +34,27 @@ namespace TimeAssertions.TUnit;
 /// canceled rather than failed.
 /// </para>
 /// </remarks>
-[AssertionExtension("HasActiveTimerCountEventually")]
-public sealed class HasActiveTimerCountEventuallyAssertion : Assertion<ObservableTimeProvider>
+[AssertionExtension("HasAtLeastActiveTimerCountEventually")]
+public sealed class HasAtLeastActiveTimerCountEventuallyAssertion : Assertion<ObservableTimeProvider>
 {
     private readonly int _count;
     private readonly TimeSpan _timeout;
     private readonly TimeSpan _pollingInterval;
     private readonly CancellationToken _cancellationToken;
 
-    /// <summary>Initializes the assertion with the expected count, a polling timeout, poll interval,
+    /// <summary>Initializes the assertion with the minimum count, a polling timeout, poll interval,
     /// and cancellation token. Called by the TUnit source generator.</summary>
     /// <param name="context">The assertion context supplied by TUnit.</param>
-    /// <param name="count">The active-timer count to poll for. Must be non-negative.</param>
-    /// <param name="timeout">The maximum wall-clock time to poll for the active-timer count to reach
-    /// <paramref name="count"/>. Must be non-negative.</param>
+    /// <param name="count">The minimum active-timer count to poll for. Must be non-negative.</param>
+    /// <param name="timeout">The maximum wall-clock time to poll for the active-timer count to reach at
+    /// least <paramref name="count"/>. Must be non-negative.</param>
     /// <param name="pollingInterval">The delay between polls. When <see langword="null"/> a default of
     /// <see cref="PollingDefaults.PollingInterval"/> is used. Must be positive when supplied.</param>
     /// <param name="cancellationToken">A token that cancels the poll loop.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="count"/> is negative,
     /// <paramref name="timeout"/> is negative, or <paramref name="pollingInterval"/> is supplied and not
     /// positive.</exception>
-    public HasActiveTimerCountEventuallyAssertion(
+    public HasAtLeastActiveTimerCountEventuallyAssertion(
         AssertionContext<ObservableTimeProvider> context,
         int count,
         TimeSpan timeout,
@@ -64,7 +69,7 @@ public sealed class HasActiveTimerCountEventuallyAssertion : Assertion<Observabl
         _cancellationToken = cancellationToken;
         Context.ExpressionBuilder.Append(
             CultureInfo.InvariantCulture,
-            $".HasActiveTimerCountEventually({_count}, {TimeRenderingHelpers.FormatDuration(_timeout)})");
+            $".HasAtLeastActiveTimerCountEventually({_count}, {TimeRenderingHelpers.FormatDuration(_timeout)})");
     }
 
     /// <inheritdoc/>
@@ -82,7 +87,7 @@ public sealed class HasActiveTimerCountEventuallyAssertion : Assertion<Observabl
         }
 
         var reached = await PollingDefaults
-            .PollUntilAsync(() => value.ActiveTimerCount == _count, _timeout, _pollingInterval, _cancellationToken)
+            .PollUntilAsync(() => value.ActiveTimerCount >= _count, _timeout, _pollingInterval, _cancellationToken)
             .ConfigureAwait(false);
 
         if (reached)
@@ -94,7 +99,7 @@ public sealed class HasActiveTimerCountEventuallyAssertion : Assertion<Observabl
         return AssertionResult.Failed(
             string.Create(
                 CultureInfo.InvariantCulture,
-                $"expected the active-timer count to reach {_count} within {TimeRenderingHelpers.FormatDuration(_timeout)} but it was {active.Count} (expected={_count}, actual={active.Count}):")
+                $"expected the active-timer count to reach at least {_count} within {TimeRenderingHelpers.FormatDuration(_timeout)} but it was {active.Count} (minimum={_count}, actual={active.Count}):")
             + TimeRenderingHelpers.FormatActiveTimerSurvivors(active));
     }
 
@@ -103,6 +108,6 @@ public sealed class HasActiveTimerCountEventuallyAssertion : Assertion<Observabl
     {
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"{_count} active timer(s) within {TimeRenderingHelpers.FormatDuration(_timeout)}");
+            $"at least {_count} active timer(s) within {TimeRenderingHelpers.FormatDuration(_timeout)}");
     }
 }

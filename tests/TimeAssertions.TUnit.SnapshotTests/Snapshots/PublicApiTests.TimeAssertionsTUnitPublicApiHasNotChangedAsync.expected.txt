@@ -37,6 +37,14 @@ namespace TUnit.Assertions.Extensions
         protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<System.DateTimeOffset> metadata) { }
         protected override string GetExpectation() { }
     }
+    public static class EventuallyTimerAssertionExtensions
+    {
+        public static TimeAssertions.TUnit.HasActiveTimerCountEventuallyAssertion HasActiveTimerCountEventually(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, int count, System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken, [System.Runtime.CompilerServices.CallerArgumentExpression("count")] string? countExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("timeout")] string? timeoutExpression = null) { }
+        public static TimeAssertions.TUnit.HasActiveTimersEventuallyAssertion HasActiveTimersEventually(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken, [System.Runtime.CompilerServices.CallerArgumentExpression("timeout")] string? timeoutExpression = null) { }
+        public static TimeAssertions.TUnit.HasAtLeastActiveTimerCountEventuallyAssertion HasAtLeastActiveTimerCountEventually(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, int count, System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken, [System.Runtime.CompilerServices.CallerArgumentExpression("count")] string? countExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("timeout")] string? timeoutExpression = null) { }
+        public static TimeAssertions.TUnit.HasAtMostActiveTimerCountEventuallyAssertion HasAtMostActiveTimerCountEventually(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, int count, System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken, [System.Runtime.CompilerServices.CallerArgumentExpression("count")] string? countExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("timeout")] string? timeoutExpression = null) { }
+        public static TimeAssertions.TUnit.HasNoActiveTimersEventuallyAssertion HasNoActiveTimersEventually(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken, [System.Runtime.CompilerServices.CallerArgumentExpression("timeout")] string? timeoutExpression = null) { }
+    }
     public static class FakeTimeProviderAssertions
     {
         [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2091", Justification="Generic type parameter is only used for property access, not instantiation")]
@@ -78,11 +86,23 @@ namespace TUnit.Assertions.Extensions
     }
     public static class HasActiveTimerCountEventuallyAssertionExtensions
     {
-        public static TimeAssertions.TUnit.HasActiveTimerCountEventuallyAssertion HasActiveTimerCountEventually(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, int count, System.TimeSpan timeout, System.TimeSpan? pollingInterval = default, System.Threading.CancellationToken ct = default, [System.Runtime.CompilerServices.CallerArgumentExpression("count")] string? countExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("timeout")] string? timeoutExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("pollingInterval")] string? pollingIntervalExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("ct")] string? ctExpression = null) { }
+        public static TimeAssertions.TUnit.HasActiveTimerCountEventuallyAssertion HasActiveTimerCountEventually(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, int count, System.TimeSpan timeout, System.TimeSpan? pollingInterval = default, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("count")] string? countExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("timeout")] string? timeoutExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("pollingInterval")] string? pollingIntervalExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("cancellationToken")] string? cancellationTokenExpression = null) { }
+    }
+    public static class HasActiveTimersEventuallyAssertionExtensions
+    {
+        public static TimeAssertions.TUnit.HasActiveTimersEventuallyAssertion HasActiveTimersEventually(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, System.TimeSpan timeout, System.TimeSpan? pollingInterval = default, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("timeout")] string? timeoutExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("pollingInterval")] string? pollingIntervalExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("cancellationToken")] string? cancellationTokenExpression = null) { }
+    }
+    public static class HasAtLeastActiveTimerCountEventuallyAssertionExtensions
+    {
+        public static TimeAssertions.TUnit.HasAtLeastActiveTimerCountEventuallyAssertion HasAtLeastActiveTimerCountEventually(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, int count, System.TimeSpan timeout, System.TimeSpan? pollingInterval = default, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("count")] string? countExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("timeout")] string? timeoutExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("pollingInterval")] string? pollingIntervalExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("cancellationToken")] string? cancellationTokenExpression = null) { }
+    }
+    public static class HasAtMostActiveTimerCountEventuallyAssertionExtensions
+    {
+        public static TimeAssertions.TUnit.HasAtMostActiveTimerCountEventuallyAssertion HasAtMostActiveTimerCountEventually(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, int count, System.TimeSpan timeout, System.TimeSpan? pollingInterval = default, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("count")] string? countExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("timeout")] string? timeoutExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("pollingInterval")] string? pollingIntervalExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("cancellationToken")] string? cancellationTokenExpression = null) { }
     }
     public static class HasNoActiveTimersEventuallyAssertionExtensions
     {
-        public static TimeAssertions.TUnit.HasNoActiveTimersEventuallyAssertion HasNoActiveTimersEventually(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, System.TimeSpan timeout, System.TimeSpan? pollingInterval = default, System.Threading.CancellationToken ct = default, [System.Runtime.CompilerServices.CallerArgumentExpression("timeout")] string? timeoutExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("pollingInterval")] string? pollingIntervalExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("ct")] string? ctExpression = null) { }
+        public static TimeAssertions.TUnit.HasNoActiveTimersEventuallyAssertion HasNoActiveTimersEventually(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, System.TimeSpan timeout, System.TimeSpan? pollingInterval = default, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("timeout")] string? timeoutExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("pollingInterval")] string? pollingIntervalExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("cancellationToken")] string? cancellationTokenExpression = null) { }
     }
     public sealed class IReadOnlyListDateTimeOffset_WasInvokedAtMostOncePer_TimeSpan_Assertion : TUnit.Assertions.Core.Assertion<System.Collections.Generic.IReadOnlyList<System.DateTimeOffset>>
     {
@@ -167,11 +187,6 @@ namespace TimeAssertions.TUnit
         [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to be within the last {window} relative to the supplied time provider", InlineMethodBody=true)]
         public static bool IsRecent(this System.DateTimeOffset value, System.TimeSpan window, System.TimeProvider? timeProvider = null) { }
     }
-    public static class EventuallyTimerAssertionExtensions
-    {
-        public static TimeAssertions.TUnit.HasActiveTimerCountEventuallyAssertion HasActiveTimerCountEventually(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, int count, System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken, [System.Runtime.CompilerServices.CallerArgumentExpression("count")] string? countExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("timeout")] string? timeoutExpression = null) { }
-        public static TimeAssertions.TUnit.HasNoActiveTimersEventuallyAssertion HasNoActiveTimersEventually(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken, [System.Runtime.CompilerServices.CallerArgumentExpression("timeout")] string? timeoutExpression = null) { }
-    }
     public static class FakeTimeProviderAssertions
     {
         [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have advanced by approximately {total} within tolerance {tolerance}", InlineMethodBody=true)]
@@ -186,14 +201,35 @@ namespace TimeAssertions.TUnit
     [TUnit.Assertions.Attributes.AssertionExtension("HasActiveTimerCountEventually")]
     public sealed class HasActiveTimerCountEventuallyAssertion : TUnit.Assertions.Core.Assertion<TimeAssertions.ObservableTimeProvider>
     {
-        public HasActiveTimerCountEventuallyAssertion(TUnit.Assertions.Core.AssertionContext<TimeAssertions.ObservableTimeProvider> context, int count, System.TimeSpan timeout, System.TimeSpan? pollingInterval = default, System.Threading.CancellationToken ct = default) { }
+        public HasActiveTimerCountEventuallyAssertion(TUnit.Assertions.Core.AssertionContext<TimeAssertions.ObservableTimeProvider> context, int count, System.TimeSpan timeout, System.TimeSpan? pollingInterval = default, System.Threading.CancellationToken cancellationToken = default) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<TimeAssertions.ObservableTimeProvider> metadata) { }
+        protected override string GetExpectation() { }
+    }
+    [TUnit.Assertions.Attributes.AssertionExtension("HasActiveTimersEventually")]
+    public sealed class HasActiveTimersEventuallyAssertion : TUnit.Assertions.Core.Assertion<TimeAssertions.ObservableTimeProvider>
+    {
+        public HasActiveTimersEventuallyAssertion(TUnit.Assertions.Core.AssertionContext<TimeAssertions.ObservableTimeProvider> context, System.TimeSpan timeout, System.TimeSpan? pollingInterval = default, System.Threading.CancellationToken cancellationToken = default) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<TimeAssertions.ObservableTimeProvider> metadata) { }
+        protected override string GetExpectation() { }
+    }
+    [TUnit.Assertions.Attributes.AssertionExtension("HasAtLeastActiveTimerCountEventually")]
+    public sealed class HasAtLeastActiveTimerCountEventuallyAssertion : TUnit.Assertions.Core.Assertion<TimeAssertions.ObservableTimeProvider>
+    {
+        public HasAtLeastActiveTimerCountEventuallyAssertion(TUnit.Assertions.Core.AssertionContext<TimeAssertions.ObservableTimeProvider> context, int count, System.TimeSpan timeout, System.TimeSpan? pollingInterval = default, System.Threading.CancellationToken cancellationToken = default) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<TimeAssertions.ObservableTimeProvider> metadata) { }
+        protected override string GetExpectation() { }
+    }
+    [TUnit.Assertions.Attributes.AssertionExtension("HasAtMostActiveTimerCountEventually")]
+    public sealed class HasAtMostActiveTimerCountEventuallyAssertion : TUnit.Assertions.Core.Assertion<TimeAssertions.ObservableTimeProvider>
+    {
+        public HasAtMostActiveTimerCountEventuallyAssertion(TUnit.Assertions.Core.AssertionContext<TimeAssertions.ObservableTimeProvider> context, int count, System.TimeSpan timeout, System.TimeSpan? pollingInterval = default, System.Threading.CancellationToken cancellationToken = default) { }
         protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<TimeAssertions.ObservableTimeProvider> metadata) { }
         protected override string GetExpectation() { }
     }
     [TUnit.Assertions.Attributes.AssertionExtension("HasNoActiveTimersEventually")]
     public sealed class HasNoActiveTimersEventuallyAssertion : TUnit.Assertions.Core.Assertion<TimeAssertions.ObservableTimeProvider>
     {
-        public HasNoActiveTimersEventuallyAssertion(TUnit.Assertions.Core.AssertionContext<TimeAssertions.ObservableTimeProvider> context, System.TimeSpan timeout, System.TimeSpan? pollingInterval = default, System.Threading.CancellationToken ct = default) { }
+        public HasNoActiveTimersEventuallyAssertion(TUnit.Assertions.Core.AssertionContext<TimeAssertions.ObservableTimeProvider> context, System.TimeSpan timeout, System.TimeSpan? pollingInterval = default, System.Threading.CancellationToken cancellationToken = default) { }
         protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<TimeAssertions.ObservableTimeProvider> metadata) { }
         protected override string GetExpectation() { }
     }

@@ -97,7 +97,7 @@ internal sealed class EventuallyActiveTimerAssertionsTests
 
         await Assert.That(async () =>
         {
-            await Assert.That(time).HasNoActiveTimersEventually(GenerousTimeout, pollingInterval: null, ct: cts.Token);
+            await Assert.That(time).HasNoActiveTimersEventually(GenerousTimeout, pollingInterval: null, cancellationToken: cts.Token);
         }).Throws<OperationCanceledException>();
     }
 
@@ -158,6 +158,8 @@ internal sealed class EventuallyActiveTimerAssertionsTests
 
     private static ObservableTimeProvider ThrowingProvider() =>
         throw new InvalidOperationException("source evaluation failed");
+
+    private static ObservableTimeProvider NullProvider() => null!;
 
     /// <summary>The count-targeted variant passes once a background continuation disposes one of two
     /// timers, settling the active set at the expected count.</summary>
@@ -220,7 +222,7 @@ internal sealed class EventuallyActiveTimerAssertionsTests
 
         await Assert.That(async () =>
         {
-            await Assert.That(time).HasActiveTimerCountEventually(1, GenerousTimeout, pollingInterval: null, ct: cts.Token);
+            await Assert.That(time).HasActiveTimerCountEventually(1, GenerousTimeout, pollingInterval: null, cancellationToken: cts.Token);
         }).Throws<OperationCanceledException>();
     }
 
@@ -415,5 +417,297 @@ internal sealed class EventuallyActiveTimerAssertionsTests
         await Assert.That(time).HasActiveTimerCountEventually(0, GenerousTimeout, pollingInterval: poll);      // canonical, named pollingInterval
         await Assert.That(time).HasActiveTimerCountEventually(0, GenerousTimeout, poll, cancellationToken);    // canonical, (count, timeout, pollingInterval, ct)
         await Assert.That(time).HasActiveTimerCountEventually(0, GenerousTimeout, cancellationToken);          // sugar, (count, timeout, ct)
+    }
+
+    // --- HasAtLeastActiveTimerCountEventually (async lower bound) ---
+
+    /// <summary>An already-met lower bound passes without waiting.</summary>
+    [Test]
+    public async Task HasAtLeastActiveTimerCountEventually_AlreadyMet_Passes(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
+        await Assert.That(time).HasAtLeastActiveTimerCountEventually(1, GenerousTimeout);
+    }
+
+    /// <summary>A timer registered on a background continuation lifts the count to the lower bound; the
+    /// async lower-bound poll observes it where a synchronous check would race the registration.</summary>
+    [Test]
+    public async Task HasAtLeastActiveTimerCountEventually_RegistersOnContinuation_Passes(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+
+        _ = Task.Run(
+            async () =>
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken).ConfigureAwait(false);
+                _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
+            },
+            cancellationToken);
+
+        await Assert.That(time).HasAtLeastActiveTimerCountEventually(1, GenerousTimeout);
+    }
+
+    /// <summary>A lower bound that is never reached fails after the short timeout with the
+    /// minimum/actual trailer.</summary>
+    [Test]
+    public async Task HasAtLeastActiveTimerCountEventually_NeverReached_TimesOut(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(time).HasAtLeastActiveTimerCountEventually(2, ShortTimeout);
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains("expected the active-timer count to reach at least 2");
+        await Assert.That(exception.Message).Contains("(minimum=2, actual=0)");
+    }
+
+    /// <summary>A canceled token cancels the lower-bound poll loop.</summary>
+    [Test]
+    public async Task HasAtLeastActiveTimerCountEventually_CanceledToken_Throws(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.That(async () =>
+        {
+            await Assert.That(time).HasAtLeastActiveTimerCountEventually(1, GenerousTimeout, cts.Token);
+        }).Throws<OperationCanceledException>();
+    }
+
+    /// <summary>A negative minimum is rejected at construction time.</summary>
+    [Test]
+    public async Task HasAtLeastActiveTimerCountEventually_NegativeCount_ThrowsArgumentOutOfRange(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+        await Assert.That(async () =>
+        {
+            await Assert.That(time).HasAtLeastActiveTimerCountEventually(-1, GenerousTimeout);
+        }).Throws<ArgumentOutOfRangeException>();
+    }
+
+    // --- HasAtMostActiveTimerCountEventually (async upper bound) ---
+
+    /// <summary>An already-met upper bound passes without waiting.</summary>
+    [Test]
+    public async Task HasAtMostActiveTimerCountEventually_AlreadyMet_Passes(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+        await Assert.That(time).HasAtMostActiveTimerCountEventually(1, GenerousTimeout);
+    }
+
+    /// <summary>One of two timers disposed on a background continuation brings the count down to the
+    /// upper bound; the async upper-bound poll observes it.</summary>
+    [Test]
+    public async Task HasAtMostActiveTimerCountEventually_SettlesDown_Passes(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(5));
+        var disposable = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5));
+
+        _ = Task.Run(
+            async () =>
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken).ConfigureAwait(false);
+                disposable.Dispose();
+            },
+            cancellationToken);
+
+        await Assert.That(time).HasAtMostActiveTimerCountEventually(1, GenerousTimeout);
+    }
+
+    /// <summary>An upper bound that is never reached fails after the short timeout with the
+    /// maximum/actual trailer.</summary>
+    [Test]
+    public async Task HasAtMostActiveTimerCountEventually_NeverReached_TimesOut(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(5));
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5));
+
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(time).HasAtMostActiveTimerCountEventually(0, ShortTimeout);
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains("expected the active-timer count to fall to at most 0");
+        await Assert.That(exception.Message).Contains("(maximum=0, actual=2)");
+    }
+
+    /// <summary>The positional <c>(count, timeout, ct)</c> form binds to the sugar overload.</summary>
+    [Test]
+    public async Task HasAtMostActiveTimerCountEventually_PositionalToken_Passes(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+        await Assert.That(time).HasAtMostActiveTimerCountEventually(0, GenerousTimeout, cancellationToken);
+    }
+
+    // --- HasActiveTimersEventually (async >= 1) ---
+
+    /// <summary>An already-active provider passes without waiting.</summary>
+    [Test]
+    public async Task HasActiveTimersEventually_AlreadyActive_Passes(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
+        await Assert.That(time).HasActiveTimersEventually(GenerousTimeout);
+    }
+
+    /// <summary>A timer registered on a background continuation satisfies the assertion; the poll
+    /// observes the registration where a synchronous <c>HasActiveTimers()</c> would race it.</summary>
+    [Test]
+    public async Task HasActiveTimersEventually_RegistersOnContinuation_Passes(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+
+        _ = Task.Run(
+            async () =>
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken).ConfigureAwait(false);
+                _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
+            },
+            cancellationToken);
+
+        await Assert.That(time).HasActiveTimersEventually(GenerousTimeout);
+    }
+
+    /// <summary>A provider that never registers a timer fails after the short timeout.</summary>
+    [Test]
+    public async Task HasActiveTimersEventually_NeverActive_TimesOut(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(time).HasActiveTimersEventually(ShortTimeout);
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains("expected at least one active timer");
+        await Assert.That(exception.Message).Contains("stayed at 0");
+    }
+
+    /// <summary>A canceled token cancels the poll loop.</summary>
+    [Test]
+    public async Task HasActiveTimersEventually_CanceledToken_Throws(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.That(async () =>
+        {
+            await Assert.That(time).HasActiveTimersEventually(GenerousTimeout, cts.Token);
+        }).Throws<OperationCanceledException>();
+    }
+
+    // --- source-exception and null-provider guards for the new bounded-count assertions ---
+
+    /// <summary>A throwing source surfaces its exception through the lower-bound assertion.</summary>
+    [Test]
+    public async Task HasAtLeastActiveTimerCountEventually_SourceThrows_SurfacesException(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(ThrowingProvider).HasAtLeastActiveTimerCountEventually(1, GenerousTimeout);
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains("InvalidOperationException");
+    }
+
+    /// <summary>A null provider fails the lower-bound assertion with the null-provider message.</summary>
+    [Test]
+    public async Task HasAtLeastActiveTimerCountEventually_NullProvider_Fails(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(NullProvider).HasAtLeastActiveTimerCountEventually(1, GenerousTimeout);
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains("the observable time provider was null");
+    }
+
+    /// <summary>A throwing source surfaces its exception through the upper-bound assertion.</summary>
+    [Test]
+    public async Task HasAtMostActiveTimerCountEventually_SourceThrows_SurfacesException(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(ThrowingProvider).HasAtMostActiveTimerCountEventually(1, GenerousTimeout);
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains("InvalidOperationException");
+    }
+
+    /// <summary>A null provider fails the upper-bound assertion with the null-provider message.</summary>
+    [Test]
+    public async Task HasAtMostActiveTimerCountEventually_NullProvider_Fails(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(NullProvider).HasAtMostActiveTimerCountEventually(1, GenerousTimeout);
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains("the observable time provider was null");
+    }
+
+    /// <summary>A negative upper bound is rejected at construction time.</summary>
+    [Test]
+    public async Task HasAtMostActiveTimerCountEventually_NegativeCount_ThrowsArgumentOutOfRange(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+        await Assert.That(async () =>
+        {
+            await Assert.That(time).HasAtMostActiveTimerCountEventually(-1, GenerousTimeout);
+        }).Throws<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>A throwing source surfaces its exception through the at-least-one assertion.</summary>
+    [Test]
+    public async Task HasActiveTimersEventually_SourceThrows_SurfacesException(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(ThrowingProvider).HasActiveTimersEventually(GenerousTimeout);
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains("InvalidOperationException");
+    }
+
+    /// <summary>A null provider fails the at-least-one assertion with the null-provider message.</summary>
+    [Test]
+    public async Task HasActiveTimersEventually_NullProvider_Fails(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(NullProvider).HasActiveTimersEventually(GenerousTimeout);
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains("the observable time provider was null");
     }
 }
