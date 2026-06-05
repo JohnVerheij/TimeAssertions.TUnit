@@ -342,11 +342,12 @@ argument; `.And.WithinTimeBudget(...)` is preferred.
 - **External-consumer smoke test + AOT-publish CI gate**: planned for 0.2.0.
 - **Recursive public-API self-test** via `SnapshotAssertions.TUnit`: planned for 0.1.1.
 
-[Unreleased]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.7.0...HEAD
-[0.7.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/releases/tag/v0.7.0
-[0.6.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/releases/tag/v0.6.0
-[0.5.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/releases/tag/v0.5.0
-[0.4.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/releases/tag/v0.4.0
-[0.3.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/releases/tag/v0.3.0
-[0.2.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/releases/tag/v0.2.0
+[unreleased]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.7.0...v0.8.0
+[0.7.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/releases/tag/v0.1.0
