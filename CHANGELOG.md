@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-06-06: release notes sourced from the CHANGELOG
+
+Tooling release. No library API or behaviour change. The release workflow now publishes the matching `CHANGELOG.md` section as the GitHub release body, so release notes carry the full Added / Changed / Breaking detail instead of GitHub's auto-generated commit summary.
+
+### Changed
+
+- The release workflow extracts the `## [version]` section from `CHANGELOG.md` and passes it as the GitHub release body (`body_path`), keeping the auto-generated contributor list appended. Earlier releases published only the auto-generated notes, which omitted the hand-written breaking-change and feature detail.
+
+### Note for anyone upgrading across 0.8.0
+
+`0.8.0` contained **source-breaking** changes that its published release notes did not surface (this release fixes the notes mechanism, not the changes themselves):
+
+- The `CancellationToken` parameter on `HasNoActiveTimersEventually` and `HasActiveTimerCountEventually` was renamed from `ct` to `cancellationToken`. A call that passed the token by name (`ct: token`) must become `cancellationToken: token`; positional calls are unaffected.
+- `EventuallyTimerAssertionExtensions` moved from the `TimeAssertions.TUnit` namespace to `TUnit.Assertions.Extensions`. Code referencing the type by its full name must update the namespace; use through `Assert.That(...)` is unaffected.
+
+See the 0.8.0 Breaking section below for the full detail.
+
 ## [0.8.0] - 2026-06-05: bounded-count eventually assertions, CancellationToken naming convention
 
 Minor release. Adds asynchronous lower-bound, upper-bound, and at-least-one active-timer assertions, completing the bounded-count set begun in `0.7.0`. Aligns the active-timer "eventually" assertions with the BCL `CancellationToken` naming and discoverability convention. Contains breaking changes (parameter rename and a namespace move); see Breaking below.

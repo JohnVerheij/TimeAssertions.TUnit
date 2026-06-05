@@ -11,7 +11,7 @@
     <IsPackable>true</IsPackable>
     <PackageId>TimeAssertions.TUnit</PackageId>
     <ProductName>TimeAssertions.TUnit</ProductName>
-    <Version>0.8.0</Version>
+    <Version>0.8.1</Version>
     <PackageValidationBaselineVersion>0.7.0</PackageValidationBaselineVersion>
     <Authors>John Verheij</Authors>
     <Copyright>Copyright (c) 2026 John Verheij</Copyright>
