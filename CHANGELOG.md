@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.8.1] - 2026-06-06: release notes sourced from the CHANGELOG
 
-Tooling release. No library API or behaviour change. The release workflow now publishes the matching `CHANGELOG.md` section as the GitHub release body, so release notes carry the full Added / Changed / Breaking detail instead of GitHub's auto-generated commit summary.
+Tooling release. No library API or behavior change. The release workflow now publishes the matching `CHANGELOG.md` section as the GitHub release body, so release notes carry the full Added / Changed / Breaking detail instead of GitHub's auto-generated commit summary.
 
 ### Changed
 
@@ -103,7 +103,7 @@ Minor release. Adds the family's first timer-leak assertions: `HasNoActiveTimers
 
 ## [0.5.0] - 2026-05-19: rate-limit assertion, OCE propagation, TUnit 1.45.8
 
-Minor release that adds the first rate-limit assertion (`WasInvokedAtMostOncePer`) to the package, fixes a latent cancellation-handling behaviour in `WithinTimeBudget` / `WithinTimeBudgetCapturing` (external `OperationCanceledException` was wrapped as an assertion failure rather than propagated), and bumps the TUnit dependency to 1.45.8.
+Minor release that adds the first rate-limit assertion (`WasInvokedAtMostOncePer`) to the package, fixes a latent cancellation-handling behavior in `WithinTimeBudget` / `WithinTimeBudgetCapturing` (external `OperationCanceledException` was wrapped as an assertion failure rather than propagated), and bumps the TUnit dependency to 1.45.8.
 
 ### Added
 
@@ -112,7 +112,7 @@ Minor release that adds the first rate-limit assertion (`WasInvokedAtMostOncePer
 
 ### Changed
 
-- **BREAKING:** **`WithinTimeBudgetAssertion<T>` and `WithinTimeBudgetCapturingAssertion<T>`** now propagate external `OperationCanceledException` instead of wrapping it as an assertion failure. When a parent `[Timeout]` fires or the test runner cancels, the wrapped operation's `OperationCanceledException` flows through the assertion via `ExceptionDispatchInfo.Capture(...).Throw()` so the test is recorded as cancelled, not failed. The capturing variant additionally skips invoking the capture callback on cancellation: a partial elapsed from a cancelled operation would mislead consumers about the operation's real cost. Non-`OperationCanceledException` source exceptions continue to surface as `AssertionResult.Failed` exactly as before. Consumer tests that asserted `Throws<AssertionException>` against a cancelled `WithinTimeBudget` chain must update to expect `Throws<OperationCanceledException>` (or rely on the test runner's native cancellation reporting).
+- **BREAKING:** **`WithinTimeBudgetAssertion<T>` and `WithinTimeBudgetCapturingAssertion<T>`** now propagate external `OperationCanceledException` instead of wrapping it as an assertion failure. When a parent `[Timeout]` fires or the test runner cancels, the wrapped operation's `OperationCanceledException` flows through the assertion via `ExceptionDispatchInfo.Capture(...).Throw()` so the test is recorded as canceled, not failed. The capturing variant additionally skips invoking the capture callback on cancellation: a partial elapsed from a canceled operation would mislead consumers about the operation's real cost. Non-`OperationCanceledException` source exceptions continue to surface as `AssertionResult.Failed` exactly as before. Consumer tests that asserted `Throws<AssertionException>` against a canceled `WithinTimeBudget` chain must update to expect `Throws<OperationCanceledException>` (or rely on the test runner's native cancellation reporting).
 - **TUnit dependency bumped `1.44.0` -> `1.45.8`** (and the external-consumer smoke-test pin). The 1.45 line adds `CancellationToken` overloads to upstream `Eventually` / `WaitsFor`; the cookbook section "Waiting for an asynchronous effect after `Advance(...)`" documents the CT-bearing variant. The packed `README.md` requirement line bumps to "TUnit 1.45.8 or later" accordingly.
 - `README.md`: added a fourth Entry-points subgroup "Rate-limit assertions on invocation timestamps" (with matching TOC anchor), plus updates to Package layout, Namespaces, and Install/Requirements that reference `WasInvokedAtMostOncePer()`.
 - `README.md`: added the cookbook section "Verifying a periodic-probe suppression window", pairing recorded log timestamps with `WasInvokedAtMostOncePer` for the ping-escalation pattern.
@@ -165,7 +165,7 @@ Demand-driven minor. Surfaces the grep-friendly elapsed / budget / overrun tuple
 
 ### Added (TimeAssertions, framework-agnostic core)
 
-- **`TimeRenderingHelpers.FormatBudgetOverrun`** now appends a grep-friendly uniform-millisecond suffix to its rendered output: `(elapsed=Xms, budget=Yms, overrun=Zms)`. Surfaces in every `WithinTimeBudget` / `WithinTimeBudgetCapturing` failure message and lets CI log scrapers and triage tooling extract the three numbers without parsing the human-readable prose. Behaviour-only change to the existing public method; signature unchanged.
+- **`TimeRenderingHelpers.FormatBudgetOverrun`** now appends a grep-friendly uniform-millisecond suffix to its rendered output: `(elapsed=Xms, budget=Yms, overrun=Zms)`. Surfaces in every `WithinTimeBudget` / `WithinTimeBudgetCapturing` failure message and lets CI log scrapers and triage tooling extract the three numbers without parsing the human-readable prose. Behavior-only change to the existing public method; signature unchanged.
 
 ### Documentation
 
@@ -183,12 +183,12 @@ Demand-driven minor. Surfaces the grep-friendly elapsed / budget / overrun tuple
   - `Microsoft.CodeAnalysis.BannedApiAnalyzers`: 3.3.4 -> 4.14.0
   - `Meziantou.Analyzer`: 3.0.72 -> 3.0.78
   - `SnapshotAssertions.TUnit`: 0.2.0 -> 0.3.0
-- **`Directory.Build.props` sets `MeziantouAnalysisMode=all-warnings` for `src/` projects** via the path-normalised `Replace('\','/').Contains('/tests/')` predicate. Test projects retain Meziantou defaults. Production-code fixes surfaced: `TimeRenderingHelpers.FormatDuration` minute math now uses `duration.Ticks / TimeSpan.TicksPerMinute` instead of an explicit `(long)` cast on `TotalMinutes`; the four assertion-class `string.Create`-with-only-string-arguments call sites simplified to plain `$"..."` interpolation. `<NoWarn>` extended with `MA0038;MA0137;MA0174;MA0190` for the family-convention exceptions documented inline in `Directory.Build.props`.
+- **`Directory.Build.props` sets `MeziantouAnalysisMode=all-warnings` for `src/` projects** via the path-normalized `Replace('\','/').Contains('/tests/')` predicate. Test projects retain Meziantou defaults. Production-code fixes surfaced: `TimeRenderingHelpers.FormatDuration` minute math now uses `duration.Ticks / TimeSpan.TicksPerMinute` instead of an explicit `(long)` cast on `TotalMinutes`; the four assertion-class `string.Create`-with-only-string-arguments call sites simplified to plain `$"..."` interpolation. `<NoWarn>` extended with `MA0038;MA0137;MA0174;MA0190` for the family-convention exceptions documented inline in `Directory.Build.props`.
 - **`BannedSymbols.txt`** collapsed bare `#` comment lines into adjacent text-bearing lines so the file parses cleanly under the stricter BannedApiAnalyzers 4.x grammar.
 
 ### Quality
 
-- ApiCompat strict-mode baseline bumped 0.1.0 -> 0.2.0. Behaviour-only release on the public signature surface; `CompatibilitySuppressions.xml` regenerated empty.
+- ApiCompat strict-mode baseline bumped 0.1.0 -> 0.2.0. Behavior-only release on the public signature surface; `CompatibilitySuppressions.xml` regenerated empty.
 - AOT-publish smoke gate via `tests/TimeAssertions.TUnit.SmokeTest/` validates `dotnet publish -r linux-x64 -p:PublishAot=true` consumer-side AOT correctness on every release; SmokeTest pin bumped to `TUnit 1.44.0` and the floating `TimeAssertions.TUnit` reference to `0.3.0-*`.
 - Coverage holds at the 90% line / 90% branch CI gates. Test count rises from 51 to 59: three new `FormatBudgetOverrun` unit tests plus one parameterised case covering five (elapsed, budget) pairs (the arithmetic invariant) plus one end-to-end assertion-message integration test on the adapter.
 
@@ -204,7 +204,7 @@ Feature release plus rolled-in housekeeping. Lockstep version bump for both pack
 ### Added
 
 - **`HasAdvancedExactly` / `HasAdvancedApproximately`** on `FakeTimeProvider`. Renamed from `HasAdvanced` / `HasAdvancedBy` for symmetry with the rest of the family ("Exactly" vs "Approximately" makes the bounds intent explicit). The original names remain as `[Obsolete]` aliases through v0.3.x and will be removed in v0.4.0.
-- **`WithinTimeBudgetCapturing(TimeSpan, Action<TimeSpan>)`**: capturing variant of `WithinTimeBudget`. Same wall-clock budget behaviour, plus an `Action<TimeSpan>` callback that always receives the measured elapsed (whether the budget was met, exceeded, or the source threw). Useful for tests that need to surface the observed timing in their failure diagnostic before the budget-overrun assertion exception propagates.
+- **`WithinTimeBudgetCapturing(TimeSpan, Action<TimeSpan>)`**: capturing variant of `WithinTimeBudget`. Same wall-clock budget behavior, plus an `Action<TimeSpan>` callback that always receives the measured elapsed (whether the budget was met, exceeded, or the source threw). Useful for tests that need to surface the observed timing in their failure diagnostic before the budget-overrun assertion exception propagates.
 
 ### Added (CI / process)
 
@@ -280,7 +280,7 @@ Net 10, AOT-compatible, trimmable, no runtime reflection.
   supplied time provider.
 - **`IsAfterNow(TimeProvider timeProvider)`**: strict-after-now check.
 
-Cross-cutting timing budget: composes with any behavioural assertion via `.And`:
+Cross-cutting timing budget: composes with any behavioral assertion via `.And`:
 
 - **`WithinTimeBudgetAssertion<T>`**: TUnit chain extension generating the
   `WithinTimeBudget(TimeSpan)` assertion. The wall-clock duration captured by TUnit's
