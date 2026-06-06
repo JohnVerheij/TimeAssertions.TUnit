@@ -13,7 +13,7 @@ Tooling release. No library API or behavior change. The release workflow now pub
 
 ### Changed
 
-- The release workflow extracts the `## [version]` section from `CHANGELOG.md` and passes it as the GitHub release body (`body_path`), keeping the auto-generated contributor list appended. Earlier releases published only the auto-generated notes, which omitted the hand-written breaking-change and feature detail.
+- The release workflow extracts the `## [version]` section from `CHANGELOG.md` and passes it as the GitHub release body (`body_path`), so the notes carry the full hand-written detail instead of an auto-generated commit summary. Earlier releases published only the auto-generated notes, which omitted the hand-written breaking-change and feature detail.
 
 ### Note for anyone upgrading across 0.8.0
 
@@ -359,7 +359,8 @@ argument; `.And.WithinTimeBudget(...)` is preferred.
 - **External-consumer smoke test + AOT-publish CI gate**: planned for 0.2.0.
 - **Recursive public-API self-test** via `SnapshotAssertions.TUnit`: planned for 0.1.1.
 
-[unreleased]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.8.0...HEAD
+[unreleased]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.5.0...v0.6.0
