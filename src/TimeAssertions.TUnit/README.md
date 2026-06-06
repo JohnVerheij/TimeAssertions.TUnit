@@ -41,7 +41,7 @@ public async Task PreReleaseExpiration_advances_state_after_clock_moves_forward(
     await Assert.That(fakeTime).HasAdvancedExactly(TimeSpan.FromMinutes(31));
     await Assert.That(service.LastRefresh).IsRecent(TimeSpan.FromSeconds(1), fakeTime);
 
-    // Cross-cutting timing budget on any behavioural assertion chain
+    // Cross-cutting timing budget on any behavioral assertion chain
     await Assert.That(service.IsExpiredAsync())
         .IsTrue()
         .And.WithinTimeBudget(TimeSpan.FromMilliseconds(500));
@@ -56,8 +56,8 @@ public async Task PreReleaseExpiration_advances_state_after_clock_moves_forward(
 | `HasUtcNow(DateTimeOffset)` / `HasUtcNowApproximately(expected, tolerance)` | `FakeTimeProvider` is at exact / approximate moment |
 | `IsRecent(TimeSpan, TimeProvider?)` | `DateTimeOffset` is within window before "now" of supplied (or system) clock |
 | `IsBeforeNow(TimeProvider)` / `IsAfterNow(TimeProvider)` | `DateTimeOffset` ordering relative to supplied clock |
-| `WithinTimeBudget(TimeSpan)` | Cross-cutting timing budget; chains via `.And` after any behavioural assertion |
-| `WithinTimeBudgetCapturing(TimeSpan, Action<TimeSpan>)` | Same as `WithinTimeBudget` plus a callback that receives the measured elapsed on every evaluation path except external cancellation (added in v0.2.0; cancellation-skip behaviour added in v0.5.0) |
+| `WithinTimeBudget(TimeSpan)` | Cross-cutting timing budget; chains via `.And` after any behavioral assertion |
+| `WithinTimeBudgetCapturing(TimeSpan, Action<TimeSpan>)` | Same as `WithinTimeBudget` plus a callback that receives the measured elapsed on every evaluation path except external cancellation (added in v0.2.0; cancellation-skip behavior added in v0.5.0) |
 | `WasInvokedAtMostOncePer(this IReadOnlyList<DateTimeOffset>, TimeSpan interval)` | Rate-limit assertion on a recorded invocation log: every consecutive gap is at least `interval` (added in v0.5.0) |
 | `HasNoActiveTimers()` / `HasActiveTimerCount(int)` on `ObservableTimeProvider` | Timer-leak assertions: no undisposed timers / exact active-timer count, naming each survivor by its schedule on failure (added in v0.6.0) |
 | `HasActiveTimers()` / `HasAtLeastActiveTimerCount(int)` on `ObservableTimeProvider` | Positive-count assertions: at least one / at least `count` active timers, for a lower bound rather than an exact count (added in v0.7.0) |

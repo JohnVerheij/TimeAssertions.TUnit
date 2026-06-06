@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
 
-A TUnit-native fluent time-assertion DSL on top of `Microsoft.Extensions.Time.Testing.FakeTimeProvider`. Built using TUnit's `[AssertionExtension]` source generator, so the assertion entry points integrate directly into TUnit's `Assert.That(...)` pipeline. Adds `TimeProvider`-aware `DateTimeOffset` checks plus a cross-cutting `.And.WithinTimeBudget(TimeSpan)` chain extension that composes with any behavioural assertion.
+A TUnit-native fluent time-assertion DSL on top of `Microsoft.Extensions.Time.Testing.FakeTimeProvider`. Built using TUnit's `[AssertionExtension]` source generator, so the assertion entry points integrate directly into TUnit's `Assert.That(...)` pipeline. Adds `TimeProvider`-aware `DateTimeOffset` checks plus a cross-cutting `.And.WithinTimeBudget(TimeSpan)` chain extension that composes with any behavioral assertion.
 
 > **Scope:** Test projects only. Not intended for production code.
 
@@ -44,12 +44,12 @@ A TUnit-native fluent time-assertion DSL on top of `Microsoft.Extensions.Time.Te
 
 ## Why this package
 
-Asserting on time-dependent behaviour during tests typically devolves into either:
+Asserting on time-dependent behavior during tests typically devolves into either:
 
 - Manual `Assert.True(fakeTime.GetUtcNow() == expected, ...)` plumbing in every test, or
 - Real-clock waits (`Thread.Sleep`, `Task.Delay`) with arbitrary tolerances that produce flaky CI when the runner is loaded.
 
-This library replaces both with a fluent DSL on top of Microsoft's recommended `TimeProvider` testability pattern, plus an assertion-level timing-budget extension that composes with any behavioural chain.
+This library replaces both with a fluent DSL on top of Microsoft's recommended `TimeProvider` testability pattern, plus an assertion-level timing-budget extension that composes with any behavioral chain.
 
 ## Install
 
@@ -144,7 +144,7 @@ Six groups of entry points cover six distinct testing concerns: fake-clock state
 
 ### `FakeTimeProvider` state assertions
 
-| Entry point | Behaviour |
+| Entry point | Behavior |
 |---|---|
 | `HasAdvancedExactly(TimeSpan total)` | Asserts `fakeTime.GetUtcNow() - construction-time` equals `total` exactly. Sanity check for `Advance` / `SetUtcNow` calls in test setup. |
 | `HasAdvancedApproximately(TimeSpan total, TimeSpan tolerance)` | Same, with absolute tolerance. Useful when production code performs additional internal `Advance` calls. |
@@ -164,7 +164,7 @@ await Assert.That(fakeTime).HasAdvancedExactly(TimeSpan.FromHours(2));
 
 Distinct from TUnit core's `IsInPast()` / `IsInFuture()` (which always use the system clock):
 
-| Entry point | Behaviour |
+| Entry point | Behavior |
 |---|---|
 | `IsRecent(TimeSpan window, TimeProvider? timeProvider = null)` | Asserts the timestamp is within the last `window` relative to the supplied `TimeProvider`'s notion of "now". When `timeProvider` is `null` or omitted, falls back to `TimeProvider.System` (useful for end-to-end tests not running under a fake clock). |
 | `IsBeforeNow(TimeProvider timeProvider)` | Strict-before-now check against the supplied time provider. |
@@ -178,10 +178,10 @@ await Assert.That(service.NextRunAt).IsAfterNow(fakeTime);
 
 ### Cross-cutting timing budget
 
-`.And.WithinTimeBudget(TimeSpan)` composes with **any** behavioural assertion. The wall-clock duration captured by TUnit's `EvaluationMetadata<T>.Duration` is compared against the budget; the chain fails if exceeded.
+`.And.WithinTimeBudget(TimeSpan)` composes with **any** behavioral assertion. The wall-clock duration captured by TUnit's `EvaluationMetadata<T>.Duration` is compared against the budget; the chain fails if exceeded.
 
 ```csharp
-// Canonical pattern: .And.WithinTimeBudget(...) after any behavioural assertion
+// Canonical pattern: .And.WithinTimeBudget(...) after any behavioral assertion
 await Assert.That(asyncOp)
     .IsEqualTo(expectedResult)
     .And.WithinTimeBudget(TimeSpan.FromMilliseconds(500));
@@ -197,7 +197,7 @@ await Assert.That(collector)
 
 #### Capturing the elapsed time: `WithinTimeBudgetCapturing` (v0.2.0+)
 
-When you need the measured elapsed value (e.g. to log it, or to feed it into a follow-up assertion), use `WithinTimeBudgetCapturing(TimeSpan budget, Action<TimeSpan> capture)`. Same wall-clock-budget behaviour as `WithinTimeBudget`, plus an `Action<TimeSpan>` callback that receives the measured elapsed on every evaluation path EXCEPT external cancellation (since v0.5.0): whether the budget passed, was exceeded, or the source threw a non-`OperationCanceledException`. See the paragraph after the example for the cancellation contract.
+When you need the measured elapsed value (e.g. to log it, or to feed it into a follow-up assertion), use `WithinTimeBudgetCapturing(TimeSpan budget, Action<TimeSpan> capture)`. Same wall-clock-budget behavior as `WithinTimeBudget`, plus an `Action<TimeSpan>` callback that receives the measured elapsed on every evaluation path EXCEPT external cancellation (since v0.5.0): whether the budget passed, was exceeded, or the source threw a non-`OperationCanceledException`. See the paragraph after the example for the cancellation contract.
 
 ```csharp
 var elapsed = TimeSpan.Zero;
@@ -211,13 +211,13 @@ await Assert.That(asyncOp)
 TestContext.Current.OutputWriter.WriteLine($"asyncOp took {elapsed.TotalMilliseconds:F1}ms");
 ```
 
-The capture callback runs on **every** evaluation path EXCEPT external cancellation (since v0.5.0), so failed-budget tests can still surface the observed timing in their failure diagnostic before the budget-overrun `AssertionException` propagates. If the source itself threw a non-`OperationCanceledException`, the callback receives the partial elapsed reported by TUnit's `EvaluationMetadata<T>.Duration`. When the source threw `OperationCanceledException` (parent `[Timeout]`, test-class CT, runner cancel), the assertion propagates the OCE to the test runner and the capture callback is deliberately not invoked: a partial elapsed from a cancelled operation would mislead consumers about the operation's real cost.
+The capture callback runs on **every** evaluation path EXCEPT external cancellation (since v0.5.0), so failed-budget tests can still surface the observed timing in their failure diagnostic before the budget-overrun `AssertionException` propagates. If the source itself threw a non-`OperationCanceledException`, the callback receives the partial elapsed reported by TUnit's `EvaluationMetadata<T>.Duration`. When the source threw `OperationCanceledException` (parent `[Timeout]`, test-class CT, runner cancel), the assertion propagates the OCE to the test runner and the capture callback is deliberately not invoked: a partial elapsed from a canceled operation would mislead consumers about the operation's real cost.
 
 ### Rate-limit assertions on invocation timestamps
 
 `WasInvokedAtMostOncePer(TimeSpan interval)` asserts that consecutive timestamps in a recorded invocation log maintain at least the specified minimum interval. The classic use case is a periodic-probe contract: "the failure handler must fire at most once per 30 seconds; subsequent failures inside that window are suppressed".
 
-| Entry point | Behaviour |
+| Entry point | Behavior |
 |---|---|
 | `WasInvokedAtMostOncePer(this IReadOnlyList<DateTimeOffset> timestamps, TimeSpan interval)` | Asserts every consecutive pair `(timestamps[i-1], timestamps[i])` is at least `interval` apart. The first violating pair fails the assertion with a message naming the violating index, observed gap, and required minimum. Empty / single-element sequences pass trivially; the boundary case `gap == interval` passes (minimum is inclusive). |
 
@@ -238,7 +238,7 @@ The receiver is the recorded log itself, NOT the action being invoked: the consu
 
 `HasNoActiveTimers()` and `HasActiveTimerCount(int)` assert on timer disposal: did a `BackgroundService` / `IHostedService` dispose every `ITimer` it started? `FakeTimeProvider` does not surface the timers created against it ([dotnet/extensions#7515](https://github.com/dotnet/extensions/issues/7515)), so wrap it in the framework-agnostic `ObservableTimeProvider` (shipped in the `TimeAssertions` core package), run the code under test, then assert.
 
-| Entry point | Behaviour |
+| Entry point | Behavior |
 |---|---|
 | `HasNoActiveTimers()` | Asserts every timer created through the `ObservableTimeProvider` has been disposed. On failure the message names each survivor by its schedule (`[dueTime=..., period=...]`; one-shot timers as `period=one-shot`) with a grep-friendly `(count=N)` trailer, instead of a bare integer. |
 | `HasActiveTimerCount(int expected)` | Asserts the exact number of active (undisposed) timers: the registration half of a disposal test. On mismatch the message renders expected vs actual counts plus each active timer's schedule, with an `(expected=N, actual=M)` trailer. |
@@ -278,7 +278,7 @@ If you already wrap `FakeTimeProvider` in your own tracking decorator, note one 
 
 `HasNextTimerDueApproximately(expected, tolerance)` and `HasPendingTimerDueWithin(min, max)` inspect the schedule a pending timer carries on an `ObservableTimeProvider` **without advancing the clock**, so a test can verify which delay a loop just scheduled (for example a step of an exponential backoff) rather than advancing fake time and inferring the delay from when the callback fires. The "next" timer is the one with the smallest due time among the enabled (non-infinite) active timers; the underlying `ObservableTimeProvider.NextTimerDueTime` property exposes that value (or `null` when no enabled timer is pending).
 
-| Entry point | Behaviour |
+| Entry point | Behavior |
 |---|---|
 | `HasNextTimerDueApproximately(TimeSpan expected, TimeSpan tolerance)` | Asserts the next pending timer's due time is within `tolerance` of `expected`. On failure the message names the expected and observed due times and the delta, with a grep-friendly `(expected=Xms, tolerance=Yms, actual=Zms, delta=Wms)` trailer, or `actual=none` when no enabled timer is pending. |
 | `HasPendingTimerDueWithin(TimeSpan min, TimeSpan max)` | Asserts the next pending timer's due time falls within the inclusive range `[min, max]`. On failure the message names the range and observed due time, with a `(min=Xms, max=Yms, actual=Zms)` trailer, or `actual=none` when no enabled timer is pending. |
@@ -309,7 +309,7 @@ Actual:
   advanced 30m (differs by 1m)
 ```
 
-**`WithinTimeBudget` budget exceeded (assertion behavioural check passed but slow):**
+**`WithinTimeBudget` budget exceeded (assertion behavioral check passed but slow):**
 
 ```text
 Expected:
@@ -464,7 +464,7 @@ public async Task Heartbeat_fires_before_parent_timeout(CancellationToken cancel
 }
 ```
 
-The CT short-circuits the polling loop on external cancellation; the timeout argument remains the upper bound for the no-cancel case. The `WithinTimeBudget` / `WithinTimeBudgetCapturing` chains in this package also propagate `OperationCanceledException` intact since v0.5.0, so a chain like `Eventually(...).And.WithinTimeBudget(...)` surfaces cancellation as a cancelled test rather than an assertion failure.
+The CT short-circuits the polling loop on external cancellation; the timeout argument remains the upper bound for the no-cancel case. The `WithinTimeBudget` / `WithinTimeBudgetCapturing` chains in this package also propagate `OperationCanceledException` intact since v0.5.0, so a chain like `Eventually(...).And.WithinTimeBudget(...)` surfaces cancellation as a canceled test rather than an assertion failure.
 
 ### Pinning the moment-graph of a multi-event sequence
 
@@ -498,7 +498,7 @@ public async Task HeartbeatService_emits_at_expected_cadence(CancellationToken c
 
 The renderer preserves input order verbatim, including ties on `Timestamp`. If the snapshot needs a specific ordering (chronological, by-category, etc.) the caller sorts the input list before rendering.
 
-### Capturing the elapsed time of a behavioural assertion
+### Capturing the elapsed time of a behavioral assertion
 
 ```csharp
 var elapsed = TimeSpan.Zero;
