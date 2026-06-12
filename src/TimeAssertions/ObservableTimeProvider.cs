@@ -238,11 +238,15 @@ public sealed class ObservableTimeProvider : TimeProvider
 
         /// <summary>
         /// Records one callback fire: bumps this timer's and the owner's cumulative fire counts, and
-        /// re-points the current due time to reflect the post-fire schedule, a periodic timer re-arms
-        /// at its period, a one-shot becomes disabled (<see cref="Timeout.InfiniteTimeSpan"/>). This
-        /// keeps <see cref="ObservableTimeProvider.NextTimerDueTime"/> correct after a timer fires
-        /// rather than reporting the stale creation-time due. Runs under the owner lock so it is a
-        /// consistent snapshot for concurrent readers.
+        /// re-points the current due time to reflect the post-fire schedule. A timer with a
+        /// strictly-positive period re-arms at that period; a non-periodic timer fires once and is
+        /// then disabled (<see cref="Timeout.InfiniteTimeSpan"/>). Per the
+        /// <see cref="TimeProvider.CreateTimer(TimerCallback, object?, TimeSpan, TimeSpan)"/> contract,
+        /// non-periodic means a period of either <see cref="Timeout.InfiniteTimeSpan"/> or
+        /// <see cref="TimeSpan.Zero"/>. This keeps
+        /// <see cref="ObservableTimeProvider.NextTimerDueTime"/> correct after a timer fires rather
+        /// than reporting the stale creation-time due. Runs under the owner lock so it is a consistent
+        /// snapshot for concurrent readers.
         /// </summary>
         private void NotifyFired()
         {
@@ -250,7 +254,7 @@ public sealed class ObservableTimeProvider : TimeProvider
             {
                 _timesFired++;
                 _owner._timerFireCount++;
-                _dueTime = _period;
+                _dueTime = _period > TimeSpan.Zero ? _period : Timeout.InfiniteTimeSpan;
             }
         }
 

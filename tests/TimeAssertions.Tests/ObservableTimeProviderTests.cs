@@ -281,6 +281,22 @@ internal sealed class ObservableTimeProviderTests
     }
 
     [Test]
+    public async Task Fire_ZeroPeriodOneShot_BecomesDisabled(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var inner = new ControllableTimeProvider(Epoch);
+        var time = new ObservableTimeProvider(inner);
+        // Per the TimeProvider.CreateTimer contract a period of TimeSpan.Zero is non-periodic, just
+        // like Timeout.InfiniteTimeSpan: the callback fires once, then the timer is disabled.
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(5), TimeSpan.Zero);
+
+        inner.FireAll();
+
+        await Assert.That(time.NextTimerDueTime).IsNull();
+        await Assert.That(time.ActiveTimers[0].DueTime).IsEqualTo(Timeout.InfiniteTimeSpan);
+    }
+
+    [Test]
     public async Task Fire_CountSurvivesDisposal(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -359,10 +375,12 @@ internal sealed class ObservableTimeProviderTests
 
         public ControllableTimeProvider(DateTimeOffset now) => _now = now;
 
-        /// <summary>Invokes every created, still-active timer's callback once.</summary>
+        /// <summary>Invokes every created, still-active timer's callback once. Iterates a snapshot so
+        /// a callback that disposes itself or another timer (which removes it from the registry) does
+        /// not mutate the collection mid-enumeration.</summary>
         public void FireAll()
         {
-            foreach (var timer in _timers)
+            foreach (var timer in _timers.ToArray())
             {
                 timer.Fire();
             }
