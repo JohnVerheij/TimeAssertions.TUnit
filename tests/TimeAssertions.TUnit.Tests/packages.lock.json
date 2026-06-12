@@ -135,7 +135,7 @@
           "Microsoft.Extensions.TimeProvider.Testing": "[10.7.0, )",
           "TUnit.Assertions": "[1.53.0, )",
           "TUnit.Core": "[1.53.0, )",
-          "TimeAssertions": "[0.8.1, )"
+          "TimeAssertions": "[0.9.0, )"
         }
       },
       "Microsoft.Extensions.TimeProvider.Testing": {
