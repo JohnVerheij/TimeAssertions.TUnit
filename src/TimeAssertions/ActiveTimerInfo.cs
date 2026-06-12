@@ -11,8 +11,10 @@ namespace TimeAssertions;
 /// timer remained active by its schedule rather than reporting a bare count.
 /// </summary>
 /// <param name="DueTime">The delay before the timer's first (or next) callback, as supplied to
-/// <see cref="TimeProvider.CreateTimer(TimerCallback, object?, TimeSpan, TimeSpan)"/> or the most
-/// recent <see cref="ITimer.Change(TimeSpan, TimeSpan)"/>. A value of
+/// <see cref="TimeProvider.CreateTimer(TimerCallback, object?, TimeSpan, TimeSpan)"/>, the most
+/// recent <see cref="ITimer.Change(TimeSpan, TimeSpan)"/>, or the timer's period once it has fired
+/// (a periodic timer re-arms at its period; a non-periodic one, with a period of zero or
+/// <see cref="Timeout.InfiniteTimeSpan"/>, is disabled after its fire). A value of
 /// <see cref="Timeout.InfiniteTimeSpan"/> indicates a timer whose callback is currently disabled.</param>
 /// <param name="Period">The interval between successive callbacks. A value of
 /// <see cref="Timeout.InfiniteTimeSpan"/> indicates a one-shot timer that does not repeat.</param>

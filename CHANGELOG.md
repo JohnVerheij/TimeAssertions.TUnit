@@ -377,7 +377,8 @@ argument; `.And.WithinTimeBudget(...)` is preferred.
 - **External-consumer smoke test + AOT-publish CI gate**: planned for 0.2.0.
 - **Recursive public-API self-test** via `SnapshotAssertions.TUnit`: planned for 0.1.1.
 
-[unreleased]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.8.1...HEAD
+[unreleased]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.6.0...v0.7.0
