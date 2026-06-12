@@ -2,8 +2,50 @@
 <!-- https://learn.microsoft.com/dotnet/fundamentals/package-validation/diagnostic-ids -->
 <Suppressions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TimeAssertions.ActiveTimerInfo.get_TimesFired</Target>
+    <Left>lib/net10.0/TimeAssertions.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TimeAssertions.ActiveTimerInfo.set_TimesFired(System.Int64)</Target>
+    <Left>lib/net10.0/TimeAssertions.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TimeAssertions.ObservableTimeProvider.get_TimerFireCount</Target>
+    <Left>lib/net10.0/TimeAssertions.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TimeAssertions.TimeRenderingHelpers.FormatNoTimerFired(System.Int64,System.Collections.Generic.IReadOnlyList{TimeAssertions.ActiveTimerInfo})</Target>
+    <Left>lib/net10.0/TimeAssertions.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TimeAssertions.TimeRenderingHelpers.FormatTimerFireCountMismatch(System.Int64,System.Int32,System.Collections.Generic.IReadOnlyList{TimeAssertions.ActiveTimerInfo})</Target>
+    <Left>lib/net10.0/TimeAssertions.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TimeAssertions.TimeRenderingHelpers.FormatTimerFireShortfall(System.Int64,System.Int32,System.Collections.Generic.IReadOnlyList{TimeAssertions.ActiveTimerInfo})</Target>
+    <Left>lib/net10.0/TimeAssertions.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
     <DiagnosticId>CP0003</DiagnosticId>
-    <Target>TimeAssertions, Version=0.7.0.0, Culture=neutral, PublicKeyToken=null</Target>
+    <Target>TimeAssertions, Version=0.8.1.0, Culture=neutral, PublicKeyToken=null</Target>
     <Left>lib/net10.0/TimeAssertions.dll</Left>
     <Right>lib/net10.0/TimeAssertions.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>

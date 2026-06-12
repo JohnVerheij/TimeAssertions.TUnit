@@ -20,9 +20,19 @@ namespace TimeAssertions.TUnit;
 /// </para>
 /// <para>
 /// For an asynchronous disposal race (the timer is disposed on a background <c>StopAsync</c> that
-/// has not completed when the assertion runs), poll with the upstream TUnit primitive rather than a
-/// family-specific overload:
-/// <c>await Assert.That(() =&gt; time.ActiveTimerCount).Eventually(c =&gt; c == 0, timeout)</c>.
+/// has not completed when the assertion runs), use the polling overload
+/// <c>await Assert.That(time).HasNoActiveTimersEventually(timeout)</c>, which re-checks the live
+/// active count on the real wall clock until it reaches zero or the timeout elapses. The
+/// count-targeted siblings (<c>HasActiveTimerCountEventually</c>,
+/// <c>HasAtLeastActiveTimerCountEventually</c>, <c>HasAtMostActiveTimerCountEventually</c>,
+/// <c>HasActiveTimersEventually</c>) poll for other steady states.
+/// </para>
+/// <para>
+/// To verify how many times a timer's callback ran, advance fake time on the inner provider and
+/// assert with <see cref="HasTimerFiredCount(ObservableTimeProvider, int)"/>,
+/// <see cref="HasNoTimerFired(ObservableTimeProvider)"/>, or
+/// <see cref="HasTimerFiredAtLeast(ObservableTimeProvider, int)"/>. The fire count is cumulative
+/// across every timer the provider created and survives disposal.
 /// </para>
 /// </remarks>
 public static class ActiveTimerAssertions
@@ -186,5 +196,76 @@ public static class ActiveTimerAssertions
         }
 
         return AssertionResult.Failed(TimeRenderingHelpers.FormatNextTimerDueOutOfRange(actual, min, max));
+    }
+
+    /// <summary>
+    /// Asserts that timer callbacks fired exactly <paramref name="expected"/> times in total across
+    /// every timer created through the <see cref="ObservableTimeProvider"/>. The count is cumulative
+    /// and is not reset on disposal, so it reports how many times a hosted service's loop ran after a
+    /// fake-time advance, without reading the loop's side effects.
+    /// </summary>
+    /// <param name="value">The observable provider that tracked the timers.</param>
+    /// <param name="expected">The expected cumulative fire count. Must be non-negative.</param>
+    /// <returns><see cref="AssertionResult.Passed"/> when the cumulative fire count equals
+    /// <paramref name="expected"/>; otherwise <see cref="AssertionResult.Failed(string)"/> with a
+    /// message naming the expected and actual counts and the active timers' per-timer fire counts.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="expected"/> is negative.</exception>
+    [GenerateAssertion(InlineMethodBody = false)]
+    public static AssertionResult HasTimerFiredCount(this ObservableTimeProvider value, int expected)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentOutOfRangeException.ThrowIfNegative(expected);
+
+        var actual = value.TimerFireCount;
+        return actual == expected
+            ? AssertionResult.Passed
+            : AssertionResult.Failed(TimeRenderingHelpers.FormatTimerFireCountMismatch(actual, expected, value.ActiveTimers));
+    }
+
+    /// <summary>
+    /// Asserts that no timer callback created through the <see cref="ObservableTimeProvider"/> has
+    /// fired: the canonical check that a loop scheduled a timer but fake time was not advanced far
+    /// enough to trigger it, or that a disposed timer never ran.
+    /// </summary>
+    /// <param name="value">The observable provider that tracked the timers.</param>
+    /// <returns><see cref="AssertionResult.Passed"/> when no callback has fired; otherwise
+    /// <see cref="AssertionResult.Failed(string)"/> with a message naming the cumulative fire count
+    /// and the active timers' per-timer fire counts.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion(InlineMethodBody = false)]
+    public static AssertionResult HasNoTimerFired(this ObservableTimeProvider value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        var actual = value.TimerFireCount;
+        return actual is 0
+            ? AssertionResult.Passed
+            : AssertionResult.Failed(TimeRenderingHelpers.FormatNoTimerFired(actual, value.ActiveTimers));
+    }
+
+    /// <summary>
+    /// Asserts that timer callbacks fired at least <paramref name="count"/> times in total across
+    /// every timer created through the <see cref="ObservableTimeProvider"/>. The liveness lower-bound
+    /// counterpart of <see cref="HasTimerFiredCount"/>: use it for a heartbeat where the exact number
+    /// of fires is subject to timing jitter but a minimum cadence must be proven.
+    /// </summary>
+    /// <param name="value">The observable provider that tracked the timers.</param>
+    /// <param name="count">The minimum cumulative fire count. Must be non-negative.</param>
+    /// <returns><see cref="AssertionResult.Passed"/> when the cumulative fire count is at least
+    /// <paramref name="count"/>; otherwise <see cref="AssertionResult.Failed(string)"/> with a
+    /// message naming the minimum and actual counts and the active timers' per-timer fire counts.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="count"/> is negative.</exception>
+    [GenerateAssertion(InlineMethodBody = false)]
+    public static AssertionResult HasTimerFiredAtLeast(this ObservableTimeProvider value, int count)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+
+        var actual = value.TimerFireCount;
+        return actual >= count
+            ? AssertionResult.Passed
+            : AssertionResult.Failed(TimeRenderingHelpers.FormatTimerFireShortfall(actual, count, value.ActiveTimers));
     }
 }

@@ -17,4 +17,13 @@ namespace TimeAssertions;
 /// <param name="Period">The interval between successive callbacks. A value of
 /// <see cref="Timeout.InfiniteTimeSpan"/> indicates a one-shot timer that does not repeat.</param>
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct ActiveTimerInfo(TimeSpan DueTime, TimeSpan Period);
+public readonly record struct ActiveTimerInfo(TimeSpan DueTime, TimeSpan Period)
+{
+    /// <summary>
+    /// Gets the number of times this timer's callback has fired since it was created, as observed by
+    /// <see cref="ObservableTimeProvider"/>. Zero for a timer that has not yet fired (the default
+    /// when the value is constructed by name). With a <c>FakeTimeProvider</c> a fire is counted each
+    /// time test code advances fake time past the timer's due (or period) boundary.
+    /// </summary>
+    public long TimesFired { get; init; }
+}

@@ -29,6 +29,7 @@ A TUnit-native fluent time-assertion DSL on top of `Microsoft.Extensions.Time.Te
   - [Cross-cutting timing budget](#cross-cutting-timing-budget)
   - [Rate-limit assertions on invocation timestamps](#rate-limit-assertions-on-invocation-timestamps)
   - [Active-timer leak assertions](#active-timer-leak-assertions)
+  - [Counting timer fires](#counting-timer-fires)
   - [Pending-timer due-time assertions](#pending-timer-due-time-assertions)
 - [Failure diagnostics](#failure-diagnostics)
 - [Cookbook: common patterns](#cookbook-common-patterns)
@@ -66,7 +67,7 @@ This repo ships **two** NuGet packages:
 | Package | Purpose | Depends on |
 |---|---|---|
 | [`TimeAssertions`](https://www.nuget.org/packages/TimeAssertions/) | Framework-agnostic core: `TimeRenderingHelpers` for elapsed-duration / budget-overrun formatting | BCL only |
-| [`TimeAssertions.TUnit`](https://www.nuget.org/packages/TimeAssertions.TUnit/) | TUnit-specific entry points: `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()`, `WasInvokedAtMostOncePer()`, `HasNoActiveTimers()`, `HasActiveTimerCount(int)`, `HasActiveTimers()`, `HasAtLeastActiveTimerCount(int)`, `HasNoActiveTimersEventually()`, `HasActiveTimerCountEventually()`, `HasAtLeastActiveTimerCountEventually()`, `HasAtMostActiveTimerCountEventually()`, `HasActiveTimersEventually()`, `HasNextTimerDueApproximately()`, `HasPendingTimerDueWithin()` | `TimeAssertions` + `TUnit.Assertions` + `TUnit.Core` + `Microsoft.Extensions.TimeProvider.Testing` |
+| [`TimeAssertions.TUnit`](https://www.nuget.org/packages/TimeAssertions.TUnit/) | TUnit-specific entry points: `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()`, `WasInvokedAtMostOncePer()`, `HasNoActiveTimers()`, `HasActiveTimerCount(int)`, `HasActiveTimers()`, `HasAtLeastActiveTimerCount(int)`, `HasNoActiveTimersEventually()`, `HasActiveTimerCountEventually()`, `HasAtLeastActiveTimerCountEventually()`, `HasAtMostActiveTimerCountEventually()`, `HasActiveTimersEventually()`, `HasNextTimerDueApproximately()`, `HasPendingTimerDueWithin()`, `HasTimerFiredCount(int)`, `HasNoTimerFired()`, `HasTimerFiredAtLeast(int)` | `TimeAssertions` + `TUnit.Assertions` + `TUnit.Core` + `Microsoft.Extensions.TimeProvider.Testing` |
 
 You install `TimeAssertions.TUnit`; `TimeAssertions` and `Microsoft.Extensions.TimeProvider.Testing` come transitively. Adapters for other test frameworks (NUnit, xUnit, MSTest) are *not* shipped today: they would reuse the `TimeAssertions` core. Open a feature request if you need one.
 
@@ -76,7 +77,7 @@ The two packages place types in two namespaces with deliberately-different scope
 
 | Type / member | Namespace | Auto-imported? |
 |---|---|---|
-| `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()`, `WasInvokedAtMostOncePer()`, `HasNoActiveTimers()`, `HasActiveTimerCount(int)`, `HasActiveTimers()`, `HasAtLeastActiveTimerCount(int)`, `HasNoActiveTimersEventually()`, `HasActiveTimerCountEventually()`, `HasAtLeastActiveTimerCountEventually()`, `HasAtMostActiveTimerCountEventually()`, `HasActiveTimersEventually()`, `HasNextTimerDueApproximately()`, `HasPendingTimerDueWithin()` (source-generated entries) | `TUnit.Assertions.Extensions` | **Yes**: TUnit auto-imports |
+| `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()`, `WasInvokedAtMostOncePer()`, `HasNoActiveTimers()`, `HasActiveTimerCount(int)`, `HasActiveTimers()`, `HasAtLeastActiveTimerCount(int)`, `HasNoActiveTimersEventually()`, `HasActiveTimerCountEventually()`, `HasAtLeastActiveTimerCountEventually()`, `HasAtMostActiveTimerCountEventually()`, `HasActiveTimersEventually()`, `HasNextTimerDueApproximately()`, `HasPendingTimerDueWithin()`, `HasTimerFiredCount(int)`, `HasNoTimerFired()`, `HasTimerFiredAtLeast(int)` (source-generated entries) | `TUnit.Assertions.Extensions` | **Yes**: TUnit auto-imports |
 | `FakeTimeProvider` (the testable-clock type) | `Microsoft.Extensions.Time.Testing` | **No**: needed at the call site; recommended for `GlobalUsings.cs` |
 | `TimeRenderingHelpers` (formatting utilities for failure messages) | `TimeAssertions` | **No**: needed at the call site; recommended for `GlobalUsings.cs` |
 | `WithinTimeBudgetAssertion<T>`, `WithinTimeBudgetCapturingAssertion<T>` (the assertion classes behind `WithinTimeBudget()` and `WithinTimeBudgetCapturing()`) | `TimeAssertions.TUnit` | **No**: needed at the call site; recommended for `GlobalUsings.cs` |
@@ -274,6 +275,29 @@ The poll uses a real `Task.Delay` loop against a wall-clock deadline, not a fake
 
 If you already wrap `FakeTimeProvider` in your own tracking decorator, note one deliberate shape difference: `ActiveTimers` returns `IReadOnlyList<ActiveTimerInfo>` describing each timer's **schedule** (`DueTime` / `Period`), not the `ITimer` references themselves. That is intentional. A leak diagnostic needs to answer "which timer survived, and what was it scheduled to do", and the schedule is exactly that answer; an `ITimer` identity is not portable across runs and carries no diagnostic value in a failure message. Exposing only the schedule also keeps the snapshot immutable: the returned list is a point-in-time copy that later creations or disposals do not mutate.
 
+### Counting timer fires
+
+The leak assertions cover timer disposal. These cover how many times a timer's callback actually ran. `ObservableTimeProvider` counts every callback fire across every timer it created. The count is cumulative and is not reset on disposal, so a timer that fired three times and was then stopped still reports `3`. With a `FakeTimeProvider`, a fire is counted each time test code advances fake time past a due or period boundary, which keeps the count deterministic.
+
+| Entry point | Behavior |
+|---|---|
+| `HasTimerFiredCount(int expected)` | Asserts the cumulative fire count equals `expected`: "advancing two periods fired the heartbeat twice." On mismatch the message renders expected vs actual with an `(expected=N, actual=M)` trailer, plus each still-active timer's schedule and per-timer fire count. |
+| `HasNoTimerFired()` | Asserts no callback has fired: the timer was scheduled but fake time was not advanced far enough to trigger it. On failure the message renders the cumulative count with an `(expected=0, actual=M)` trailer. |
+| `HasTimerFiredAtLeast(int count)` | Asserts the cumulative fire count is at least `count`: the liveness lower bound for a heartbeat whose exact fire count is subject to timing jitter. On a shortfall the message renders the minimum vs actual with a `(minimum=N, actual=M)` trailer. |
+
+```csharp
+var fakeTime = new FakeTimeProvider();
+var time = new ObservableTimeProvider(fakeTime);
+var service = new HeartbeatService(time);   // CreateTimer(_, _, dueTime: 1s, period: 1s)
+await service.StartAsync(ct);
+
+await Assert.That(time).HasNoTimerFired();             // scheduled, not yet fired
+fakeTime.Advance(TimeSpan.FromSeconds(3));             // advance the inner fake clock
+await Assert.That(time).HasTimerFiredCount(3);         // the loop ran three times
+```
+
+Advance fake time on the inner `FakeTimeProvider` you wrapped (keep a reference to it, as above); `ObservableTimeProvider` forwards every clock operation to it. Once a periodic timer fires, `NextTimerDueTime` (and the `HasNextTimerDueApproximately` / `HasPendingTimerDueWithin` assertions) report the timer's period, since that is when the next callback is due. A one-shot timer that has fired is disabled and drops out of the pending-due calculation.
+
 ### Pending-timer due-time assertions
 
 `HasNextTimerDueApproximately(expected, tolerance)` and `HasPendingTimerDueWithin(min, max)` inspect the schedule a pending timer carries on an `ObservableTimeProvider` **without advancing the clock**, so a test can verify which delay a loop just scheduled (for example a step of an exponential backoff) rather than advancing fake time and inferring the delay from when the callback fires. The "next" timer is the one with the smallest due time among the enabled (non-infinite) active timers; the underlying `ObservableTimeProvider.NextTimerDueTime` property exposes that value (or `null` when no enabled timer is pending).
@@ -439,7 +463,7 @@ await Assert.That(() => collector.HasLogged("[Heartbeat]"))
     .Eventually(a => a.IsTrue(), TimeSpan.FromSeconds(1));
 ```
 
-`Eventually` uses a 10ms default polling interval, so the median case completes in 10-20ms instead of the worst-case 50ms. The `TimeAssertions.TUnit` package deliberately does not ship its own polling assertion: `Eventually` and its alias `WaitsFor` cover the use case directly, and a sibling implementation would only fragment the surface.
+`Eventually` uses a 10ms default polling interval, so the median case completes in 10-20ms instead of the worst-case 50ms. Use generic `Eventually` (or its alias `WaitsFor`) for an arbitrary condition like a logged line or an externally-updated counter, where no domain assertion fits. For the active-timer disposal race, the package ships dedicated polling overloads (`HasNoActiveTimersEventually` and its count-targeted siblings, see [Active-timer leak assertions](#active-timer-leak-assertions)). They assert on the provider and produce a survivor-naming failure message, so prefer them over a hand-rolled `Eventually` on `ActiveTimerCount`.
 
 For polling sources updated externally (e.g. a counter incremented by a different thread), the same pattern applies with an `int`-typed source and a value predicate:
 

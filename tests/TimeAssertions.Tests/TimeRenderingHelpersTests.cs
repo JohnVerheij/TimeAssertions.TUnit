@@ -521,4 +521,123 @@ internal sealed class TimeRenderingHelpersTests
         await Assert.That(formatted).Contains("no enabled timer was pending");
         await Assert.That(formatted).Contains("(min=1000ms, max=4000ms, actual=none)");
     }
+
+    // ---- FormatTimerFireCount* (v0.9.0) ----
+
+    /// <summary>A fire-count mismatch names the expected and actual cumulative counts and lists each
+    /// still-active timer with its per-timer fire count.</summary>
+    [Test]
+    public async Task FormatTimerFireCountMismatch_NamesCountsAndPerTimerFires(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var active = new[]
+        {
+            new ActiveTimerInfo(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)) { TimesFired = 1 },
+        };
+        var formatted = TimeRenderingHelpers.FormatTimerFireCountMismatch(actual: 1, expected: 3, active);
+
+        await Assert.That(formatted).Contains("expected timer callbacks to have fired 3 time(s) but they fired 1");
+        await Assert.That(formatted).Contains("(expected=3, actual=1)");
+        await Assert.That(formatted).Contains("[dueTime=1.0s, period=1.0s, fired=1]");
+    }
+
+    /// <summary>With no still-active timers the cumulative-count headline stands alone (the count
+    /// survives disposal, so a mismatch is still reported).</summary>
+    [Test]
+    public async Task FormatTimerFireCountMismatch_EmptyActive_OmitsBreakdown(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var formatted = TimeRenderingHelpers.FormatTimerFireCountMismatch(
+            actual: 2, expected: 5, Array.Empty<ActiveTimerInfo>());
+
+        await Assert.That(formatted).Contains("(expected=5, actual=2)");
+        await Assert.That(formatted).DoesNotContain("[dueTime=");
+    }
+
+    /// <summary>A still-active timer whose due time is infinite (a one-shot that has fired and is now
+    /// disabled but not yet disposed) renders <c>dueTime=infinite</c> in the per-timer breakdown.</summary>
+    [Test]
+    public async Task FormatTimerFireCountMismatch_DisabledTimer_RendersInfiniteDue(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var active = new[]
+        {
+            new ActiveTimerInfo(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan) { TimesFired = 1 },
+        };
+        var formatted = TimeRenderingHelpers.FormatTimerFireCountMismatch(actual: 1, expected: 2, active);
+
+        await Assert.That(formatted).Contains("[dueTime=infinite, period=one-shot, fired=1]");
+    }
+
+    [Test]
+    public async Task FormatTimerFireCountMismatch_NullActive_ThrowsArgumentNull(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await Assert.That(() => TimeRenderingHelpers.FormatTimerFireCountMismatch(actual: 1, expected: 1, null!))
+            .Throws<ArgumentNullException>();
+    }
+
+    [Test]
+    public async Task FormatTimerFireCountMismatch_NegativeExpected_ThrowsArgumentOutOfRange(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await Assert.That(() => TimeRenderingHelpers.FormatTimerFireCountMismatch(
+                actual: 1, expected: -1, Array.Empty<ActiveTimerInfo>()))
+            .Throws<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>The no-fire message renders the cumulative count with an <c>(expected=0, ...)</c>
+    /// trailer and the per-timer breakdown.</summary>
+    [Test]
+    public async Task FormatNoTimerFired_NamesCountAndBreakdown(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var active = new[]
+        {
+            new ActiveTimerInfo(TimeSpan.FromSeconds(2), Timeout.InfiniteTimeSpan) { TimesFired = 2 },
+        };
+        var formatted = TimeRenderingHelpers.FormatNoTimerFired(actual: 2, active);
+
+        await Assert.That(formatted).Contains("expected no timer callback to have fired but 2 fired");
+        await Assert.That(formatted).Contains("(expected=0, actual=2)");
+        await Assert.That(formatted).Contains("[dueTime=2.0s, period=one-shot, fired=2]");
+    }
+
+    [Test]
+    public async Task FormatNoTimerFired_NullActive_ThrowsArgumentNull(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await Assert.That(() => TimeRenderingHelpers.FormatNoTimerFired(actual: 1, null!))
+            .Throws<ArgumentNullException>();
+    }
+
+    /// <summary>A fire shortfall names the required minimum and the actual cumulative count with a
+    /// <c>(minimum=N, actual=M)</c> trailer.</summary>
+    [Test]
+    public async Task FormatTimerFireShortfall_NamesMinimumAndActual(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var formatted = TimeRenderingHelpers.FormatTimerFireShortfall(
+            actual: 1, minimum: 3, Array.Empty<ActiveTimerInfo>());
+
+        await Assert.That(formatted).Contains("expected timer callbacks to have fired at least 3 time(s) but they fired 1");
+        await Assert.That(formatted).Contains("(minimum=3, actual=1)");
+    }
+
+    [Test]
+    public async Task FormatTimerFireShortfall_NullActive_ThrowsArgumentNull(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await Assert.That(() => TimeRenderingHelpers.FormatTimerFireShortfall(actual: 1, minimum: 1, null!))
+            .Throws<ArgumentNullException>();
+    }
+
+    [Test]
+    public async Task FormatTimerFireShortfall_NegativeMinimum_ThrowsArgumentOutOfRange(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await Assert.That(() => TimeRenderingHelpers.FormatTimerFireShortfall(
+                actual: 1, minimum: -1, Array.Empty<ActiveTimerInfo>()))
+            .Throws<ArgumentOutOfRangeException>();
+    }
 }

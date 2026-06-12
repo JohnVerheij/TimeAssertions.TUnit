@@ -9,6 +9,7 @@ namespace TimeAssertions
         public ActiveTimerInfo(System.TimeSpan DueTime, System.TimeSpan Period) { }
         public System.TimeSpan DueTime { get; init; }
         public System.TimeSpan Period { get; init; }
+        public long TimesFired { get; init; }
     }
     public sealed class ObservableTimeProvider : System.TimeProvider
     {
@@ -17,6 +18,7 @@ namespace TimeAssertions
         public System.Collections.Generic.IReadOnlyList<TimeAssertions.ActiveTimerInfo> ActiveTimers { get; }
         public override System.TimeZoneInfo LocalTimeZone { get; }
         public System.TimeSpan? NextTimerDueTime { get; }
+        public long TimerFireCount { get; }
         public override long TimestampFrequency { get; }
         public override System.Threading.ITimer CreateTimer(System.Threading.TimerCallback callback, object? state, System.TimeSpan dueTime, System.TimeSpan period) { }
         public override long GetTimestamp() { }
@@ -32,7 +34,10 @@ namespace TimeAssertions
         public static string FormatDuration(System.TimeSpan duration) { }
         public static string FormatNextTimerDueMismatch(System.TimeSpan? actual, System.TimeSpan expected, System.TimeSpan tolerance) { }
         public static string FormatNextTimerDueOutOfRange(System.TimeSpan? actual, System.TimeSpan min, System.TimeSpan max) { }
+        public static string FormatNoTimerFired(long actual, System.Collections.Generic.IReadOnlyList<TimeAssertions.ActiveTimerInfo> active) { }
         public static string FormatRateLimitViolation(System.Collections.Generic.IReadOnlyList<System.DateTimeOffset> timestamps, int violatingIndex, System.TimeSpan gap, System.TimeSpan interval) { }
+        public static string FormatTimerFireCountMismatch(long actual, int expected, System.Collections.Generic.IReadOnlyList<TimeAssertions.ActiveTimerInfo> active) { }
+        public static string FormatTimerFireShortfall(long actual, int minimum, System.Collections.Generic.IReadOnlyList<TimeAssertions.ActiveTimerInfo> active) { }
     }
 }
 namespace TimeAssertions.Render

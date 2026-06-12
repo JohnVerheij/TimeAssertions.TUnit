@@ -11,7 +11,10 @@ namespace TUnit.Assertions.Extensions
         public static TUnit.Assertions.Extensions.ObservableTimeProvider_HasAtLeastActiveTimerCount_Int_Assertion HasAtLeastActiveTimerCount(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, int count, [System.Runtime.CompilerServices.CallerArgumentExpression("count")] string? countExpression = null) { }
         public static TUnit.Assertions.Extensions.ObservableTimeProvider_HasNextTimerDueApproximately_TimeSpan_TimeSpan_Assertion HasNextTimerDueApproximately(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, System.TimeSpan expected, System.TimeSpan tolerance, [System.Runtime.CompilerServices.CallerArgumentExpression("expected")] string? expectedExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("tolerance")] string? toleranceExpression = null) { }
         public static TUnit.Assertions.Extensions.ObservableTimeProvider_HasNoActiveTimers_Assertion HasNoActiveTimers(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source) { }
+        public static TUnit.Assertions.Extensions.ObservableTimeProvider_HasNoTimerFired_Assertion HasNoTimerFired(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source) { }
         public static TUnit.Assertions.Extensions.ObservableTimeProvider_HasPendingTimerDueWithin_TimeSpan_TimeSpan_Assertion HasPendingTimerDueWithin(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, System.TimeSpan min, System.TimeSpan max, [System.Runtime.CompilerServices.CallerArgumentExpression("min")] string? minExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("max")] string? maxExpression = null) { }
+        public static TUnit.Assertions.Extensions.ObservableTimeProvider_HasTimerFiredAtLeast_Int_Assertion HasTimerFiredAtLeast(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, int count, [System.Runtime.CompilerServices.CallerArgumentExpression("count")] string? countExpression = null) { }
+        public static TUnit.Assertions.Extensions.ObservableTimeProvider_HasTimerFiredCount_Int_Assertion HasTimerFiredCount(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, int expected, [System.Runtime.CompilerServices.CallerArgumentExpression("expected")] string? expectedExpression = null) { }
     }
     public static class DateTimeOffsetAssertions
     {
@@ -140,9 +143,27 @@ namespace TUnit.Assertions.Extensions
         protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<TimeAssertions.ObservableTimeProvider> metadata) { }
         protected override string GetExpectation() { }
     }
+    public sealed class ObservableTimeProvider_HasNoTimerFired_Assertion : TUnit.Assertions.Core.Assertion<TimeAssertions.ObservableTimeProvider>
+    {
+        public ObservableTimeProvider_HasNoTimerFired_Assertion(TUnit.Assertions.Core.AssertionContext<TimeAssertions.ObservableTimeProvider> context) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<TimeAssertions.ObservableTimeProvider> metadata) { }
+        protected override string GetExpectation() { }
+    }
     public sealed class ObservableTimeProvider_HasPendingTimerDueWithin_TimeSpan_TimeSpan_Assertion : TUnit.Assertions.Core.Assertion<TimeAssertions.ObservableTimeProvider>
     {
         public ObservableTimeProvider_HasPendingTimerDueWithin_TimeSpan_TimeSpan_Assertion(TUnit.Assertions.Core.AssertionContext<TimeAssertions.ObservableTimeProvider> context, System.TimeSpan min, System.TimeSpan max) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<TimeAssertions.ObservableTimeProvider> metadata) { }
+        protected override string GetExpectation() { }
+    }
+    public sealed class ObservableTimeProvider_HasTimerFiredAtLeast_Int_Assertion : TUnit.Assertions.Core.Assertion<TimeAssertions.ObservableTimeProvider>
+    {
+        public ObservableTimeProvider_HasTimerFiredAtLeast_Int_Assertion(TUnit.Assertions.Core.AssertionContext<TimeAssertions.ObservableTimeProvider> context, int count) { }
+        protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<TimeAssertions.ObservableTimeProvider> metadata) { }
+        protected override string GetExpectation() { }
+    }
+    public sealed class ObservableTimeProvider_HasTimerFiredCount_Int_Assertion : TUnit.Assertions.Core.Assertion<TimeAssertions.ObservableTimeProvider>
+    {
+        public ObservableTimeProvider_HasTimerFiredCount_Int_Assertion(TUnit.Assertions.Core.AssertionContext<TimeAssertions.ObservableTimeProvider> context, int expected) { }
         protected override System.Threading.Tasks.Task<TUnit.Assertions.Core.AssertionResult> CheckAsync(TUnit.Assertions.Core.EvaluationMetadata<TimeAssertions.ObservableTimeProvider> metadata) { }
         protected override string GetExpectation() { }
     }
@@ -176,7 +197,13 @@ namespace TimeAssertions.TUnit
         [TUnit.Assertions.Attributes.GenerateAssertion(InlineMethodBody=false)]
         public static TUnit.Assertions.Core.AssertionResult HasNoActiveTimers(this TimeAssertions.ObservableTimeProvider value) { }
         [TUnit.Assertions.Attributes.GenerateAssertion(InlineMethodBody=false)]
+        public static TUnit.Assertions.Core.AssertionResult HasNoTimerFired(this TimeAssertions.ObservableTimeProvider value) { }
+        [TUnit.Assertions.Attributes.GenerateAssertion(InlineMethodBody=false)]
         public static TUnit.Assertions.Core.AssertionResult HasPendingTimerDueWithin(this TimeAssertions.ObservableTimeProvider value, System.TimeSpan min, System.TimeSpan max) { }
+        [TUnit.Assertions.Attributes.GenerateAssertion(InlineMethodBody=false)]
+        public static TUnit.Assertions.Core.AssertionResult HasTimerFiredAtLeast(this TimeAssertions.ObservableTimeProvider value, int count) { }
+        [TUnit.Assertions.Attributes.GenerateAssertion(InlineMethodBody=false)]
+        public static TUnit.Assertions.Core.AssertionResult HasTimerFiredCount(this TimeAssertions.ObservableTimeProvider value, int expected) { }
     }
     public static class DateTimeOffsetAssertions
     {

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using TimeAssertions;
@@ -202,6 +203,112 @@ internal sealed class ObservableTimeProviderTests
         await Assert.That(time.GetUtcNow()).IsEqualTo(Epoch + TimeSpan.FromHours(1));
     }
 
+    [Test]
+    public async Task CreateTimer_NullCallback_Throws(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = new ObservableTimeProvider(new StubTimeProvider(Epoch));
+        await Assert.That(() => time.CreateTimer(null!, state: null, TimeSpan.Zero, Timeout.InfiniteTimeSpan))
+            .Throws<ArgumentNullException>();
+    }
+
+    [Test]
+    public async Task FreshProvider_TimerFireCountIsZero(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = new ObservableTimeProvider(new StubTimeProvider(Epoch));
+        await Assert.That(time.TimerFireCount).IsEqualTo(0L);
+    }
+
+    [Test]
+    public async Task Fire_CountsCumulativeAndPerTimer(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var inner = new ControllableTimeProvider(Epoch);
+        var time = new ObservableTimeProvider(inner);
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+
+        inner.FireAll();
+        inner.FireAll();
+        inner.FireAll();
+
+        await Assert.That(time.TimerFireCount).IsEqualTo(3L);
+        await Assert.That(time.ActiveTimers[0].TimesFired).IsEqualTo(3L);
+    }
+
+    [Test]
+    public async Task Fire_InvokesConsumerCallbackWithItsState(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var inner = new ControllableTimeProvider(Epoch);
+        var time = new ObservableTimeProvider(inner);
+        var marker = new object();
+        object? observed = null;
+        _ = time.CreateTimer(s => observed = s, marker, TimeSpan.FromSeconds(1), Timeout.InfiniteTimeSpan);
+
+        inner.FireAll();
+
+        await Assert.That(observed).IsSameReferenceAs(marker);
+        await Assert.That(time.TimerFireCount).IsEqualTo(1L);
+    }
+
+    [Test]
+    public async Task Fire_PeriodicTimer_NextDueBecomesPeriod(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var inner = new ControllableTimeProvider(Epoch);
+        var time = new ObservableTimeProvider(inner);
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        await Assert.That(time.NextTimerDueTime).IsEqualTo(TimeSpan.FromSeconds(5));
+
+        inner.FireAll(); // after the first fire the next callback is one period away, not the creation due
+
+        await Assert.That(time.NextTimerDueTime).IsEqualTo(TimeSpan.FromSeconds(2));
+    }
+
+    [Test]
+    public async Task Fire_OneShotTimer_BecomesDisabled(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var inner = new ControllableTimeProvider(Epoch);
+        var time = new ObservableTimeProvider(inner);
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(5), Timeout.InfiniteTimeSpan);
+
+        inner.FireAll(); // a one-shot that has fired is disabled and excluded from the pending-due calculation
+
+        await Assert.That(time.NextTimerDueTime).IsNull();
+        await Assert.That(time.ActiveTimers[0].DueTime).IsEqualTo(Timeout.InfiniteTimeSpan);
+    }
+
+    [Test]
+    public async Task Fire_CountSurvivesDisposal(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var inner = new ControllableTimeProvider(Epoch);
+        var time = new ObservableTimeProvider(inner);
+        var timer = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+
+        inner.FireAll();
+        timer.Dispose();
+
+        await Assert.That(time.ActiveTimerCount).IsEqualTo(0);
+        await Assert.That(time.TimerFireCount).IsEqualTo(1L); // cumulative count is not decremented on disposal
+    }
+
+    [Test]
+    public async Task Fire_MultipleTimers_AccumulatesAcrossThem(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var inner = new ControllableTimeProvider(Epoch);
+        var time = new ObservableTimeProvider(inner);
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+
+        inner.FireAll(); // one fire each
+
+        await Assert.That(time.TimerFireCount).IsEqualTo(2L);
+    }
+
     /// <summary>A minimal deterministic <see cref="TimeProvider"/> for exercising
     /// <see cref="ObservableTimeProvider"/> without a real or fake timer implementation. Its timers
     /// are inert: they never fire, so tests observe only tracking and disposal behaviour.</summary>
@@ -237,6 +344,69 @@ internal sealed class ObservableTimeProviderTests
             }
 
             public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        }
+    }
+
+    /// <summary>A deterministic <see cref="TimeProvider"/> whose timers fire only when the test calls
+    /// <see cref="FireAll"/>, so the BCL-only core test project can drive callback fires without a
+    /// <c>FakeTimeProvider</c> dependency. Each created timer captures the callback the
+    /// <see cref="ObservableTimeProvider"/> handed it (the fire-observing wrapper); firing it
+    /// exercises the real fire-counting path.</summary>
+    private sealed class ControllableTimeProvider : TimeProvider
+    {
+        private readonly List<ControllableTimer> _timers = [];
+        private DateTimeOffset _now;
+
+        public ControllableTimeProvider(DateTimeOffset now) => _now = now;
+
+        /// <summary>Invokes every created, still-active timer's callback once.</summary>
+        public void FireAll()
+        {
+            foreach (var timer in _timers)
+            {
+                timer.Fire();
+            }
+        }
+
+        public override DateTimeOffset GetUtcNow() => _now;
+
+        public override long GetTimestamp() => 0L;
+
+        public override long TimestampFrequency => 1_000L;
+
+        public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            var timer = new ControllableTimer(callback, state, _timers);
+            _timers.Add(timer);
+            return timer;
+        }
+
+        private sealed class ControllableTimer : ITimer
+        {
+            private readonly TimerCallback _callback;
+            private readonly object? _state;
+            private readonly List<ControllableTimer> _registry;
+
+            public ControllableTimer(TimerCallback callback, object? state, List<ControllableTimer> registry)
+            {
+                _callback = callback;
+                _state = state;
+                _registry = registry;
+            }
+
+            public void Fire() => _callback(_state);
+
+            public bool Change(TimeSpan dueTime, TimeSpan period) => true;
+
+            public void Dispose() => _registry.Remove(this);
+
+            public ValueTask DisposeAsync()
+            {
+                _registry.Remove(this);
+                return ValueTask.CompletedTask;
+            }
         }
     }
 }
