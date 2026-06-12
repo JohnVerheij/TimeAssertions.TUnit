@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-06-12: observe timer fires
+
+Minor release. Adds fire observation to `ObservableTimeProvider`: a count of how many times timer callbacks ran, next to the existing leak and pending-due assertions. Purely additive. Also corrects stale guidance in the docs.
+
+### Added
+
+- **`Assert.That(time).HasTimerFiredCount(int expected)`**, **`HasNoTimerFired()`**, and **`HasTimerFiredAtLeast(int count)`** assert how many times timer callbacks fired across every timer the provider created. `ObservableTimeProvider` now wraps each timer callback to count its fires. The count is cumulative and is not reset on disposal. With a `FakeTimeProvider`, a fire is counted each time test code advances fake time past a due or period boundary, which keeps the count deterministic. `ObservableTimeProvider.TimerFireCount` (cumulative) and `ActiveTimerInfo.TimesFired` (per timer) expose the same data on the framework-agnostic core.
+- `ObservableTimeProvider.CreateTimer` now validates that the callback is non-null up front (`ArgumentNullException`), matching the rest of the surface, instead of deferring to the inner provider.
+
+### Fixed
+
+- Once a periodic timer fires, `NextTimerDueTime` (and the `HasNextTimerDueApproximately` / `HasPendingTimerDueWithin` assertions) now report the timer's period, since that is when the next callback is due. A fired one-shot timer is disabled and drops out of the pending-due calculation. Previously the due time stayed frozen at its creation value until an explicit `Change`.
+- Corrected stale documentation that claimed the package "deliberately does not ship its own polling assertion": it has shipped `HasNoActiveTimersEventually` and its count-targeted siblings since `0.7.0`/`0.8.0`. The README and the `ActiveTimerAssertions` XML docs now point to those overloads for the asynchronous disposal race, reserving generic `Eventually` for arbitrary conditions.
+
+### Changed
+
+- Bumped `PackageValidationBaselineVersion` from `0.7.0` to `0.8.1` on both packages so ApiCompat strict-mode validates `0.9.0` against the most recently published baseline. The new members are recorded as additive differences in `CompatibilitySuppressions.xml`.
+
 ## [0.8.1] - 2026-06-06: release notes sourced from the CHANGELOG
 
 Tooling release. No library API or behavior change. The release workflow now publishes the matching `CHANGELOG.md` section as the GitHub release body, so release notes carry the full Added / Changed / Breaking detail instead of GitHub's auto-generated commit summary.
@@ -359,7 +377,8 @@ argument; `.And.WithinTimeBudget(...)` is preferred.
 - **External-consumer smoke test + AOT-publish CI gate**: planned for 0.2.0.
 - **Recursive public-API self-test** via `SnapshotAssertions.TUnit`: planned for 0.1.1.
 
-[unreleased]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.8.1...HEAD
+[unreleased]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.6.0...v0.7.0

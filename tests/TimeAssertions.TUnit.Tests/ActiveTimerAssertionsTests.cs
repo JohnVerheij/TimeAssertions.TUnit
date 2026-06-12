@@ -285,4 +285,122 @@ internal sealed class ActiveTimerAssertionsTests
             await Assert.That(time).HasPendingTimerDueWithin(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(1));
         }).Throws<ArgumentOutOfRangeException>();
     }
+
+    // ---- Fire-count assertions (v0.9.0) ----
+
+    /// <summary>Advancing fake time past three period boundaries fires a periodic timer three times,
+    /// and the cumulative fire count assertion passes.</summary>
+    [Test]
+    public async Task HasTimerFiredCount_AfterAdvance_Passes(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var fake = new FakeTimeProvider();
+        var time = new ObservableTimeProvider(fake);
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+
+        fake.Advance(TimeSpan.FromSeconds(3));
+
+        await Assert.That(time).HasTimerFiredCount(3);
+    }
+
+    /// <summary>A fire-count mismatch names the expected and actual counts with the grep trailer.</summary>
+    [Test]
+    public async Task HasTimerFiredCount_Mismatch_FailsWithMessage(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var fake = new FakeTimeProvider();
+        var time = new ObservableTimeProvider(fake);
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        fake.Advance(TimeSpan.FromSeconds(1));
+
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(time).HasTimerFiredCount(3);
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains("expected timer callbacks to have fired 3 time(s) but they fired 1");
+        await Assert.That(exception.Message).Contains("(expected=3, actual=1)");
+    }
+
+    [Test]
+    public async Task HasTimerFiredCount_Negative_ThrowsArgumentOutOfRange(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+        await Assert.That(async () =>
+        {
+            await Assert.That(time).HasTimerFiredCount(-1);
+        }).Throws<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>A scheduled-but-not-advanced timer has not fired, so the no-fire check passes.</summary>
+    [Test]
+    public async Task HasNoTimerFired_NotAdvanced_Passes(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+
+        await Assert.That(time).HasNoTimerFired();
+    }
+
+    [Test]
+    public async Task HasNoTimerFired_AfterAdvance_FailsWithMessage(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var fake = new FakeTimeProvider();
+        var time = new ObservableTimeProvider(fake);
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        fake.Advance(TimeSpan.FromSeconds(2));
+
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(time).HasNoTimerFired();
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains("expected no timer callback to have fired but 2 fired");
+        await Assert.That(exception.Message).Contains("(expected=0, actual=2)");
+    }
+
+    /// <summary>The liveness lower bound passes once the cumulative fire count reaches the minimum.</summary>
+    [Test]
+    public async Task HasTimerFiredAtLeast_AfterAdvance_Passes(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var fake = new FakeTimeProvider();
+        var time = new ObservableTimeProvider(fake);
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        fake.Advance(TimeSpan.FromSeconds(5));
+
+        await Assert.That(time).HasTimerFiredAtLeast(3);
+    }
+
+    [Test]
+    public async Task HasTimerFiredAtLeast_Shortfall_FailsWithMessage(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var fake = new FakeTimeProvider();
+        var time = new ObservableTimeProvider(fake);
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        fake.Advance(TimeSpan.FromSeconds(1));
+
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(time).HasTimerFiredAtLeast(3);
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains("expected timer callbacks to have fired at least 3 time(s) but they fired 1");
+        await Assert.That(exception.Message).Contains("(minimum=3, actual=1)");
+    }
+
+    [Test]
+    public async Task HasTimerFiredAtLeast_Negative_ThrowsArgumentOutOfRange(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+        await Assert.That(async () =>
+        {
+            await Assert.That(time).HasTimerFiredAtLeast(-1);
+        }).Throws<ArgumentOutOfRangeException>();
+    }
 }

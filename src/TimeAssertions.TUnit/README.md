@@ -19,7 +19,7 @@ dotnet add package TimeAssertions.TUnit
 
 `TimeAssertions` (the framework-agnostic core) and `Microsoft.Extensions.TimeProvider.Testing` come transitively. **Requirements:** TUnit 1.53.0 or later, .NET 10.
 
-The source-generated entry points (`HasAdvancedExactly`, `HasAdvancedApproximately`, `HasUtcNow`, `HasUtcNowApproximately`, `IsRecent`, `IsBeforeNow`, `IsAfterNow`, `WithinTimeBudget`, `WithinTimeBudgetCapturing`, `WasInvokedAtMostOncePer`, `HasNoActiveTimers`, `HasActiveTimerCount`, `HasActiveTimers`, `HasAtLeastActiveTimerCount`, `HasNoActiveTimersEventually`, `HasActiveTimerCountEventually`, `HasAtLeastActiveTimerCountEventually`, `HasAtMostActiveTimerCountEventually`, `HasActiveTimersEventually`, `HasNextTimerDueApproximately`, `HasPendingTimerDueWithin`) auto-import via `TUnit.Assertions.Extensions`. Add the following to a `GlobalUsings.cs` in your test project for the call-site and `FakeTimeProvider` namespaces:
+The source-generated entry points (`HasAdvancedExactly`, `HasAdvancedApproximately`, `HasUtcNow`, `HasUtcNowApproximately`, `IsRecent`, `IsBeforeNow`, `IsAfterNow`, `WithinTimeBudget`, `WithinTimeBudgetCapturing`, `WasInvokedAtMostOncePer`, `HasNoActiveTimers`, `HasActiveTimerCount`, `HasActiveTimers`, `HasAtLeastActiveTimerCount`, `HasNoActiveTimersEventually`, `HasActiveTimerCountEventually`, `HasAtLeastActiveTimerCountEventually`, `HasAtMostActiveTimerCountEventually`, `HasActiveTimersEventually`, `HasNextTimerDueApproximately`, `HasPendingTimerDueWithin`, `HasTimerFiredCount`, `HasNoTimerFired`, `HasTimerFiredAtLeast`) auto-import via `TUnit.Assertions.Extensions`. Add the following to a `GlobalUsings.cs` in your test project for the call-site and `FakeTimeProvider` namespaces:
 
 ```csharp
 global using Microsoft.Extensions.Time.Testing;
@@ -63,6 +63,7 @@ public async Task PreReleaseExpiration_advances_state_after_clock_moves_forward(
 | `HasActiveTimers()` / `HasAtLeastActiveTimerCount(int)` on `ObservableTimeProvider` | Positive-count assertions: at least one / at least `count` active timers, for a lower bound rather than an exact count (added in v0.7.0) |
 | `HasNoActiveTimersEventually(TimeSpan, ...)` / `HasActiveTimerCountEventually(int, TimeSpan, ...)` on `ObservableTimeProvider` | Real-time poll until the active count reaches zero / a target count, for the asynchronous disposal race a synchronous check cannot see (added in v0.7.0) |
 | `HasNextTimerDueApproximately(TimeSpan, TimeSpan)` / `HasPendingTimerDueWithin(TimeSpan, TimeSpan)` on `ObservableTimeProvider` | Pending-timer due-time assertions: inspect the next scheduled timer's due time without advancing the clock, within a tolerance or an inclusive range (added in v0.6.0) |
+| `HasTimerFiredCount(int)` / `HasNoTimerFired()` / `HasTimerFiredAtLeast(int)` on `ObservableTimeProvider` | Timer-fire assertions: how many times timer callbacks ran in total, cumulative and surviving disposal (added in v0.9.0) |
 
 ## Failure diagnostics
 

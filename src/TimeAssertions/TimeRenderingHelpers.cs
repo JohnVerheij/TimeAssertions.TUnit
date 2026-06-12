@@ -302,6 +302,102 @@ public static class TimeRenderingHelpers
     }
 
     /// <summary>
+    /// Formats the failure message for <c>HasTimerFiredCount(expected)</c>: the expected and actual
+    /// cumulative fire counts across every timer the provider created, followed by the still-active
+    /// timers with their per-timer fire counts (when any remain active). The count is cumulative and
+    /// survives disposal, so a mismatch with an empty active list still reports the totals.
+    /// </summary>
+    /// <param name="actual">The observed cumulative fire count.</param>
+    /// <param name="expected">The expected fire count that was not met. Must be non-negative.</param>
+    /// <param name="active">The timers still active when the assertion ran.</param>
+    /// <returns>A human-readable summary in <see cref="CultureInfo.InvariantCulture"/>, with a
+    /// grep-friendly <c>(expected=N, actual=M)</c> trailer on the headline.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="active"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="expected"/> is negative.</exception>
+    public static string FormatTimerFireCountMismatch(long actual, int expected, IReadOnlyList<ActiveTimerInfo> active)
+    {
+        ArgumentNullException.ThrowIfNull(active);
+        ArgumentOutOfRangeException.ThrowIfNegative(expected);
+
+        var sb = new StringBuilder();
+        sb.Append(CultureInfo.InvariantCulture,
+            $"expected timer callbacks to have fired {expected} time(s) but they fired {actual} (expected={expected}, actual={actual}):");
+        AppendTimerFireCounts(sb, active);
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Formats the failure message for <c>HasNoTimerFired()</c>: the observed cumulative fire count
+    /// that should have been zero, followed by the still-active timers with their per-timer fire
+    /// counts (when any remain active).
+    /// </summary>
+    /// <param name="actual">The observed cumulative fire count. Expected greater than zero: the
+    /// assertion only renders a failure when at least one callback fired.</param>
+    /// <param name="active">The timers still active when the assertion ran.</param>
+    /// <returns>A human-readable summary in <see cref="CultureInfo.InvariantCulture"/>, with a
+    /// grep-friendly <c>(expected=0, actual=M)</c> trailer on the headline.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="active"/> is <see langword="null"/>.</exception>
+    public static string FormatNoTimerFired(long actual, IReadOnlyList<ActiveTimerInfo> active)
+    {
+        ArgumentNullException.ThrowIfNull(active);
+
+        var sb = new StringBuilder();
+        sb.Append(CultureInfo.InvariantCulture,
+            $"expected no timer callback to have fired but {actual} fired (expected=0, actual={actual}):");
+        AppendTimerFireCounts(sb, active);
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Formats the failure message for <c>HasTimerFiredAtLeast(minimum)</c>: the required minimum and
+    /// the actual cumulative fire count, followed by the still-active timers with their per-timer fire
+    /// counts (when any remain active). The liveness counterpart used when timing jitter makes an
+    /// exact fire count brittle.
+    /// </summary>
+    /// <param name="actual">The observed cumulative fire count.</param>
+    /// <param name="minimum">The minimum fire count that was required. Must be non-negative.</param>
+    /// <param name="active">The timers still active when the assertion ran.</param>
+    /// <returns>A human-readable summary in <see cref="CultureInfo.InvariantCulture"/>, with a
+    /// grep-friendly <c>(minimum=N, actual=M)</c> trailer on the headline.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="active"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minimum"/> is negative.</exception>
+    public static string FormatTimerFireShortfall(long actual, int minimum, IReadOnlyList<ActiveTimerInfo> active)
+    {
+        ArgumentNullException.ThrowIfNull(active);
+        ArgumentOutOfRangeException.ThrowIfNegative(minimum);
+
+        var sb = new StringBuilder();
+        sb.Append(CultureInfo.InvariantCulture,
+            $"expected timer callbacks to have fired at least {minimum} time(s) but they fired {actual} (minimum={minimum}, actual={actual}):");
+        AppendTimerFireCounts(sb, active);
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Appends each active timer's schedule and fire count on its own indented line, sorted by due
+    /// time then period for deterministic (snapshot-stable) output. When no timers are active nothing
+    /// is appended, so the cumulative-count headline stands alone.
+    /// </summary>
+    /// <param name="sb">The target builder; the lines are appended after its current content.</param>
+    /// <param name="timers">The active timers to render. May be empty.</param>
+    private static void AppendTimerFireCounts(StringBuilder sb, IReadOnlyList<ActiveTimerInfo> timers)
+    {
+        var ordered = new List<ActiveTimerInfo>(timers);
+        ordered.Sort(static (a, b) =>
+        {
+            var byDue = a.DueTime.CompareTo(b.DueTime);
+            return byDue is not 0 ? byDue : a.Period.CompareTo(b.Period);
+        });
+
+        foreach (var timer in ordered)
+        {
+            var due = timer.DueTime == Timeout.InfiniteTimeSpan ? "infinite" : FormatDuration(timer.DueTime);
+            var period = timer.Period == Timeout.InfiniteTimeSpan ? "one-shot" : FormatDuration(timer.Period);
+            sb.AppendLine().Append(CultureInfo.InvariantCulture, $"  [dueTime={due}, period={period}, fired={timer.TimesFired}]");
+        }
+    }
+
+    /// <summary>
     /// Appends each timer's schedule on its own indented line, sorted by due time then period for
     /// deterministic (snapshot-stable) output. A <see cref="Timeout.InfiniteTimeSpan"/> period
     /// renders as <c>one-shot</c>; an infinite due time renders as <c>infinite</c>.
