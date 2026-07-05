@@ -34,7 +34,9 @@ jobs:
           global-json-file: global.json
 
       - name: Restore
-        run: dotnet restore
+        run: |
+          dotnet restore
+          dotnet tool restore
 
       - name: Build
         run: dotnet build --configuration Release --no-restore
@@ -79,7 +81,6 @@ jobs:
         # types directly. ReportGenerator merges both cobertura reports by union into one report
         # whose top-level line-rate / branch-rate the threshold step reads.
         run: |
-          dotnet tool restore
           export PATH="$PATH:$HOME/.dotnet/tools"
           dotnet reportgenerator \
             "-reports:tests/**/coverage.adapter.cobertura.xml;tests/**/coverage.core.cobertura.xml" \
