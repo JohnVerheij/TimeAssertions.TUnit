@@ -16,7 +16,7 @@
     <Authors>John Verheij</Authors>
     <Copyright>Copyright (c) 2026 John Verheij</Copyright>
     <Description>Framework-agnostic core for assertion-level timing budgets. Provides duration formatting and rendering helpers for failure-message context, plus ObservableTimeProvider, a TimeProvider decorator that tracks undisposed timers for leak detection in hosted-service tests. Test-framework-specific entry points live in adapter packages (TimeAssertions.TUnit ships today; xUnit, NUnit, MSTest adapters are possible if there is demand).</Description>
-    <PackageTags>timing;testing;assertions;timespan;timeprovider;duration</PackageTags>
+    <PackageTags>assertions;testing;timing;timespan;timeprovider;duration;dotnet;aot</PackageTags>
     <PackageProjectUrl>https://github.com/JohnVerheij/TimeAssertions.TUnit</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
