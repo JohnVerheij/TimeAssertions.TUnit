@@ -1,5 +1,5 @@
 apiRules:
-- include:
-    uidRegex: ^TimeAssertions(\.TUnit)?(\..+)?$
 - exclude:
     uidRegex: .*\.Internal\..*
+- include:
+    uidRegex: ^TimeAssertions(\.TUnit)?(\..+)?$
