@@ -13,6 +13,8 @@ A TUnit-native fluent time-assertion DSL on top of `Microsoft.Extensions.Time.Te
 
 > **Scope:** Test projects only. Not intended for production code.
 
+> Part of the **[DotNetAssertions](https://dotnetassertions.dev)** family of assertion extensions for TUnit.
+
 ---
 
 ## Table of contents

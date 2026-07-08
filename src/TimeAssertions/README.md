@@ -6,6 +6,8 @@
 
 > **Scope:** Test projects only. Not intended for production code.
 
+> Part of the **[DotNetAssertions](https://dotnetassertions.dev)** family. This is the framework-agnostic core; the TUnit assertions live in the matching `.TUnit` package.
+
 Framework-agnostic rendering helpers and test infrastructure for the TimeAssertions package family. The actual `FakeTimeProvider` and `TimeProvider`-aware `DateTimeOffset` assertion APIs ship in the framework-specific adapter packages (currently `TimeAssertions.TUnit`).
 
 > **Most users want [`TimeAssertions.TUnit`](https://www.nuget.org/packages/TimeAssertions.TUnit/), not this package directly.** This package only ships the shared rendering helpers; the adapter package adds the assertion entry points your test framework expects.
