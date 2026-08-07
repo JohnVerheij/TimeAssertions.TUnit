@@ -60,7 +60,7 @@ This library replaces both with a fluent DSL on top of Microsoft's recommended `
 dotnet add package TimeAssertions.TUnit
 ```
 
-**Requirements:** TUnit 1.63.0 or later, .NET 10. `TimeAssertions` (the framework-agnostic core) and `Microsoft.Extensions.TimeProvider.Testing` come transitively. The package is AOT-compatible, trimmable, and uses no runtime reflection in the assertion path.
+**Requirements:** TUnit 1.63.25 or later, .NET 10. `TimeAssertions` (the framework-agnostic core) and `Microsoft.Extensions.TimeProvider.Testing` come transitively. The package is AOT-compatible, trimmable, and uses no runtime reflection in the assertion path.
 
 ## Package layout
 
