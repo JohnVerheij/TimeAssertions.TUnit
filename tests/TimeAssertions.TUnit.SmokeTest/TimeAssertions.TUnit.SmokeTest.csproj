@@ -67,7 +67,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.8.0" />
-    <PackageReference Include="TUnit" Version="1.63.25" />
+    <PackageReference Include="TUnit" Version="1.64.6" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(ArtifactsLocalFeedExists)' == 'true'">
