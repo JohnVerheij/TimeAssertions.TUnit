@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Time.Testing;
@@ -110,7 +111,7 @@ internal sealed class EventuallyActiveTimerAssertionsTests
 
         await Assert.That(async () =>
         {
-            await Assert.That(time).HasNoActiveTimersEventually(GenerousTimeout, pollingInterval: TimeSpan.Zero);
+            await Assert.That(time).HasNoActiveTimersEventually(GenerousTimeout, TimeSpan.Zero, cancellationToken);
         }).Throws<ArgumentOutOfRangeException>();
     }
 
@@ -246,7 +247,7 @@ internal sealed class EventuallyActiveTimerAssertionsTests
         cancellationToken.ThrowIfCancellationRequested();
         var time = NewProvider();
         _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
-        await Assert.That(time).HasActiveTimerCountEventually(1, GenerousTimeout, pollingInterval: TimeSpan.FromMilliseconds(10));
+        await Assert.That(time).HasActiveTimerCountEventually(1, GenerousTimeout, TimeSpan.FromMilliseconds(10), cancellationToken);
     }
 
     /// <summary><c>HasActiveTimers()</c> passes when at least one timer is active.</summary>
@@ -397,6 +398,10 @@ internal sealed class EventuallyActiveTimerAssertionsTests
     /// CS0121 ambiguity. The bare <c>(timeout)</c> / <c>(count, timeout)</c> and the
     /// <c>(timeout, pollingInterval, ct)</c> / <c>(count, timeout, pollingInterval, ct)</c> forms bind
     /// to the canonical generated extension; the positional-token forms bind to the sugar.</summary>
+    [SuppressMessage(
+        "Major Bug",
+        "S8949:Pass the cancellationToken to this method",
+        Justification = "This test is the overload-resolution matrix: the call shapes that omit the token are precisely what it exists to cover, so passing one would stop exercising them.")]
     [Test]
     public async Task EventuallyOverloadResolution_AllShapesCompileAndResolve(CancellationToken cancellationToken)
     {
