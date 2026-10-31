@@ -63,6 +63,10 @@
              skipped -> build fails with CS0103/CS1061 on TimeAssertions.TUnit types, signalling
              clearly that you need to pack first. -->
     <ArtifactsLocalFeedExists Condition="Exists('$(MSBuildThisFileDirectory)..\..\artifacts')">true</ArtifactsLocalFeedExists>
+
+    <!-- CI passes the exact version it just packed (-p:SmokePackageVersion=...). Without it, the
+         highest version in the local feed is used, including pre-releases. -->
+    <SmokePackageVersion Condition="'$(SmokePackageVersion)' == ''">*-*</SmokePackageVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -71,11 +75,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(ArtifactsLocalFeedExists)' == 'true'">
-    <!-- Floating version: consumes whatever 0.5.x preview was packed into the local feed at
-         ../../artifacts. Use a wide pre-release pattern so any 0.5.0-rc / 0.5.0 also resolves
-         once published, which lets local devs run this against either a freshly-packed nupkg
-         or a real published version. -->
-    <PackageReference Include="TimeAssertions.TUnit" Version="0.5.0-*" />
+    <PackageReference Include="TimeAssertions.TUnit" Version="$(SmokePackageVersion)" />
   </ItemGroup>
 
 </Project>
