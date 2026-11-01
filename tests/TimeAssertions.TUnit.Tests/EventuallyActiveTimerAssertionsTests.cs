@@ -114,6 +114,25 @@ internal sealed class EventuallyActiveTimerAssertionsTests
         }).Throws<ArgumentOutOfRangeException>();
     }
 
+    /// <summary>A timeout longer than a <see cref="CancellationTokenSource"/> can represent is rejected when the
+    /// assertion is built, not later during the wait; the longest one is accepted.</summary>
+    [Test]
+    public async Task HasNoActiveTimersEventually_TimeoutBeyondTheLimit_ThrowsAtConstruction(CancellationToken cancellationToken)
+    {
+        var time = NewProvider();
+        var longest = TimeSpan.FromMilliseconds(uint.MaxValue - 1.0);
+
+        await Assert.That(async () =>
+        {
+            await Assert.That(time).HasNoActiveTimersEventually(TimeSpan.MaxValue, cancellationToken);
+        }).Throws<ArgumentOutOfRangeException>();
+        await Assert.That(async () =>
+        {
+            await Assert.That(time).HasTimerScheduledEventually(TimeSpan.FromSeconds(1), longest + TimeSpan.FromMilliseconds(1), cancellationToken);
+        }).Throws<ArgumentOutOfRangeException>();
+        await Assert.That(time).HasNoActiveTimersEventually(longest, cancellationToken);
+    }
+
     /// <summary>When the assertion source itself throws, the thrown exception is surfaced rather than
     /// masked behind a timeout message.</summary>
     [Test]

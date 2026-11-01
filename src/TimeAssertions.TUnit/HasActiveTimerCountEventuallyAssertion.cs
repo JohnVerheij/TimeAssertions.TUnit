@@ -47,9 +47,9 @@ public sealed class HasActiveTimerCountEventuallyAssertion : Assertion<Observabl
     /// TUnit source generator.</summary>
     /// <param name="context">The assertion context supplied by TUnit.</param>
     /// <param name="count">The active-timer count to wait for. Must be non-negative.</param>
-    /// <param name="timeout">The longest real time to wait. Must be non-negative.</param>
+    /// <param name="timeout">The longest real time to wait. Must be non-negative and at most about 49.7 days (<c>uint.MaxValue - 1</c> milliseconds).</param>
     /// <param name="cancellationToken">A token that cancels the wait.</param>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="timeout"/> is negative, or <paramref name="count"/> is negative.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="timeout"/> is negative or longer than about 49.7 days, or <paramref name="count"/> is negative.</exception>
     public HasActiveTimerCountEventuallyAssertion(
         AssertionContext<ObservableTimeProvider> context,
         int count,

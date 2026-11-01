@@ -59,7 +59,8 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
 
     /// <summary>
     /// Advances the fake clock by <paramref name="delta"/> and then waits until the loops woken by it have
-    /// re-armed: for every one-shot timer that fired during the advance, a new timer has been created.
+    /// re-armed: for every one-shot timer that fired during the advance, a timer has been armed, either created or
+    /// re-scheduled with <see cref="ITimer.Change"/> (a callback that re-arms its own one-shot timer).
     /// </summary>
     /// <param name="delta">The amount of time to advance.</param>
     /// <param name="cancellationToken">The only bound of the wait, typically the test's token.</param>
@@ -67,14 +68,20 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
     /// <remarks>
     /// <para>
     /// A one-shot timer that fired is done; a loop that keeps running schedules its next wait by creating a
-    /// new timer, so "as many new timers as fired one-shot timers" means every woken loop reached its next
-    /// wait. Periodic timers keep their schedule and are not waited for; use <see cref="AdvanceUntilAsync"/>
-    /// for loops driven by a periodic timer.
+    /// new timer or re-scheduling one, so "as many armed timers as fired one-shot timers" means every woken loop
+    /// reached its next wait. Periodic timers keep their schedule and are not waited for; use
+    /// <see cref="AdvanceUntilAsync"/> for loops driven by a periodic timer.
     /// </para>
     /// <para>
-    /// A loop that ends after its timer fired never creates a new one, so the wait then runs until
+    /// The counts are those of the whole provider: a timer that other code creates or re-schedules during the
+    /// wait counts as well, so the settle can return before a woken loop has finished its step. Rely on it when
+    /// the loops being advanced are the only code arming timers on this provider; otherwise wait for the loop's
+    /// own signal, for example a <see cref="ObservableTimeProvider.WaitUntilAsync"/> condition on its state.
+    /// </para>
+    /// <para>
+    /// A loop that ends after its timer fired arms no new one, so the wait then runs until
     /// <paramref name="cancellationToken"/> is canceled. The resulting <see cref="OperationCanceledException"/>
-    /// says how many timers fired and how many new ones were created.
+    /// says how many timers fired and how many were armed.
     /// </para>
     /// </remarks>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled before
@@ -82,14 +89,14 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
     public async Task AdvanceAndSettleAsync(TimeSpan delta, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var createdBefore = TimersCreatedCount;
+        var armedBefore = TimersArmedCount;
         var oneShotFiresBefore = OneShotFireCount;
         Fake.Advance(delta);
         var fired = OneShotFireCount - oneShotFiresBefore;
 
         try
         {
-            await WaitUntilAsync(provider => provider.TimersCreatedCount - createdBefore >= fired, cancellationToken)
+            await WaitUntilAsync(provider => provider.TimersArmedCount - armedBefore >= fired, cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException exception) when (cancellationToken.IsCancellationRequested)
@@ -97,7 +104,7 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
             throw new OperationCanceledException(
                 string.Create(
                     CultureInfo.InvariantCulture,
-                    $"Advancing {delta} fired {fired} one-shot timer(s), but only {TimersCreatedCount - createdBefore} new timer(s) were created before the wait was canceled. A loop that ends after its timer fires never creates a new one; for a periodic timer use AdvanceUntilAsync."),
+                    $"Advancing {delta} fired {fired} one-shot timer(s), but only {TimersArmedCount - armedBefore} timer(s) were armed (created, or re-scheduled with Change) before the wait was canceled. A loop that ends after its timer fires arms no new one; for a periodic timer use AdvanceUntilAsync."),
                 exception,
                 cancellationToken);
         }
@@ -155,8 +162,8 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
     /// </summary>
     /// <param name="step">The fake time per advance.</param>
     /// <param name="until">The condition to reach; checked before each step, on the calling thread.</param>
-    /// <param name="maxAdvance">The most fake time to advance before giving up. A fake-time bound, so the
-    /// outcome is deterministic.</param>
+    /// <param name="maxAdvance">The most fake time to advance before giving up; the last step is shortened so
+    /// the clock never moves past it. A fake-time bound, so the outcome is deterministic.</param>
     /// <param name="cancellationToken">Bounds the settle waits, typically the test's token.</param>
     /// <returns>A task that completes once <paramref name="until"/> holds.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="until"/> is <see langword="null"/>.</exception>
@@ -181,8 +188,9 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
                     $"The condition did not hold after advancing {advanced} of fake time in steps of {step}.");
             }
 
-            await AdvanceAndSettleAsync(step, cancellationToken).ConfigureAwait(false);
-            advanced += step;
+            var next = step < maxAdvance - advanced ? step : maxAdvance - advanced;
+            await AdvanceAndSettleAsync(next, cancellationToken).ConfigureAwait(false);
+            advanced += next;
         }
     }
 }

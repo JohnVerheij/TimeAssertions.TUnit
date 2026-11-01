@@ -13,13 +13,20 @@ namespace TimeAssertions.TUnit;
 /// </summary>
 internal static class TimerWait
 {
-    /// <summary>Validates a timeout and returns it unchanged.</summary>
+    /// <summary>The longest timeout a <see cref="CancellationTokenSource"/> accepts: <c>uint.MaxValue - 1</c>
+    /// milliseconds, about 49.7 days.</summary>
+    public static readonly TimeSpan MaxTimeout = TimeSpan.FromMilliseconds(uint.MaxValue - 1.0);
+
+    /// <summary>Validates a timeout and returns it unchanged. Validating when the assertion is built makes an
+    /// out-of-range timeout fail there, not later during the wait.</summary>
     /// <param name="timeout">The longest time to wait.</param>
     /// <returns><paramref name="timeout"/> when valid, as the optional bound the assertions store.</returns>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="timeout"/> is negative.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="timeout"/> is negative or longer than
+    /// <see cref="MaxTimeout"/>.</exception>
     public static TimeSpan? ValidateTimeout(TimeSpan timeout)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(timeout, TimeSpan.Zero);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(timeout, MaxTimeout);
         return timeout;
     }
 

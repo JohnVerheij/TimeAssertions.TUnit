@@ -46,6 +46,7 @@ public class ObservableTimeProvider : TimeProvider
     private long _oneShotFireCount;
     private long _timersCreatedCount;
     private long _timersDisposedCount;
+    private long _timersArmedByChangeCount;
 
     /// <summary>The pending change signal; taken and completed on every observed change. Guarded by the lock.</summary>
     private TaskCompletionSource? _changed;
@@ -195,7 +196,8 @@ public class ObservableTimeProvider : TimeProvider
 
     /// <summary>
     /// Gets the cumulative number of fires of non-periodic (one-shot) timers. A fired one-shot timer is
-    /// done, so a loop that keeps running re-arms by creating a new timer; the settle barrier relies on that.
+    /// done, so a loop that keeps running arms its next wait by creating a new timer or by re-scheduling a timer
+    /// with <see cref="ITimer.Change"/>; the settle barrier relies on that.
     /// </summary>
     internal long OneShotFireCount
     {
@@ -204,6 +206,22 @@ public class ObservableTimeProvider : TimeProvider
             lock (_lock)
             {
                 return _oneShotFireCount;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets the cumulative number of times a timer was armed: every creation, plus every
+    /// <see cref="ITimer.Change"/> to a finite due time (the pattern of a callback that re-arms its own one-shot
+    /// timer). Read under one lock, so the two parts are consistent.
+    /// </summary>
+    internal long TimersArmedCount
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _timersCreatedCount + _timersArmedByChangeCount;
             }
         }
     }
@@ -246,8 +264,10 @@ public class ObservableTimeProvider : TimeProvider
 
     /// <summary>
     /// Waits until at least <paramref name="count"/> timers have been created through this provider (see
-    /// <see cref="TimersCreatedCount"/>). Once it completes, the timer is scheduled, so an advance of the inner
-    /// fake clock fires it: wait for the timer first, then advance, and the advance can never come too early.
+    /// <see cref="TimersCreatedCount"/>). A creation is signaled only once the inner provider has scheduled the
+    /// timer, so an advance after the wait can never come too early for it: wait for the timer first, then
+    /// advance. The wait confirms creation, not that the timer is still pending: a timer that fired during its
+    /// creation (a zero due time) or was created disabled does not fire on the advance.
     /// </summary>
     /// <param name="count">The cumulative number of created timers to wait for.</param>
     /// <param name="cancellationToken">The only bound of the wait, typically the test's token.</param>
@@ -332,6 +352,11 @@ public class ObservableTimeProvider : TimeProvider
         lock (_lock)
         {
             timer.EndChange(dueTime, period, applied);
+            if (applied && dueTime != Timeout.InfiniteTimeSpan)
+            {
+                _timersArmedByChangeCount++;
+            }
+
             changed = TakeChangeSignal();
         }
 

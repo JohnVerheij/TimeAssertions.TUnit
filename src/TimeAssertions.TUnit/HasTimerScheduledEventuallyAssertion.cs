@@ -49,10 +49,10 @@ public sealed class HasTimerScheduledEventuallyAssertion : Assertion<ObservableT
     /// Called by the TUnit source generator.</summary>
     /// <param name="context">The assertion context supplied by TUnit.</param>
     /// <param name="dueTime">The due time to wait for, compared exactly. Must be non-negative.</param>
-    /// <param name="timeout">The longest real time to wait. Must be non-negative.</param>
+    /// <param name="timeout">The longest real time to wait. Must be non-negative and at most about 49.7 days (<c>uint.MaxValue - 1</c> milliseconds).</param>
     /// <param name="cancellationToken">A token that cancels the wait.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="dueTime"/> or <paramref name="timeout"/>
-    /// is negative.</exception>
+    /// is negative, or <paramref name="timeout"/> is longer than about 49.7 days.</exception>
     public HasTimerScheduledEventuallyAssertion(
         AssertionContext<ObservableTimeProvider> context,
         TimeSpan dueTime,
@@ -82,10 +82,11 @@ public sealed class HasTimerScheduledEventuallyAssertion : Assertion<ObservableT
     /// <param name="dueTime">The due time to wait for, compared exactly. Must be non-negative.</param>
     /// <param name="atLeast">The minimum number of active timers carrying <paramref name="dueTime"/>. Must be
     /// positive.</param>
-    /// <param name="timeout">The longest real time to wait. Must be non-negative.</param>
+    /// <param name="timeout">The longest real time to wait. Must be non-negative and at most about 49.7 days (<c>uint.MaxValue - 1</c> milliseconds).</param>
     /// <param name="cancellationToken">A token that cancels the wait.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="dueTime"/> or <paramref name="timeout"/>
-    /// is negative, or <paramref name="atLeast"/> is not positive.</exception>
+    /// is negative, <paramref name="timeout"/> is longer than about 49.7 days, or <paramref name="atLeast"/> is not
+    /// positive.</exception>
     public HasTimerScheduledEventuallyAssertion(
         AssertionContext<ObservableTimeProvider> context,
         TimeSpan dueTime,

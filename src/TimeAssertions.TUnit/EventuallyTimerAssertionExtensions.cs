@@ -28,7 +28,7 @@ public static class EventuallyTimerAssertionExtensions
 
     /// <summary>Waits until no timer remains active, or <paramref name="timeout"/> passes.</summary>
     /// <param name="source">The assertion source over an <see cref="ObservableTimeProvider"/>.</param>
-    /// <param name="timeout">The longest real time to wait. Must be non-negative.</param>
+    /// <param name="timeout">The longest real time to wait. Must be non-negative and at most about 49.7 days (<c>uint.MaxValue - 1</c> milliseconds).</param>
     /// <param name="pollingInterval">Ignored; the wait is event-driven.</param>
     /// <param name="cancellationToken">A token that cancels the wait.</param>
     /// <param name="timeoutExpression">Captured automatically; the caller's <paramref name="timeout"/> expression.</param>
@@ -47,7 +47,7 @@ public static class EventuallyTimerAssertionExtensions
 
     /// <summary>Waits until at least one timer is active, or <paramref name="timeout"/> passes.</summary>
     /// <param name="source">The assertion source over an <see cref="ObservableTimeProvider"/>.</param>
-    /// <param name="timeout">The longest real time to wait. Must be non-negative.</param>
+    /// <param name="timeout">The longest real time to wait. Must be non-negative and at most about 49.7 days (<c>uint.MaxValue - 1</c> milliseconds).</param>
     /// <param name="pollingInterval">Ignored; the wait is event-driven.</param>
     /// <param name="cancellationToken">A token that cancels the wait.</param>
     /// <param name="timeoutExpression">Captured automatically; the caller's <paramref name="timeout"/> expression.</param>
@@ -67,7 +67,7 @@ public static class EventuallyTimerAssertionExtensions
     /// <summary>Waits until the active-timer count equals <paramref name="count"/>, or <paramref name="timeout"/> passes.</summary>
     /// <param name="source">The assertion source over an <see cref="ObservableTimeProvider"/>.</param>
     /// <param name="count">The active-timer count to wait for. Must be non-negative.</param>
-    /// <param name="timeout">The longest real time to wait. Must be non-negative.</param>
+    /// <param name="timeout">The longest real time to wait. Must be non-negative and at most about 49.7 days (<c>uint.MaxValue - 1</c> milliseconds).</param>
     /// <param name="pollingInterval">Ignored; the wait is event-driven.</param>
     /// <param name="cancellationToken">A token that cancels the wait.</param>
     /// <param name="countExpression">Captured automatically; the caller's <paramref name="count"/> expression.</param>
@@ -91,7 +91,7 @@ public static class EventuallyTimerAssertionExtensions
     /// <summary>Waits until the active-timer count reaches at least <paramref name="count"/>, or <paramref name="timeout"/> passes.</summary>
     /// <param name="source">The assertion source over an <see cref="ObservableTimeProvider"/>.</param>
     /// <param name="count">The minimum active-timer count to wait for. Must be non-negative.</param>
-    /// <param name="timeout">The longest real time to wait. Must be non-negative.</param>
+    /// <param name="timeout">The longest real time to wait. Must be non-negative and at most about 49.7 days (<c>uint.MaxValue - 1</c> milliseconds).</param>
     /// <param name="pollingInterval">Ignored; the wait is event-driven.</param>
     /// <param name="cancellationToken">A token that cancels the wait.</param>
     /// <param name="countExpression">Captured automatically; the caller's <paramref name="count"/> expression.</param>
@@ -115,7 +115,7 @@ public static class EventuallyTimerAssertionExtensions
     /// <summary>Waits until the active-timer count falls to at most <paramref name="count"/>, or <paramref name="timeout"/> passes.</summary>
     /// <param name="source">The assertion source over an <see cref="ObservableTimeProvider"/>.</param>
     /// <param name="count">The maximum active-timer count to wait for. Must be non-negative.</param>
-    /// <param name="timeout">The longest real time to wait. Must be non-negative.</param>
+    /// <param name="timeout">The longest real time to wait. Must be non-negative and at most about 49.7 days (<c>uint.MaxValue - 1</c> milliseconds).</param>
     /// <param name="pollingInterval">Ignored; the wait is event-driven.</param>
     /// <param name="cancellationToken">A token that cancels the wait.</param>
     /// <param name="countExpression">Captured automatically; the caller's <paramref name="count"/> expression.</param>

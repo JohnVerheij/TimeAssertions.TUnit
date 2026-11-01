@@ -202,9 +202,64 @@ internal sealed class ObservableFakeTimeProviderTests
         var exception = await Assert.That(async () => await time.AdvanceAndSettleAsync(OneSecond, settle.Token))
             .Throws<OperationCanceledException>();
 
-        await Assert.That(exception!.Message).Contains("fired 1 one-shot timer(s), but only 0 new timer(s) were created");
+        await Assert.That(exception!.Message).Contains("fired 1 one-shot timer(s), but only 0 timer(s) were armed");
         await Assert.That(exception.CancellationToken).IsEqualTo(settle.Token);
         await finalRun;
+    }
+
+    /// <summary>A callback that re-arms its own one-shot timer with <c>Change</c> (the no-overlap
+    /// <c>System.Threading.Timer</c> pattern) counts as arming its next wait, so each settle returns.</summary>
+    [Test]
+    public async Task AdvanceAndSettleAsync_CallbackReArmsItsTimerWithChange_Settles(CancellationToken cancellationToken)
+    {
+        var time = new ObservableFakeTimeProvider(Start);
+        var fires = new Counter();
+        ITimer? timer = null;
+        timer = time.CreateTimer(
+            _ =>
+            {
+                fires.Increment();
+                timer!.Change(OneSecond, Timeout.InfiniteTimeSpan);
+            },
+            state: null,
+            OneSecond,
+            Timeout.InfiniteTimeSpan);
+
+        await time.AdvanceAndSettleAsync(OneSecond, cancellationToken);
+        await time.AdvanceAndSettleAsync(OneSecond, cancellationToken);
+
+        await Assert.That(fires.Value).IsEqualTo(2);
+        await Assert.That(time.TimersCreatedCount).IsEqualTo(1);
+        await Assert.That(time.NextTimerDueTime).IsEqualTo(OneSecond);
+        timer.Dispose();
+    }
+
+    /// <summary>A callback that disables its timer with <c>Change</c> arms nothing, so the settle waits until it
+    /// is canceled.</summary>
+    [Test]
+    public async Task AdvanceAndSettleAsync_CallbackDisablesItsTimer_DoesNotSettle(CancellationToken cancellationToken)
+    {
+        var time = new ObservableFakeTimeProvider(Start);
+        ITimer? timer = null;
+        timer = time.CreateTimer(
+            _ => timer!.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan),
+            state: null,
+            OneSecond,
+            Timeout.InfiniteTimeSpan);
+        using var settle = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+        _ = Task.Run(
+            async () =>
+            {
+                await time.WaitUntilAsync(static provider => provider.TimerFireCount >= 1, cancellationToken);
+                await settle.CancelAsync();
+            },
+            cancellationToken);
+
+        var exception = await Assert.That(async () => await time.AdvanceAndSettleAsync(OneSecond, settle.Token))
+            .Throws<OperationCanceledException>();
+        await Assert.That(exception!.Message).Contains("but only 0 timer(s) were armed");
+        timer.Dispose();
     }
 
     /// <summary>A canceled token throws before the clock moves.</summary>
@@ -343,6 +398,23 @@ internal sealed class ObservableFakeTimeProviderTests
 
         await Assert.That(exception!.Message).Contains("did not hold after advancing 00:00:03 of fake time in steps of 00:00:01");
         await Assert.That(time.GetUtcNow()).IsEqualTo(Start + TimeSpan.FromSeconds(3));
+    }
+
+    /// <summary>When the step does not divide the maximum, the last step is shortened: the clock never moves past
+    /// <c>maxAdvance</c>, so a timer due after it does not fire.</summary>
+    [Test]
+    public async Task AdvanceUntilAsync_StepDoesNotDivideTheMaximum_StopsAtTheMaximum(CancellationToken cancellationToken)
+    {
+        var time = new ObservableFakeTimeProvider(Start);
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(4), Timeout.InfiniteTimeSpan);
+
+        var exception = await Assert.That(async () =>
+                await time.AdvanceUntilAsync(TimeSpan.FromSeconds(2), static () => false, TimeSpan.FromSeconds(3), cancellationToken))
+            .Throws<TimeoutException>();
+
+        await Assert.That(exception!.Message).Contains("after advancing 00:00:03 of fake time");
+        await Assert.That(time.GetUtcNow()).IsEqualTo(Start + TimeSpan.FromSeconds(3));
+        await Assert.That(time.TimerFireCount).IsEqualTo(0);
     }
 
     /// <summary>A non-positive step, a null condition, and a negative maximum are rejected.</summary>

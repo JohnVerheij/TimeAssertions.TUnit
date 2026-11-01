@@ -335,7 +335,7 @@ A `BackgroundService` that waits with `Task.Delay(delay, timeProvider, ct)`, `ne
 | Member | Behavior |
 |---|---|
 | `Advance(TimeSpan)`, `SetUtcNow(DateTimeOffset)` | Move the owned fake clock, firing every timer that becomes due. |
-| `AdvanceAndSettleAsync(TimeSpan delta, CancellationToken)` | Advances, then waits until every loop woken by the advance has armed its next timer (as many new timers as one-shot timers fired). The next assertion sees the loop's step completed. |
+| `AdvanceAndSettleAsync(TimeSpan delta, CancellationToken)` | Advances, then waits until every loop woken by the advance has armed its next wait (as many timers created or re-scheduled with `Change` as one-shot timers fired). The next assertion sees the loop's step completed. |
 | `AdvanceOnEachTimerUntilAsync(Task until, TimeSpan step, CancellationToken)` | Advances by `step` each time the code under test has created a timer, until `until` completes: drives a reconnect backoff through any number of failed attempts. |
 | `AdvanceUntilAsync(TimeSpan step, Func<bool> until, TimeSpan maxAdvance, CancellationToken)` | Advances in settled steps until `until` holds, for loops on a periodic timer; throws `TimeoutException` after `maxAdvance` of fake time. |
 | `Fake` | The owned `FakeTimeProvider`, for its other settings (`AutoAdvanceAmount`, `SetLocalTimeZone`). Inject the `ObservableFakeTimeProvider`, not `Fake`: timers created on `Fake` directly are not observed. |
@@ -358,9 +358,11 @@ public async Task Heartbeat_beats_once_per_interval_and_stops_cleanly(Cancellati
 }
 ```
 
-`AdvanceAndSettleAsync` assumes that each woken loop arms a new timer. A loop that ends after its timer fired never does, so the wait runs until the token is canceled, and the exception then says how many timers fired and how many were created. A periodic timer keeps its schedule and is not waited for; use `AdvanceUntilAsync` for that.
+`AdvanceAndSettleAsync` assumes that each woken loop arms its next wait, by creating a timer (`Task.Delay`, `new CancellationTokenSource(timeout, timeProvider)`) or by re-scheduling one with `Change` (a callback that re-arms its own one-shot timer). A loop that ends after its timer fired arms nothing, so the wait runs until the token is canceled, and the exception then says how many timers fired and how many were armed. A periodic timer keeps its schedule and is not waited for; use `AdvanceUntilAsync` for that.
 
-The waits behind these helpers are public on every `ObservableTimeProvider`: `WaitForTimersCreatedAsync(count, ct)`, `WaitForTimersDisposedAsync(count, ct)`, and `WaitUntilAsync(condition, ct)` re-check on each timer change, with the token as the only bound. `TimersCreatedCount` and `TimersDisposedCount` never go down, unlike `ActiveTimerCount`, so "the loop armed its second backoff" is `WaitForTimersCreatedAsync(2, ct)`. A creation is signaled only once the inner provider has scheduled the timer, and a schedule change only once the inner timer carries it, so advancing the fake clock right after a wait always fires the timer.
+The settle counts every timer the provider sees, not only those of the woken loops: when other code creates or re-schedules timers on the same provider during the settle, it can return before a woken loop has finished its step. Use it when the loops you advance are the only code arming timers on the provider; otherwise wait for the loop's own outcome, for example `WaitUntilAsync` on its state.
+
+The waits behind these helpers are public on every `ObservableTimeProvider`: `WaitForTimersCreatedAsync(count, ct)`, `WaitForTimersDisposedAsync(count, ct)`, and `WaitUntilAsync(condition, ct)` re-check on each timer change, with the token as the only bound. `TimersCreatedCount` and `TimersDisposedCount` never go down, unlike `ActiveTimerCount`, so "the loop armed its second backoff" is `WaitForTimersCreatedAsync(2, ct)`. A creation is signaled only once the inner provider has scheduled the timer, and a schedule change only once the inner timer carries it, so an advance right after the wait is never too early for that timer. The wait confirms the creation or change, not that the timer is still pending: a timer that fired as it was created (a zero due time) or that is disabled does not fire on the advance.
 
 ---
 
