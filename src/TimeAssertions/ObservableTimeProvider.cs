@@ -337,11 +337,12 @@ public class ObservableTimeProvider : TimeProvider
     }
 
     /// <summary>Marks a schedule change of <paramref name="timer"/> as started, before the inner timer applies it.</summary>
-    private void OnTimerChangeStarting(TrackedTimer timer, TimeSpan period)
+    /// <returns>The change's sequence number on <paramref name="timer"/>.</returns>
+    private long OnTimerChangeStarting(TrackedTimer timer, TimeSpan period)
     {
         lock (_lock)
         {
-            timer.BeginChange(period);
+            return timer.BeginChange(period);
         }
     }
 
@@ -349,12 +350,12 @@ public class ObservableTimeProvider : TimeProvider
     /// Publishes the schedule of <paramref name="timer"/> once the inner timer carries it (or abandons the change
     /// when the inner timer rejected it) and signals the change.
     /// </summary>
-    private void OnTimerChangeEnded(TrackedTimer timer, TimeSpan dueTime, TimeSpan period, bool applied)
+    private void OnTimerChangeEnded(TrackedTimer timer, long change, TimeSpan dueTime, TimeSpan period, bool applied)
     {
         TaskCompletionSource? changed;
         lock (_lock)
         {
-            timer.EndChange(dueTime, period, applied);
+            timer.EndChange(change, dueTime, period, applied);
             if (applied && dueTime != Timeout.InfiniteTimeSpan)
             {
                 _timersArmedByChangeCount++;
@@ -421,8 +422,15 @@ public class ObservableTimeProvider : TimeProvider
         /// <summary>The period of the most recently started change. Guarded by the owner's lock.</summary>
         private TimeSpan _pendingPeriod;
 
-        /// <summary>Whether the timer fired while a change was pending. Guarded by the owner's lock.</summary>
-        private bool _firedDuringChange;
+        /// <summary>The number of changes started, which numbers each change. Guarded by the owner's lock.</summary>
+        private long _changesStarted;
+
+        /// <summary>The number of the change whose schedule is published, or 0. Guarded by the owner's lock.</summary>
+        private long _publishedChange;
+
+        /// <summary>The number of the change started last when the timer fired during a pending change, or 0.
+        /// Guarded by the owner's lock.</summary>
+        private long _changeFiredDuring;
 
         public TrackedTimer(
             ObservableTimeProvider owner,
@@ -457,7 +465,7 @@ public class ObservableTimeProvider : TimeProvider
             // Publish the new schedule only once the inner timer carries it: a waiter that sees it may advance
             // the inner clock right away, and the timer must then fire. A fire during the change (an inner
             // provider may fire a timer that is due at once) is applied to the new schedule when it is published.
-            _owner.OnTimerChangeStarting(this, period);
+            var change = _owner.OnTimerChangeStarting(this, period);
             var applied = false;
             try
             {
@@ -466,37 +474,39 @@ public class ObservableTimeProvider : TimeProvider
             }
             finally
             {
-                _owner.OnTimerChangeEnded(this, dueTime, period, applied);
+                _owner.OnTimerChangeEnded(this, change, dueTime, period, applied);
             }
         }
 
         /// <summary>Marks a change as started. Callers must hold the owner's lock.</summary>
         /// <param name="period">The period the change applies.</param>
-        public void BeginChange(TimeSpan period)
+        /// <returns>The change's number: one more than the number of changes started before it.</returns>
+        public long BeginChange(TimeSpan period)
         {
             _changesPending++;
             _pendingPeriod = period;
+            return ++_changesStarted;
         }
 
         /// <summary>
-        /// Ends a change: publishes the schedule when the inner timer applied it, as already fired when a fire
-        /// happened meanwhile. Callers must hold the owner's lock.
+        /// Ends a change: publishes the schedule when the inner timer applied it, as already fired when the timer
+        /// fired while this change was the one started last. Changes can nest: a callback that a change fires may
+        /// change its own timer again, and the inner timer then carries the inner change, which starts later but
+        /// ends first. So a change publishes only when no change started after it has published; an outer change
+        /// that ends afterwards leaves the published schedule alone. Callers must hold the owner's lock.
         /// </summary>
+        /// <param name="change">The change's number, from <see cref="BeginChange"/>.</param>
         /// <param name="dueTime">The due time the change applies.</param>
         /// <param name="period">The period the change applies.</param>
         /// <param name="applied">Whether the inner timer accepted the change.</param>
-        public void EndChange(TimeSpan dueTime, TimeSpan period, bool applied)
+        public void EndChange(long change, TimeSpan dueTime, TimeSpan period, bool applied)
         {
             _changesPending--;
-            if (applied)
+            if (applied && change > _publishedChange)
             {
+                _publishedChange = change;
                 _period = period;
-                _dueTime = _firedDuringChange ? AfterFire(period) : dueTime;
-            }
-
-            if (_changesPending is 0)
-            {
-                _firedDuringChange = false;
+                _dueTime = _changeFiredDuring == change ? AfterFire(period) : dueTime;
             }
         }
 
@@ -508,7 +518,8 @@ public class ObservableTimeProvider : TimeProvider
         /// non-periodic means a period of either <see cref="Timeout.InfiniteTimeSpan"/> or
         /// <see cref="TimeSpan.Zero"/>. This keeps <see cref="ObservableTimeProvider.NextTimerDueTime"/>
         /// correct after a timer fires rather than reporting the stale creation-time due. A fire during a
-        /// change belongs to the new schedule, which the change publishes. Callers must hold the owner's lock.
+        /// change belongs to the change started last, which publishes the post-fire schedule. Callers must hold
+        /// the owner's lock.
         /// </summary>
         /// <returns><see langword="true"/> when the timer is periodic; <see langword="false"/> for a one-shot.</returns>
         public bool RecordFire()
@@ -516,7 +527,7 @@ public class ObservableTimeProvider : TimeProvider
             _timesFired++;
             if (_changesPending > 0)
             {
-                _firedDuringChange = true;
+                _changeFiredDuring = _changesStarted;
                 return _pendingPeriod > TimeSpan.Zero;
             }
 

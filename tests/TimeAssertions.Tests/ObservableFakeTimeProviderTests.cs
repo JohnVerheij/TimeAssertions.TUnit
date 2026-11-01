@@ -234,6 +234,39 @@ internal sealed class ObservableFakeTimeProviderTests
         timer.Dispose();
     }
 
+    /// <summary>A callback that re-arms its timer with <c>Change</c> while an outer <c>Change</c> fires it at
+    /// once (run now, then again in a second) publishes the re-armed schedule, which the inner timer carries; the
+    /// outer change, which ends later, does not overwrite it.</summary>
+    [Test]
+    public async Task Change_CallbackReArmsDuringAFiringChange_PublishesTheReArmedSchedule(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = new ObservableFakeTimeProvider(Start);
+        var fires = new Counter();
+        ITimer? timer = null;
+        timer = time.CreateTimer(
+            _ =>
+            {
+                fires.Increment();
+                if (fires.Value == 1)
+                {
+                    timer!.Change(OneSecond, Timeout.InfiniteTimeSpan);
+                }
+            },
+            state: null,
+            Timeout.InfiniteTimeSpan,
+            Timeout.InfiniteTimeSpan);
+
+        timer.Change(TimeSpan.Zero, Timeout.InfiniteTimeSpan);
+
+        await Assert.That(fires.Value).IsEqualTo(1);
+        await Assert.That(time.NextTimerDueTime).IsEqualTo(OneSecond);
+        time.Advance(OneSecond);
+        await Assert.That(fires.Value).IsEqualTo(2);
+        await Assert.That(time.NextTimerDueTime).IsNull();
+        timer.Dispose();
+    }
+
     /// <summary>A callback that disables its timer with <c>Change</c> arms nothing, so the settle waits until it
     /// is canceled.</summary>
     [Test]
