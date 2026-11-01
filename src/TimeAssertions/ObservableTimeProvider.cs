@@ -36,6 +36,12 @@ namespace TimeAssertions;
 /// code runs under the internal lock, and wait continuations never run on the thread that changed the
 /// state.
 /// </para>
+/// <para>
+/// <c>Change</c> calls on one timer are applied one at a time, so the published schedule is the one the
+/// inner timer carries, also when several threads change the timer at once. A callback that the inner
+/// provider fires during a <c>Change</c> (a <c>FakeTimeProvider</c> fires a timer that is due at once) runs
+/// once that change is applied, before <c>Change</c> returns.
+/// </para>
 /// </remarks>
 public class ObservableTimeProvider : TimeProvider
 {
@@ -432,6 +438,18 @@ public class ObservableTimeProvider : TimeProvider
         /// Guarded by the owner's lock.</summary>
         private long _changeFiredDuring;
 
+        /// <summary>Applies the changes of this timer one at a time, in the order they are numbered. No consumer code
+        /// runs under it: a callback fired during a change is deferred until the change is applied.</summary>
+        private readonly Lock _changeLock = new();
+
+        /// <summary>The number of changes being applied on this thread, on any timer.</summary>
+        [ThreadStatic]
+        private static int t_changeDepth;
+
+        /// <summary>The callbacks an inner provider fired on this thread while a change was being applied.</summary>
+        [ThreadStatic]
+        private static List<(TrackedTimer Timer, object? State)>? t_deferredCallbacks;
+
         public TrackedTimer(
             ObservableTimeProvider owner,
             TimerCallback callback,
@@ -457,6 +475,14 @@ public class ObservableTimeProvider : TimeProvider
         private void OnInnerFired(object? state)
         {
             _owner.OnTimerFired(this);
+            if (t_changeDepth > 0)
+            {
+                // Fired inside a Change on this thread: run the callback once the change is applied, outside the
+                // change lock, so consumer code never runs under it.
+                Defer(this, state);
+                return;
+            }
+
             _callback(state);
         }
 
@@ -465,16 +491,80 @@ public class ObservableTimeProvider : TimeProvider
             // Publish the new schedule only once the inner timer carries it: a waiter that sees it may advance
             // the inner clock right away, and the timer must then fire. A fire during the change (an inner
             // provider may fire a timer that is due at once) is applied to the new schedule when it is published.
-            var change = _owner.OnTimerChangeStarting(this, period);
-            var applied = false;
+            // The lock applies concurrent changes in the order they are numbered, so the change numbered last is
+            // also the one the inner timer applied last.
+            bool applied;
             try
             {
-                applied = _inner.Change(dueTime, period);
-                return applied;
+                lock (_changeLock)
+                {
+                    EnterChange();
+                    var change = _owner.OnTimerChangeStarting(this, period);
+                    applied = false;
+                    try
+                    {
+                        applied = _inner.Change(dueTime, period);
+                    }
+                    finally
+                    {
+                        _owner.OnTimerChangeEnded(this, change, dueTime, period, applied);
+                        ExitChange();
+                    }
+                }
             }
             finally
             {
-                _owner.OnTimerChangeEnded(this, change, dueTime, period, applied);
+                RunDeferredCallbacks();
+            }
+
+            return applied;
+        }
+
+        /// <summary>Counts a change starting on this thread.</summary>
+        private static void EnterChange() => t_changeDepth++;
+
+        /// <summary>Counts a change ending on this thread.</summary>
+        private static void ExitChange() => t_changeDepth--;
+
+        /// <summary>Defers <paramref name="timer"/>'s callback until no change is being applied on this thread.</summary>
+        /// <param name="timer">The timer that fired.</param>
+        /// <param name="state">The callback's state.</param>
+        private static void Defer(TrackedTimer timer, object? state) => (t_deferredCallbacks ??= []).Add((timer, state));
+
+        /// <summary>
+        /// Runs the callbacks deferred on this thread once no change is being applied on it. Every deferred
+        /// callback runs; when one throws, the rest still run and the exception propagates.
+        /// </summary>
+        private static void RunDeferredCallbacks()
+        {
+            if (t_changeDepth is not 0 || t_deferredCallbacks is not { Count: > 0 } deferred)
+            {
+                return;
+            }
+
+            t_deferredCallbacks = null;
+            RunDeferredCallbacks(deferred, 0);
+        }
+
+        /// <summary>Runs <paramref name="deferred"/> from <paramref name="index"/> on, each one even when an earlier
+        /// one threw.</summary>
+        /// <param name="deferred">The deferred callbacks.</param>
+        /// <param name="index">The first one to run.</param>
+        private static void RunDeferredCallbacks(List<(TrackedTimer Timer, object? State)> deferred, int index)
+        {
+            if (index >= deferred.Count)
+            {
+                return;
+            }
+
+            try
+            {
+                var (timer, state) = deferred[index];
+                timer._callback(state);
+            }
+            finally
+            {
+                RunDeferredCallbacks(deferred, index + 1);
             }
         }
 

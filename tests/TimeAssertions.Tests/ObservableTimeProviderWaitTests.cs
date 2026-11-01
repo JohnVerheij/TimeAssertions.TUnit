@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Time.Testing;
@@ -278,6 +279,64 @@ internal sealed class ObservableTimeProviderWaitTests
         await Assert.That(time.NextTimerDueTime).IsEqualTo(FiveSeconds);
     }
 
+    /// <summary>Changes of one timer from two threads are applied one at a time: a second change waits while the
+    /// first one is inside the inner timer, so the published schedule is the one the inner timer applied last.</summary>
+    [Test]
+    public async Task Change_ConcurrentOnOneTimer_PublishesTheScheduleAppliedLast(CancellationToken cancellationToken)
+    {
+        var probe = new ProbeTimeProvider();
+        var time = new ObservableTimeProvider(probe);
+        var timer = time.CreateTimer(static _ => { }, state: null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        var applied = new ConcurrentQueue<TimeSpan>();
+        var firstInside = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var releaseFirst = new ManualResetEventSlim();
+        var calls = 0;
+        probe.OnChange = (_, _) =>
+        {
+            if (Interlocked.Increment(ref calls) is 1)
+            {
+                firstInside.SetResult();
+                releaseFirst.Wait(cancellationToken);
+            }
+        };
+        probe.OnChangeApplied = applied.Enqueue;
+
+        var first = Task.Run(() => timer.Change(FiveSeconds, Timeout.InfiniteTimeSpan), cancellationToken);
+        await firstInside.Task.WaitAsync(cancellationToken);
+        var second = Task.Run(() => timer.Change(OneSecond, Timeout.InfiniteTimeSpan), cancellationToken);
+        releaseFirst.Set();
+        await Task.WhenAll(first, second);
+
+        var order = applied.ToArray();
+        await Assert.That(order.Length).IsEqualTo(2);
+        await Assert.That(order[0]).IsEqualTo(FiveSeconds);
+        await Assert.That(order[1]).IsEqualTo(OneSecond);
+        await Assert.That(time.NextTimerDueTime).IsEqualTo(OneSecond);
+        timer.Dispose();
+    }
+
+    /// <summary>An observable provider over another one (each tracks the timer): a timer due at once that a
+    /// <c>Change</c> fires runs its callback once, after both changes are applied, and both providers publish it
+    /// as fired.</summary>
+    [Test]
+    public async Task Change_StackedProviders_FiringChangeIsSeenByBoth(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var inner = new ObservableFakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var outer = new ObservableTimeProvider(inner);
+        var fires = 0;
+        var timer = outer.CreateTimer(_ => Interlocked.Increment(ref fires), state: null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+
+        timer.Change(TimeSpan.Zero, Timeout.InfiniteTimeSpan);
+
+        await Assert.That(fires).IsEqualTo(1);
+        await Assert.That(outer.TimerFireCount).IsEqualTo(1);
+        await Assert.That(inner.TimerFireCount).IsEqualTo(1);
+        await Assert.That(outer.NextTimerDueTime).IsNull();
+        await Assert.That(inner.NextTimerDueTime).IsNull();
+        timer.Dispose();
+    }
+
     /// <summary>A one-shot timer that fires during its own change (an inner provider may fire a timer that is
     /// due at once) is published as fired: disabled, with the fire counted.</summary>
     [Test]
@@ -356,6 +415,10 @@ internal sealed class ObservableTimeProviderWaitTests
         /// <summary>Gets or sets the code run when a timer is disposed.</summary>
         public Action? OnDispose { get; set; }
 
+        /// <summary>Gets or sets the code run once a change is applied, given its due time, after
+        /// <see cref="OnChange"/>.</summary>
+        public Action<TimeSpan>? OnChangeApplied { get; set; }
+
         /// <inheritdoc/>
         public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
         {
@@ -370,6 +433,7 @@ internal sealed class ObservableTimeProviderWaitTests
             public bool Change(TimeSpan dueTime, TimeSpan period)
             {
                 owner.OnChange?.Invoke(callback, state);
+                owner.OnChangeApplied?.Invoke(dueTime);
                 return true;
             }
 
