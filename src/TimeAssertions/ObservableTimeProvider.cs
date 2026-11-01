@@ -266,8 +266,11 @@ public class ObservableTimeProvider : TimeProvider
     /// Waits until at least <paramref name="count"/> timers have been created through this provider (see
     /// <see cref="TimersCreatedCount"/>). A creation is signaled only once the inner provider has scheduled the
     /// timer, so an advance after the wait can never come too early for it: wait for the timer first, then
-    /// advance. The wait confirms creation, not that the timer is still pending: a timer that fired during its
-    /// creation (a zero due time) or was created disabled does not fire on the advance.
+    /// advance. The wait confirms creation, not that the timer is still pending: a one-shot timer that fired
+    /// during its creation (a zero due time), or one created disabled, does not fire on the advance; a periodic
+    /// timer that fired during its creation fires again after its period. The count covers every timer created
+    /// through the provider, so it identifies a loop's timer only when the loop is the only code creating timers
+    /// on it.
     /// </summary>
     /// <param name="count">The cumulative number of created timers to wait for.</param>
     /// <param name="cancellationToken">The only bound of the wait, typically the test's token.</param>
@@ -458,9 +461,8 @@ public class ObservableTimeProvider : TimeProvider
             var applied = false;
             try
             {
-                var result = _inner.Change(dueTime, period);
-                applied = true;
-                return result;
+                applied = _inner.Change(dueTime, period);
+                return applied;
             }
             finally
             {

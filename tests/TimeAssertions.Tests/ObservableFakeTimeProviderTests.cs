@@ -262,6 +262,43 @@ internal sealed class ObservableFakeTimeProviderTests
         timer.Dispose();
     }
 
+    /// <summary>A <c>Change</c> that the inner timer rejects (it returns <see langword="false"/> for a disposed
+    /// timer) arms nothing, so the settle does not count it and waits until it is canceled.</summary>
+    [Test]
+    public async Task AdvanceAndSettleAsync_CallbackChangesADisposedTimer_DoesNotSettle(CancellationToken cancellationToken)
+    {
+        var time = new ObservableFakeTimeProvider(Start);
+        var disposed = time.CreateTimer(static _ => { }, state: null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        disposed.Dispose();
+        var accepted = new Counter();
+        var timer = time.CreateTimer(
+            _ =>
+            {
+                if (disposed.Change(OneSecond, Timeout.InfiniteTimeSpan))
+                {
+                    accepted.Increment();
+                }
+            },
+            state: null,
+            OneSecond,
+            Timeout.InfiniteTimeSpan);
+        using var settle = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+        _ = Task.Run(
+            async () =>
+            {
+                await time.WaitUntilAsync(static provider => provider.TimerFireCount >= 1, cancellationToken);
+                await settle.CancelAsync();
+            },
+            cancellationToken);
+
+        var exception = await Assert.That(async () => await time.AdvanceAndSettleAsync(OneSecond, settle.Token))
+            .Throws<OperationCanceledException>();
+        await Assert.That(exception!.Message).Contains("but only 0 timer(s) were armed");
+        await Assert.That(accepted.Value).IsEqualTo(0);
+        timer.Dispose();
+    }
+
     /// <summary>A canceled token throws before the clock moves.</summary>
     [Test]
     public async Task AdvanceAndSettleAsync_PreCanceledToken_DoesNotAdvance(CancellationToken cancellationToken)
