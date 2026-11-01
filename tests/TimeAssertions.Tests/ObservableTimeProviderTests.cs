@@ -8,8 +8,8 @@ namespace TimeAssertions.Tests;
 
 /// <summary>Tests for the framework-agnostic <see cref="ObservableTimeProvider"/>: timer tracking
 /// (creation, disposal, schedule capture, schedule change) and verbatim delegation of every
-/// non-timer member to the wrapped inner provider. Uses a self-contained stub inner provider so the
-/// core test project stays BCL-only (no <c>FakeTimeProvider</c> dependency).</summary>
+/// non-timer member to the wrapped inner provider. Uses self-contained stub inner providers, so each test
+/// controls exactly what the inner provider returns and when its timers fire.</summary>
 [Category("Smoke")]
 [Timeout(5_000)]
 internal sealed class ObservableTimeProviderTests
@@ -327,7 +327,7 @@ internal sealed class ObservableTimeProviderTests
 
     /// <summary>A minimal deterministic <see cref="TimeProvider"/> for exercising
     /// <see cref="ObservableTimeProvider"/> without a real or fake timer implementation. Its timers
-    /// are inert: they never fire, so tests observe only tracking and disposal behaviour.</summary>
+    /// are inert: they never fire, so tests observe only tracking and disposal behavior.</summary>
     private sealed class StubTimeProvider : TimeProvider
     {
         public const long FixedTimestamp = 1_234_567L;
@@ -364,8 +364,8 @@ internal sealed class ObservableTimeProviderTests
     }
 
     /// <summary>A deterministic <see cref="TimeProvider"/> whose timers fire only when the test calls
-    /// <see cref="FireAll"/>, so the BCL-only core test project can drive callback fires without a
-    /// <c>FakeTimeProvider</c> dependency. Each created timer captures the callback the
+    /// <see cref="FireAll"/>, so a test drives callback fires without advancing any clock. Each created
+    /// timer captures the callback the
     /// <see cref="ObservableTimeProvider"/> handed it (the fire-observing wrapper); firing it
     /// exercises the real fire-counting path.</summary>
     private sealed class ControllableTimeProvider : TimeProvider

@@ -11,18 +11,34 @@ namespace TimeAssertions
         public System.TimeSpan Period { get; init; }
         public long TimesFired { get; init; }
     }
-    public sealed class ObservableTimeProvider : System.TimeProvider
+    public sealed class ObservableFakeTimeProvider : TimeAssertions.ObservableTimeProvider
+    {
+        public ObservableFakeTimeProvider() { }
+        public ObservableFakeTimeProvider(System.DateTimeOffset startDateTime) { }
+        public Microsoft.Extensions.Time.Testing.FakeTimeProvider Fake { get; }
+        public void Advance(System.TimeSpan delta) { }
+        public System.Threading.Tasks.Task AdvanceAndSettleAsync(System.TimeSpan delta, System.Threading.CancellationToken cancellationToken) { }
+        public System.Threading.Tasks.Task AdvanceOnEachTimerUntilAsync(System.Threading.Tasks.Task until, System.TimeSpan step, System.Threading.CancellationToken cancellationToken) { }
+        public System.Threading.Tasks.Task AdvanceUntilAsync(System.TimeSpan step, System.Func<bool> until, System.TimeSpan maxAdvance, System.Threading.CancellationToken cancellationToken) { }
+        public void SetUtcNow(System.DateTimeOffset value) { }
+    }
+    public class ObservableTimeProvider : System.TimeProvider
     {
         public ObservableTimeProvider(System.TimeProvider inner) { }
         public int ActiveTimerCount { get; }
         public System.Collections.Generic.IReadOnlyList<TimeAssertions.ActiveTimerInfo> ActiveTimers { get; }
-        public override System.TimeZoneInfo LocalTimeZone { get; }
+        public override sealed System.TimeZoneInfo LocalTimeZone { get; }
         public System.TimeSpan? NextTimerDueTime { get; }
         public long TimerFireCount { get; }
-        public override long TimestampFrequency { get; }
-        public override System.Threading.ITimer CreateTimer(System.Threading.TimerCallback callback, object? state, System.TimeSpan dueTime, System.TimeSpan period) { }
-        public override long GetTimestamp() { }
-        public override System.DateTimeOffset GetUtcNow() { }
+        public long TimersCreatedCount { get; }
+        public long TimersDisposedCount { get; }
+        public override sealed long TimestampFrequency { get; }
+        public override sealed System.Threading.ITimer CreateTimer(System.Threading.TimerCallback callback, object? state, System.TimeSpan dueTime, System.TimeSpan period) { }
+        public override sealed long GetTimestamp() { }
+        public override sealed System.DateTimeOffset GetUtcNow() { }
+        public System.Threading.Tasks.Task WaitForTimersCreatedAsync(long count, System.Threading.CancellationToken cancellationToken) { }
+        public System.Threading.Tasks.Task WaitForTimersDisposedAsync(long count, System.Threading.CancellationToken cancellationToken) { }
+        public System.Threading.Tasks.Task WaitUntilAsync(System.Func<TimeAssertions.ObservableTimeProvider, bool> condition, System.Threading.CancellationToken cancellationToken) { }
     }
     public static class TimeRenderingHelpers
     {
@@ -36,8 +52,10 @@ namespace TimeAssertions
         public static string FormatNextTimerDueOutOfRange(System.TimeSpan? actual, System.TimeSpan min, System.TimeSpan max) { }
         public static string FormatNoTimerFired(long actual, System.Collections.Generic.IReadOnlyList<TimeAssertions.ActiveTimerInfo> active) { }
         public static string FormatRateLimitViolation(System.Collections.Generic.IReadOnlyList<System.DateTimeOffset> timestamps, int violatingIndex, System.TimeSpan gap, System.TimeSpan interval) { }
+        public static string FormatScheduledTimerShortfall(System.Collections.Generic.IReadOnlyList<TimeAssertions.ActiveTimerInfo> active, System.TimeSpan dueTime, int minimum) { }
         public static string FormatTimerFireCountMismatch(long actual, int expected, System.Collections.Generic.IReadOnlyList<TimeAssertions.ActiveTimerInfo> active) { }
         public static string FormatTimerFireShortfall(long actual, int minimum, System.Collections.Generic.IReadOnlyList<TimeAssertions.ActiveTimerInfo> active) { }
+        public static string FormatUnexpectedScheduledTimers(System.Collections.Generic.IReadOnlyList<TimeAssertions.ActiveTimerInfo> active) { }
     }
 }
 namespace TimeAssertions.Render

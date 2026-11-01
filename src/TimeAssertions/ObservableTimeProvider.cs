@@ -8,7 +8,7 @@ namespace TimeAssertions;
 
 /// <summary>
 /// A <see cref="TimeProvider"/> decorator that tracks the <see cref="ITimer"/> instances created
-/// against it so tests can assert on timer-disposal behaviour ("did this hosted service dispose
+/// against it so tests can assert on timer-disposal behavior ("did this hosted service dispose
 /// every timer it started?"). Every non-timer member delegates verbatim to the wrapped inner
 /// provider, so it composes with any provider, most usefully a <c>FakeTimeProvider</c>: advance
 /// fake time on the inner provider and assert on the active-timer set exposed here.
@@ -25,16 +25,30 @@ namespace TimeAssertions;
 /// behind the same assertion surface with no consumer change.
 /// </para>
 /// <para>
+/// Every observed change (a timer created, re-scheduled, fired, or disposed) wakes the waits:
+/// <see cref="WaitUntilAsync"/>, <see cref="WaitForTimersCreatedAsync"/>, and
+/// <see cref="WaitForTimersDisposedAsync"/> re-check their condition at the moment the state changes,
+/// with no polling and no real-time delay; the <see cref="CancellationToken"/> is the only bound.
+/// </para>
+/// <para>
 /// All members are thread-safe: production code under test typically creates and disposes timers
-/// from background threads while the assertion reads the active set from the test thread.
+/// from background threads while the assertion reads the active set from the test thread. No caller
+/// code runs under the internal lock, and wait continuations never run on the thread that changed the
+/// state.
 /// </para>
 /// </remarks>
-public sealed class ObservableTimeProvider : TimeProvider
+public class ObservableTimeProvider : TimeProvider
 {
     private readonly TimeProvider _inner;
     private readonly Lock _lock = new();
     private readonly HashSet<TrackedTimer> _activeTimers = [];
     private long _timerFireCount;
+    private long _oneShotFireCount;
+    private long _timersCreatedCount;
+    private long _timersDisposedCount;
+
+    /// <summary>The pending change signal; taken and completed on every observed change. Guarded by the lock.</summary>
+    private TaskCompletionSource? _changed;
 
     /// <summary>
     /// Initializes a new <see cref="ObservableTimeProvider"/> that delegates every non-timer
@@ -63,6 +77,39 @@ public sealed class ObservableTimeProvider : TimeProvider
             lock (_lock)
             {
                 return _timerFireCount;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets the cumulative number of timers created through this provider, counted from construction.
+    /// Unlike <see cref="ActiveTimerCount"/> it never decreases, so it answers "has the loop armed its
+    /// next timer yet" even when the previous one-shot timer already fired and was disposed. A timer is
+    /// counted once the inner provider has scheduled it, so an advance from then on can fire it.
+    /// </summary>
+    public long TimersCreatedCount
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _timersCreatedCount;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets the cumulative number of timers created through this provider that have been disposed,
+    /// counted from construction. A timer is counted on its first disposal only, at the moment it
+    /// leaves the active set (before its inner timer is disposed).
+    /// </summary>
+    public long TimersDisposedCount
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _timersDisposedCount;
             }
         }
     }
@@ -146,41 +193,184 @@ public sealed class ObservableTimeProvider : TimeProvider
         }
     }
 
-    /// <inheritdoc/>
-    public override DateTimeOffset GetUtcNow() => _inner.GetUtcNow();
+    /// <summary>
+    /// Gets the cumulative number of fires of non-periodic (one-shot) timers. A fired one-shot timer is
+    /// done, so a loop that keeps running re-arms by creating a new timer; the settle barrier relies on that.
+    /// </summary>
+    internal long OneShotFireCount
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _oneShotFireCount;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Waits until <paramref name="condition"/> holds. The condition is checked immediately and then again
+    /// after every observed change (a timer created, re-scheduled, fired, or disposed), never on a polling
+    /// loop. It runs on the waiting side, never under the internal lock, so it may read any member of the
+    /// provider.
+    /// </summary>
+    /// <param name="condition">The condition to wait for, given this provider.</param>
+    /// <param name="cancellationToken">The only bound of the wait, typically the test's token.</param>
+    /// <returns>A task that completes once <paramref name="condition"/> holds.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="condition"/> is <see langword="null"/>.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled before the
+    /// condition held.</exception>
+    public async Task WaitUntilAsync(Func<ObservableTimeProvider, bool> condition, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(condition);
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Take the change signal before checking, so a change between the check and the await is
+            // not lost: it completes the signal taken here, and the loop checks again.
+            TaskCompletionSource changed;
+            lock (_lock)
+            {
+                changed = _changed ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            if (condition(this))
+            {
+                return;
+            }
+
+            await changed.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Waits until at least <paramref name="count"/> timers have been created through this provider (see
+    /// <see cref="TimersCreatedCount"/>). Once it completes, the timer is scheduled, so an advance of the inner
+    /// fake clock fires it: wait for the timer first, then advance, and the advance can never come too early.
+    /// </summary>
+    /// <param name="count">The cumulative number of created timers to wait for.</param>
+    /// <param name="cancellationToken">The only bound of the wait, typically the test's token.</param>
+    /// <returns>A task that completes once <see cref="TimersCreatedCount"/> reaches <paramref name="count"/>.</returns>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled first.</exception>
+    public Task WaitForTimersCreatedAsync(long count, CancellationToken cancellationToken)
+        => WaitUntilAsync(provider => provider.TimersCreatedCount >= count, cancellationToken);
+
+    /// <summary>
+    /// Waits until at least <paramref name="count"/> timers created through this provider have been disposed
+    /// (see <see cref="TimersDisposedCount"/>).
+    /// </summary>
+    /// <param name="count">The cumulative number of disposed timers to wait for.</param>
+    /// <param name="cancellationToken">The only bound of the wait, typically the test's token.</param>
+    /// <returns>A task that completes once <see cref="TimersDisposedCount"/> reaches <paramref name="count"/>.</returns>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled first.</exception>
+    public Task WaitForTimersDisposedAsync(long count, CancellationToken cancellationToken)
+        => WaitUntilAsync(provider => provider.TimersDisposedCount >= count, cancellationToken);
 
     /// <inheritdoc/>
-    public override long GetTimestamp() => _inner.GetTimestamp();
+    public sealed override DateTimeOffset GetUtcNow() => _inner.GetUtcNow();
 
     /// <inheritdoc/>
-    public override long TimestampFrequency => _inner.TimestampFrequency;
+    public sealed override long GetTimestamp() => _inner.GetTimestamp();
 
     /// <inheritdoc/>
-    public override TimeZoneInfo LocalTimeZone => _inner.LocalTimeZone;
+    public sealed override long TimestampFrequency => _inner.TimestampFrequency;
 
     /// <inheritdoc/>
-    public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+    public sealed override TimeZoneInfo LocalTimeZone => _inner.LocalTimeZone;
+
+    /// <inheritdoc/>
+    public sealed override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
     {
         ArgumentNullException.ThrowIfNull(callback);
 
         // TrackedTimer wraps the callback so every fire is observed before the consumer's callback
         // runs; it creates its inner timer in its own constructor, keeping the inner reference
-        // readonly (no two-phase init).
+        // readonly (no two-phase init). The creation is counted and signaled only after that, so a
+        // waiter woken by it can advance the inner clock and the timer fires.
         var tracked = new TrackedTimer(this, callback, state, dueTime, period);
+        TaskCompletionSource? changed;
         lock (_lock)
         {
             _activeTimers.Add(tracked);
+            _timersCreatedCount++;
+            changed = TakeChangeSignal();
         }
 
+        changed?.TrySetResult();
         return tracked;
     }
 
-    private void OnTimerDisposed(TrackedTimer timer)
+    /// <summary>
+    /// Takes the pending change signal so the caller can complete it after releasing the lock. Callers must
+    /// hold the lock. The signal runs its continuations asynchronously, so completing it never runs a waiter
+    /// on the thread that changed the state.
+    /// </summary>
+    private TaskCompletionSource? TakeChangeSignal()
+    {
+        var changed = _changed;
+        _changed = null;
+        return changed;
+    }
+
+    /// <summary>Marks a schedule change of <paramref name="timer"/> as started, before the inner timer applies it.</summary>
+    private void OnTimerChangeStarting(TrackedTimer timer, TimeSpan period)
     {
         lock (_lock)
         {
-            _activeTimers.Remove(timer);
+            timer.BeginChange(period);
         }
+    }
+
+    /// <summary>
+    /// Publishes the schedule of <paramref name="timer"/> once the inner timer carries it (or abandons the change
+    /// when the inner timer rejected it) and signals the change.
+    /// </summary>
+    private void OnTimerChangeEnded(TrackedTimer timer, TimeSpan dueTime, TimeSpan period, bool applied)
+    {
+        TaskCompletionSource? changed;
+        lock (_lock)
+        {
+            timer.EndChange(dueTime, period, applied);
+            changed = TakeChangeSignal();
+        }
+
+        changed?.TrySetResult();
+    }
+
+    /// <summary>Records one fire of <paramref name="timer"/> and signals it.</summary>
+    private void OnTimerFired(TrackedTimer timer)
+    {
+        TaskCompletionSource? changed;
+        lock (_lock)
+        {
+            _timerFireCount++;
+            if (!timer.RecordFire())
+            {
+                _oneShotFireCount++;
+            }
+
+            changed = TakeChangeSignal();
+        }
+
+        changed?.TrySetResult();
+    }
+
+    /// <summary>
+    /// Untracks <paramref name="timer"/> and signals it. Runs before the inner timer is disposed, so the
+    /// active set and <see cref="TimersDisposedCount"/> reflect the disposal as soon as it starts.
+    /// </summary>
+    private void OnTimerDisposed(TrackedTimer timer)
+    {
+        TaskCompletionSource? changed;
+        lock (_lock)
+        {
+            _activeTimers.Remove(timer);
+            _timersDisposedCount++;
+            changed = TakeChangeSignal();
+        }
+
+        changed?.TrySetResult();
     }
 
     /// <summary>
@@ -197,6 +387,15 @@ public sealed class ObservableTimeProvider : TimeProvider
         private long _timesFired;
         private int _disposed;
 
+        /// <summary>Changes started but not yet applied by the inner timer. Guarded by the owner's lock.</summary>
+        private int _changesPending;
+
+        /// <summary>The period of the most recently started change. Guarded by the owner's lock.</summary>
+        private TimeSpan _pendingPeriod;
+
+        /// <summary>Whether the timer fired while a change was pending. Guarded by the owner's lock.</summary>
+        private bool _firedDuringChange;
+
         public TrackedTimer(
             ObservableTimeProvider owner,
             TimerCallback callback,
@@ -209,9 +408,9 @@ public sealed class ObservableTimeProvider : TimeProvider
             _dueTime = dueTime;
             _period = period;
 
-            // Create the inner timer last, once every field the fire path reads is set. The inner
-            // provider does not fire synchronously during creation (a FakeTimeProvider fires only on
-            // Advance), so OnInnerFired cannot run before the constructor completes.
+            // Create the inner timer last, once every field the fire path reads is set: an inner provider may
+            // fire during creation (a FakeTimeProvider fires a timer that is due at once), so OnInnerFired can
+            // run before the constructor completes.
             _inner = owner._inner.CreateTimer(OnInnerFired, state, dueTime, period);
         }
 
@@ -221,42 +420,85 @@ public sealed class ObservableTimeProvider : TimeProvider
         /// </summary>
         private void OnInnerFired(object? state)
         {
-            NotifyFired();
+            _owner.OnTimerFired(this);
             _callback(state);
         }
 
         public bool Change(TimeSpan dueTime, TimeSpan period)
         {
-            lock (_owner._lock)
+            // Publish the new schedule only once the inner timer carries it: a waiter that sees it may advance
+            // the inner clock right away, and the timer must then fire. A fire during the change (an inner
+            // provider may fire a timer that is due at once) is applied to the new schedule when it is published.
+            _owner.OnTimerChangeStarting(this, period);
+            var applied = false;
+            try
             {
-                _dueTime = dueTime;
-                _period = period;
+                var result = _inner.Change(dueTime, period);
+                applied = true;
+                return result;
             }
+            finally
+            {
+                _owner.OnTimerChangeEnded(this, dueTime, period, applied);
+            }
+        }
 
-            return _inner.Change(dueTime, period);
+        /// <summary>Marks a change as started. Callers must hold the owner's lock.</summary>
+        /// <param name="period">The period the change applies.</param>
+        public void BeginChange(TimeSpan period)
+        {
+            _changesPending++;
+            _pendingPeriod = period;
         }
 
         /// <summary>
-        /// Records one callback fire: bumps this timer's and the owner's cumulative fire counts, and
-        /// re-points the current due time to reflect the post-fire schedule. A timer with a
-        /// strictly-positive period re-arms at that period; a non-periodic timer fires once and is
-        /// then disabled (<see cref="Timeout.InfiniteTimeSpan"/>). Per the
-        /// <see cref="TimeProvider.CreateTimer(TimerCallback, object?, TimeSpan, TimeSpan)"/> contract,
-        /// non-periodic means a period of either <see cref="Timeout.InfiniteTimeSpan"/> or
-        /// <see cref="TimeSpan.Zero"/>. This keeps
-        /// <see cref="ObservableTimeProvider.NextTimerDueTime"/> correct after a timer fires rather
-        /// than reporting the stale creation-time due. Runs under the owner lock so it is a consistent
-        /// snapshot for concurrent readers.
+        /// Ends a change: publishes the schedule when the inner timer applied it, as already fired when a fire
+        /// happened meanwhile. Callers must hold the owner's lock.
         /// </summary>
-        private void NotifyFired()
+        /// <param name="dueTime">The due time the change applies.</param>
+        /// <param name="period">The period the change applies.</param>
+        /// <param name="applied">Whether the inner timer accepted the change.</param>
+        public void EndChange(TimeSpan dueTime, TimeSpan period, bool applied)
         {
-            lock (_owner._lock)
+            _changesPending--;
+            if (applied)
             {
-                _timesFired++;
-                _owner._timerFireCount++;
-                _dueTime = _period > TimeSpan.Zero ? _period : Timeout.InfiniteTimeSpan;
+                _period = period;
+                _dueTime = _firedDuringChange ? AfterFire(period) : dueTime;
+            }
+
+            if (_changesPending is 0)
+            {
+                _firedDuringChange = false;
             }
         }
+
+        /// <summary>
+        /// Records one callback fire: bumps this timer's fire count and re-points the current due time to
+        /// the post-fire schedule. A timer with a strictly-positive period re-arms at that period; a
+        /// non-periodic timer fires once and is then disabled (<see cref="Timeout.InfiniteTimeSpan"/>). Per
+        /// the <see cref="TimeProvider.CreateTimer(TimerCallback, object?, TimeSpan, TimeSpan)"/> contract,
+        /// non-periodic means a period of either <see cref="Timeout.InfiniteTimeSpan"/> or
+        /// <see cref="TimeSpan.Zero"/>. This keeps <see cref="ObservableTimeProvider.NextTimerDueTime"/>
+        /// correct after a timer fires rather than reporting the stale creation-time due. A fire during a
+        /// change belongs to the new schedule, which the change publishes. Callers must hold the owner's lock.
+        /// </summary>
+        /// <returns><see langword="true"/> when the timer is periodic; <see langword="false"/> for a one-shot.</returns>
+        public bool RecordFire()
+        {
+            _timesFired++;
+            if (_changesPending > 0)
+            {
+                _firedDuringChange = true;
+                return _pendingPeriod > TimeSpan.Zero;
+            }
+
+            _dueTime = AfterFire(_period);
+            return _period > TimeSpan.Zero;
+        }
+
+        /// <summary>The due time after a fire: the period for a periodic timer, otherwise disabled.</summary>
+        private static TimeSpan AfterFire(TimeSpan period) => period > TimeSpan.Zero ? period : Timeout.InfiniteTimeSpan;
 
         /// <summary>Gets the current due time. Callers must hold the owner's lock.</summary>
         public TimeSpan DueTime => _dueTime;
@@ -271,6 +513,9 @@ public sealed class ObservableTimeProvider : TimeProvider
                 return;
             }
 
+            // Untrack first, then dispose the inner timer: the disposal is visible (and signaled) as soon as
+            // it starts, and a signaling inner provider composed under this one cannot observe the timer as
+            // still tracked after its own disposal signal.
             _owner.OnTimerDisposed(this);
             _inner.Dispose();
         }

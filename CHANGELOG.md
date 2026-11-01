@@ -15,6 +15,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-01: event-driven timer waits, an observable fake clock, due-time assertions
+
+Minor release. The "eventually" timer assertions now react to each timer change instead of polling, the core gains awaitable timer events and an `ObservableFakeTimeProvider` that advances without real time, and new assertions find a timer by its due time. The `pollingInterval` overloads are deprecated (see Upgrade).
+
+### Added
+
+- **`ObservableFakeTimeProvider`** is an `ObservableTimeProvider` over its own `FakeTimeProvider`: one object to inject into the code under test, to advance (`Advance`, `SetUtcNow`), and to assert on. `Fake` exposes the owned `FakeTimeProvider` for its other settings.
+- **`ObservableFakeTimeProvider.AdvanceAndSettleAsync(TimeSpan delta, CancellationToken cancellationToken)`** advances the fake clock and then waits until every loop woken by the advance has armed its next timer (as many new timers as one-shot timers fired), so the next assertion sees the loop's step completed without a real-time sleep. A loop that ends after its timer fired makes the wait run until the token is canceled; the `OperationCanceledException` then says how many timers fired and how many were created.
+- **`ObservableFakeTimeProvider.AdvanceOnEachTimerUntilAsync(Task until, TimeSpan step, CancellationToken cancellationToken)`** advances by `step` each time the code under test has created a timer, until `until` completes: it drives a reconnect backoff with any number of failed attempts.
+- **`ObservableFakeTimeProvider.AdvanceUntilAsync(TimeSpan step, Func<bool> until, TimeSpan maxAdvance, CancellationToken cancellationToken)`** advances in settled steps until `until` holds, for loops driven by a periodic timer (for example "until `TimerFireCount` reaches 6"). It throws `TimeoutException` after `maxAdvance` of fake time, so the outcome is deterministic.
+- **`ObservableTimeProvider.TimersCreatedCount`** and **`TimersDisposedCount`** count every timer created and disposed through the provider. Unlike `ActiveTimerCount`, they never go down, so "has the loop armed its second backoff" can be answered.
+- **`ObservableTimeProvider.WaitUntilAsync(Func<ObservableTimeProvider, bool> condition, CancellationToken cancellationToken)`** waits until the condition holds, re-checking it each time a timer is created, re-scheduled, fired, or disposed. No polling and no real-time delay; the token is the bound.
+- **`ObservableTimeProvider.WaitForTimersCreatedAsync(long count, CancellationToken cancellationToken)`** and **`WaitForTimersDisposedAsync(long count, CancellationToken cancellationToken)`** wait for the creation and disposal counts. A creation is signaled only once the inner provider has scheduled the timer, so advancing the fake clock right after the wait fires it.
+- **`Assert.That(time).HasTimerScheduled(TimeSpan dueTime, int atLeast = 1)`** asserts that at least `atLeast` active timers carry `dueTime`, among any number of loops; `HasNextTimerDueApproximately` only sees the earliest timer.
+- **`Assert.That(time).HasNoTimerScheduled()`** asserts that no active timer has a pending due time. An undisposed but disabled timer passes, unlike with `HasNoActiveTimers()`.
+- **`Assert.That(time).HasTimerScheduledEventually(TimeSpan dueTime, ...)`** waits until a timer, or at least `atLeast` timers, carry `dueTime`, for example until both ping loops have armed their delay. Forms: `(dueTime, cancellationToken)`, `(dueTime, timeout, cancellationToken)`, `(dueTime, atLeast, cancellationToken)`, and `(dueTime, atLeast, timeout, cancellationToken)`.
+- **`HasNoActiveTimersEventually(CancellationToken)`**, **`HasActiveTimersEventually(CancellationToken)`**, **`HasActiveTimerCountEventually(int, CancellationToken)`**, **`HasAtLeastActiveTimerCountEventually(int, CancellationToken)`**, and **`HasAtMostActiveTimerCountEventually(int, CancellationToken)`** wait bounded by the token only, typically the test's own.
+- **`TimeRenderingHelpers.FormatScheduledTimerShortfall`** and **`FormatUnexpectedScheduledTimers`** render the failure messages of the due-time assertions.
+
+### Changed
+
+- **`HasNoActiveTimersEventually`**, **`HasActiveTimersEventually`**, **`HasActiveTimerCountEventually`**, **`HasAtLeastActiveTimerCountEventually`**, and **`HasAtMostActiveTimerCountEventually`** no longer poll every 10 ms: they re-check the active count each time a timer changes, so a disposal is seen when it happens. The `timeout` is still a real-time bound, and the outcome of every assertion is unchanged.
+- **`ObservableTimeProvider`** is no longer `sealed`, and its `TimeProvider` overrides are; every timer assertion now applies to a derived provider such as `ObservableFakeTimeProvider` (the generated assertion extensions are generic over the provider type). Code that calls the assertions is unaffected; assemblies compiled against 0.9.0 need a rebuild.
+- **`ObservableTimeProvider`** publishes a timer's new schedule (`ActiveTimers`, `NextTimerDueTime`) only once the inner timer has applied the change, so a test that sees the new schedule and then advances the fake clock fires the timer. A change that the inner timer rejects now leaves the previous schedule in place.
+- **`TimeAssertions`** (the core package) now depends on `Microsoft.Extensions.TimeProvider.Testing` 10.11.0 for `ObservableFakeTimeProvider`. `TimeAssertions.TUnit` already depended on it, so a TUnit consumer gets no new package.
+- **`TUnit.Assertions`** and **`TUnit.Core`** minimum versions raised from 1.53.0 to 1.76.45, and **`Microsoft.Extensions.TimeProvider.Testing`** from 10.7.0 to 10.11.0.
+
+### Deprecated
+
+- **`HasNoActiveTimersEventually(timeout, pollingInterval, ...)`**, **`HasActiveTimersEventually(timeout, pollingInterval, ...)`**, **`HasActiveTimerCountEventually(count, timeout, pollingInterval, ...)`**, **`HasAtLeastActiveTimerCountEventually(count, timeout, pollingInterval, ...)`**, and **`HasAtMostActiveTimerCountEventually(count, timeout, pollingInterval, ...)`** are `[Obsolete]`: the wait no longer polls, so `pollingInterval` has no effect. They forward to the forms without it and will be removed in 0.11.0. A build that treats warnings as errors fails on them until the argument is removed. A non-positive `pollingInterval` no longer throws `ArgumentOutOfRangeException`.
+
+### Removed
+
+- **BREAKING:** the five `*EventuallyAssertion` classes lost their constructors with a `pollingInterval` parameter, replaced by `(context, [count,] timeout, cancellationToken = default)` and `(context, [count,] cancellationToken)`. Only code that constructs these classes directly is affected; calls through `Assert.That(...)` are not.
+- **BREAKING:** `EventuallyTimerAssertionExtensions` no longer declares the `(timeout, cancellationToken)` and `(count, timeout, cancellationToken)` overloads added in 0.8.0; the generated extensions take the same arguments. Only a call through the class name (`EventuallyTimerAssertionExtensions.HasNoActiveTimersEventually(...)`) is affected.
+
+### Fixed
+
+- **`ObservableTimeProvider`** documentation said that an inner provider never fires a timer while creating it. A `FakeTimeProvider` fires a timer that is due at once (a zero due time) during `CreateTimer`; the provider counts that fire correctly, and the documentation now says so.
+
+**Upgrade:** remove the `pollingInterval` argument from the "eventually" timer assertions: `HasNoActiveTimersEventually(timeout, pollingInterval, ct)` becomes `HasNoActiveTimersEventually(timeout, ct)`, or `HasNoActiveTimersEventually(ct)` to wait as long as the test's token allows. To stop holding two objects, replace `new ObservableTimeProvider(fakeTime)` plus `fakeTime.Advance(...)` with one `ObservableFakeTimeProvider`.
+
 ## [0.9.0] - 2026-06-12: observe timer fires
 
 Minor release. Adds fire observation to `ObservableTimeProvider`: a count of how many times timer callbacks ran, next to the existing leak and pending-due assertions. Purely additive.
@@ -183,7 +225,8 @@ First public release, positioned as the TUnit assertion package for projects com
 
 - **AOT-compatible, trimmable, no runtime reflection** in the assertion path.
 
-[unreleased]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.9.0...HEAD
+[unreleased]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.7.0...v0.8.0

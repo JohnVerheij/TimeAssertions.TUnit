@@ -9,59 +9,77 @@ using TUnit.Assertions.Core;
 namespace TimeAssertions.TUnit;
 
 /// <summary>
-/// TUnit assertion that polls an <see cref="ObservableTimeProvider"/> in real time until at least one
-/// timer is active, or a timeout elapses. Generates the <c>HasActiveTimersEventually(TimeSpan, ...)</c>
-/// chain extension via TUnit's <see cref="AssertionExtensionAttribute"/> source generator.
+/// TUnit assertion that waits until at least one timer is active on an <see cref="ObservableTimeProvider"/>. Generates the
+/// <c>HasActiveTimersEventually</c> chain extensions via TUnit's <see cref="AssertionExtensionAttribute"/> source generator.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The asynchronous counterpart of the synchronous <c>HasActiveTimers()</c> and a named shorthand for
-/// <c>HasAtLeastActiveTimerCountEventually(1, ...)</c>: the natural shape for an asynchronous
-/// registration wait that only needs "a timer eventually started" without pinning the exact count.
-/// Use it when a loop registers its timer on a real continuation, so a synchronous
-/// <c>HasActiveTimers()</c> would race the not-yet-registered timer.
+/// <b>Event-driven.</b> The condition is checked once, then again each time a timer is created,
+/// re-scheduled, fired, or disposed through the provider (<see cref="ObservableTimeProvider.WaitUntilAsync"/>),
+/// never on a polling loop. A timer that a <c>BackgroundService</c> disposes on a continuation after
+/// <c>StopAsync</c> returns is seen the moment the disposal happens.
 /// </para>
 /// <para>
-/// The condition is checked once before the first delay, so a provider that already has a timer passes
-/// without waiting.
+/// <b>Bounds.</b> The <c>(timeout, cancellationToken)</c> form fails when <c>timeout</c> of real time passes
+/// first; the timeout is a bound, not a poll interval. The <c>(cancellationToken)</c> form is bounded by the
+/// token only, typically the test's own.
 /// </para>
 /// <para>
-/// <b>Cancellation.</b> When the supplied <see cref="CancellationToken"/> is canceled the poll loop
-/// throws <see cref="OperationCanceledException"/> (a <see cref="TaskCanceledException"/> from the
-/// underlying <see cref="Task.Delay(TimeSpan, CancellationToken)"/>); the test is recorded as
-/// canceled rather than failed.
+/// <b>Cancellation.</b> When the token is canceled the wait throws <see cref="OperationCanceledException"/> and
+/// the test is recorded as canceled rather than failed. For a failure that describes the timers, pass a
+/// timeout shorter than the test's own timeout.
 /// </para>
+/// <code>
+/// _ = service.StartAsync(ct);
+/// await Assert.That(time).HasActiveTimersEventually(ct);
+/// </code>
 /// </remarks>
 [AssertionExtension("HasActiveTimersEventually")]
 public sealed class HasActiveTimersEventuallyAssertion : Assertion<ObservableTimeProvider>
 {
-    private readonly TimeSpan _timeout;
-    private readonly TimeSpan _pollingInterval;
+    private readonly TimeSpan? _timeout;
     private readonly CancellationToken _cancellationToken;
 
-    /// <summary>Initializes the assertion with a polling timeout, poll interval, and cancellation
-    /// token. Called by the TUnit source generator.</summary>
+    /// <summary>The bound for messages: " within &lt;timeout&gt;", or empty for the token-only form.</summary>
+    private readonly string _within;
+
+    /// <summary>Initializes the assertion with a real-time bound and a cancellation token. Called by the
+    /// TUnit source generator.</summary>
     /// <param name="context">The assertion context supplied by TUnit.</param>
-    /// <param name="timeout">The maximum wall-clock time to poll for at least one timer to become
-    /// active. Must be non-negative.</param>
-    /// <param name="pollingInterval">The delay between polls. When <see langword="null"/> a default of
-    /// <see cref="PollingDefaults.PollingInterval"/> is used. Must be positive when supplied.</param>
-    /// <param name="cancellationToken">A token that cancels the poll loop.</param>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="timeout"/> is negative, or
-    /// <paramref name="pollingInterval"/> is supplied and not positive.</exception>
+    /// <param name="timeout">The longest real time to wait. Must be non-negative.</param>
+    /// <param name="cancellationToken">A token that cancels the wait.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="timeout"/> is negative.</exception>
     public HasActiveTimersEventuallyAssertion(
         AssertionContext<ObservableTimeProvider> context,
         TimeSpan timeout,
-        TimeSpan? pollingInterval = null,
         CancellationToken cancellationToken = default)
+        : this(context, TimerWait.ValidateTimeout(timeout), cancellationToken)
+    {
+    }
+
+    /// <summary>Initializes the assertion bounded by <paramref name="cancellationToken"/> only. Called by the
+    /// TUnit source generator.</summary>
+    /// <param name="context">The assertion context supplied by TUnit.</param>
+    /// <param name="cancellationToken">The only bound of the wait, typically the test's token.</param>
+    public HasActiveTimersEventuallyAssertion(
+        AssertionContext<ObservableTimeProvider> context,
+        CancellationToken cancellationToken)
+        : this(context, default(TimeSpan?), cancellationToken)
+    {
+    }
+
+    private HasActiveTimersEventuallyAssertion(
+        AssertionContext<ObservableTimeProvider> context,
+        TimeSpan? timeout,
+        CancellationToken cancellationToken)
         : base(context)
     {
-        _timeout = PollingDefaults.ValidateTimeout(timeout);
-        _pollingInterval = PollingDefaults.ResolvePollingInterval(pollingInterval);
+        _timeout = timeout;
+        _within = timeout is { } bound ? " within " + TimeRenderingHelpers.FormatDuration(bound) : string.Empty;
         _cancellationToken = cancellationToken;
         Context.ExpressionBuilder.Append(
             CultureInfo.InvariantCulture,
-            $".HasActiveTimersEventually({TimeRenderingHelpers.FormatDuration(_timeout)})");
+            $".HasActiveTimersEventually({(_timeout is { } timeoutValue ? TimeRenderingHelpers.FormatDuration(timeoutValue) : "cancellationToken")})");
     }
 
     /// <inheritdoc/>
@@ -69,7 +87,7 @@ public sealed class HasActiveTimersEventuallyAssertion : Assertion<ObservableTim
     {
         if (metadata.Exception is not null)
         {
-            return PollingDefaults.FailFromSourceException(metadata.Exception);
+            return TimerWait.FailFromSourceException(metadata.Exception);
         }
 
         var value = metadata.Value;
@@ -78,8 +96,8 @@ public sealed class HasActiveTimersEventuallyAssertion : Assertion<ObservableTim
             return AssertionResult.Failed("the observable time provider was null");
         }
 
-        var reached = await PollingDefaults
-            .PollUntilAsync(() => value.ActiveTimerCount >= 1, _timeout, _pollingInterval, _cancellationToken)
+        var reached = await TimerWait
+            .UntilAsync(value, static provider => provider.ActiveTimerCount >= 1, _timeout, _cancellationToken)
             .ConfigureAwait(false);
 
         if (reached)
@@ -88,12 +106,12 @@ public sealed class HasActiveTimersEventuallyAssertion : Assertion<ObservableTim
         }
 
         return AssertionResult.Failed(
-            $"expected at least one active timer within {TimeRenderingHelpers.FormatDuration(_timeout)} but the active-timer count stayed at 0");
+            $"expected at least one active timer{_within} but the active-timer count stayed at 0");
     }
 
     /// <inheritdoc/>
     protected override string GetExpectation()
     {
-        return $"at least one active timer within {TimeRenderingHelpers.FormatDuration(_timeout)}";
+        return $"at least one active timer{_within}";
     }
 }

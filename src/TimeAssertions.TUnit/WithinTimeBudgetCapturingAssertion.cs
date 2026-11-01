@@ -10,7 +10,7 @@ namespace TimeAssertions.TUnit;
 
 /// <summary>
 /// Capturing variant of <see cref="WithinTimeBudgetAssertion{T}"/>. Same wall-clock budget
-/// behaviour, but additionally invokes the supplied <c>capture</c> callback with the measured
+/// behavior, but additionally invokes the supplied <c>capture</c> callback with the measured
 /// elapsed duration regardless of whether the budget was met. Useful for tests that need to
 /// log the observed timing or feed it into a follow-up <c>HasAdvancedApproximately</c> check.
 /// </summary>
@@ -23,9 +23,9 @@ namespace TimeAssertions.TUnit;
 /// <b>External cancellation propagates intact AND skips the capture callback.</b> When the
 /// wrapped operation's <see cref="System.Threading.CancellationToken"/> cancels, the
 /// <see cref="OperationCanceledException"/> is re-thrown via
-/// <see cref="ExceptionDispatchInfo"/> so the test is recorded as cancelled, not failed.
+/// <see cref="ExceptionDispatchInfo"/> so the test is recorded as canceled, not failed.
 /// The capture callback is NOT invoked on cancellation: a partial elapsed time from a
-/// cancelled operation would mislead consumers since the operation did not complete
+/// canceled operation would mislead consumers since the operation did not complete
 /// normally. Non-OCE source exceptions still invoke the capture (the elapsed duration is
 /// meaningful in that case).
 /// </para>
@@ -44,7 +44,7 @@ public sealed class WithinTimeBudgetCapturingAssertion<T> : Assertion<T>
     private readonly TimeSpan _budget;
     private readonly Action<TimeSpan> _capture;
 
-    /// <summary>Initialises the capturing assertion with a wall-clock budget and an elapsed
+    /// <summary>Initializes the capturing assertion with a wall-clock budget and an elapsed
     /// callback. Called by the TUnit source generator.</summary>
     /// <param name="context">The assertion context supplied by TUnit.</param>
     /// <param name="budget">The maximum wall-clock duration the preceding assertion's evaluator
@@ -71,9 +71,9 @@ public sealed class WithinTimeBudgetCapturingAssertion<T> : Assertion<T>
         // External cancellation (parent [Timeout], test-class CT, runner cancel) reaches
         // this assertion via metadata.Exception. We don't own a CancellationTokenSource here:
         // any OperationCanceledException came from outside, not from an internal timeout, so
-        // re-throw it to the test runner so the test is recorded as cancelled rather than
+        // re-throw it to the test runner so the test is recorded as canceled rather than
         // assertion-failed. The capture callback is NOT invoked: a partial elapsed from a
-        // cancelled operation would mislead consumers about the operation's real cost.
+        // canceled operation would mislead consumers about the operation's real cost.
         // ExceptionDispatchInfo preserves the original stack trace.
         if (metadata.Exception is OperationCanceledException oce)
         {

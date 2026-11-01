@@ -127,7 +127,10 @@
         }
       },
       "timeassertions": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "Microsoft.Extensions.TimeProvider.Testing": "[10.11.0, )"
+        }
       },
       "timeassertions.tunit": {
         "type": "Project",
