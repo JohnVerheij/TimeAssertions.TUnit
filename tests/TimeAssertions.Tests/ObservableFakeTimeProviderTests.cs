@@ -267,6 +267,36 @@ internal sealed class ObservableFakeTimeProviderTests
         timer.Dispose();
     }
 
+    /// <summary>A loop that creates its next timer disabled and arms it after an <c>await</c> has not armed its
+    /// next wait until that change, so the settle waits for it.</summary>
+    [Test]
+    public async Task AdvanceAndSettleAsync_NextTimerCreatedDisabledAndArmedLater_WaitsForTheArm(CancellationToken cancellationToken)
+    {
+        var time = new ObservableFakeTimeProvider(Start);
+        var armNext = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        ITimer? next = null;
+        var loop = Task.Run(
+            async () =>
+            {
+                await Task.Delay(OneSecond, time, cancellationToken);
+                next = time.CreateTimer(static _ => { }, state: null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+                await armNext.Task.WaitAsync(cancellationToken);
+                next.Change(FiveSeconds, Timeout.InfiniteTimeSpan);
+            },
+            cancellationToken);
+        await time.WaitForTimersCreatedAsync(1, cancellationToken);
+
+        var settle = time.AdvanceAndSettleAsync(OneSecond, cancellationToken);
+        await time.WaitForTimersCreatedAsync(2, cancellationToken);
+
+        await Assert.That(time.TimersArmedCount).IsEqualTo(1);
+        armNext.SetResult();
+        await settle;
+        await Assert.That(time.NextTimerDueTime).IsEqualTo(FiveSeconds);
+        await loop;
+        next!.Dispose();
+    }
+
     /// <summary>A callback that disables its timer with <c>Change</c> arms nothing, so the settle waits until it
     /// is canceled.</summary>
     [Test]

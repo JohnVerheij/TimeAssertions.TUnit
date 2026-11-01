@@ -83,4 +83,9 @@
     <None Include="README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The core tests drive the change-ordering seam and read the armed-timer count directly. -->
+    <InternalsVisibleTo Include="TimeAssertions.Tests" />
+  </ItemGroup>
+
 </Project>

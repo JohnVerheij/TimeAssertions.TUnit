@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -40,7 +42,9 @@ namespace TimeAssertions;
 /// <c>Change</c> calls on one timer are applied one at a time, so the published schedule is the one the
 /// inner timer carries, also when several threads change the timer at once. A callback that the inner
 /// provider fires during a <c>Change</c> (a <c>FakeTimeProvider</c> fires a timer that is due at once) runs
-/// once that change is applied, before <c>Change</c> returns.
+/// once that change is applied, before <c>Change</c> returns. If such a callback throws, the others still run,
+/// and <c>Change</c> then throws its exception (an <see cref="AggregateException"/> when several threw); an
+/// exception from the inner timer's own <c>Change</c> takes precedence.
 /// </para>
 /// </remarks>
 public class ObservableTimeProvider : TimeProvider
@@ -51,8 +55,13 @@ public class ObservableTimeProvider : TimeProvider
     private long _timerFireCount;
     private long _oneShotFireCount;
     private long _timersCreatedCount;
+    private long _timersArmedByCreateCount;
     private long _timersDisposedCount;
     private long _timersArmedByChangeCount;
+
+    /// <summary>Gets or sets the code run when a <c>Change</c> finds another <c>Change</c> of the same timer being
+    /// applied and waits for it. A seam for the tests of that ordering; a no-op otherwise.</summary>
+    internal Action ChangeLockContended { get; set; } = static () => { };
 
     /// <summary>The pending change signal; taken and completed on every observed change. Guarded by the lock.</summary>
     private TaskCompletionSource? _changed;
@@ -217,9 +226,10 @@ public class ObservableTimeProvider : TimeProvider
     }
 
     /// <summary>
-    /// Gets the cumulative number of times a timer was armed: every creation, plus every
+    /// Gets the cumulative number of times a timer was armed: every creation with a finite due time, plus every
     /// <see cref="ITimer.Change"/> to a finite due time (the pattern of a callback that re-arms its own one-shot
-    /// timer). Read under one lock, so the two parts are consistent.
+    /// timer). A timer created disabled counts once a change arms it. Read under one lock, so the two parts are
+    /// consistent.
     /// </summary>
     internal long TimersArmedCount
     {
@@ -227,7 +237,7 @@ public class ObservableTimeProvider : TimeProvider
         {
             lock (_lock)
             {
-                return _timersCreatedCount + _timersArmedByChangeCount;
+                return _timersArmedByCreateCount + _timersArmedByChangeCount;
             }
         }
     }
@@ -323,6 +333,10 @@ public class ObservableTimeProvider : TimeProvider
         {
             _activeTimers.Add(tracked);
             _timersCreatedCount++;
+            if (dueTime != Timeout.InfiniteTimeSpan)
+            {
+                _timersArmedByCreateCount++;
+            }
             changed = TakeChangeSignal();
         }
 
@@ -491,33 +505,59 @@ public class ObservableTimeProvider : TimeProvider
             // Publish the new schedule only once the inner timer carries it: a waiter that sees it may advance
             // the inner clock right away, and the timer must then fire. A fire during the change (an inner
             // provider may fire a timer that is due at once) is applied to the new schedule when it is published.
-            // The lock applies concurrent changes in the order they are numbered, so the change numbered last is
-            // also the one the inner timer applied last.
             bool applied;
             try
             {
-                lock (_changeLock)
+                applied = ApplyChange(dueTime, period);
+            }
+            catch
+            {
+                // The inner timer threw, and its exception is the one that propagates. The callbacks it fired
+                // before throwing still run; their failures give way to it.
+                _ = RunDeferredCallbacks();
+                throw;
+            }
+
+            ThrowCallbackFailures(RunDeferredCallbacks());
+            return applied;
+        }
+
+        /// <summary>
+        /// Applies one change under the change lock, which applies concurrent changes of this timer in the order
+        /// they are numbered, so the change numbered last is also the one the inner timer applied last.
+        /// </summary>
+        /// <param name="dueTime">The due time to apply.</param>
+        /// <param name="period">The period to apply.</param>
+        /// <returns>Whether the inner timer applied the change.</returns>
+        private bool ApplyChange(TimeSpan dueTime, TimeSpan period)
+        {
+            if (!_changeLock.TryEnter())
+            {
+                _owner.ChangeLockContended();
+                _changeLock.Enter();
+            }
+
+            try
+            {
+                EnterChange();
+                var change = _owner.OnTimerChangeStarting(this, period);
+                var applied = false;
+                try
                 {
-                    EnterChange();
-                    var change = _owner.OnTimerChangeStarting(this, period);
-                    applied = false;
-                    try
-                    {
-                        applied = _inner.Change(dueTime, period);
-                    }
-                    finally
-                    {
-                        _owner.OnTimerChangeEnded(this, change, dueTime, period, applied);
-                        ExitChange();
-                    }
+                    applied = _inner.Change(dueTime, period);
                 }
+                finally
+                {
+                    _owner.OnTimerChangeEnded(this, change, dueTime, period, applied);
+                    ExitChange();
+                }
+
+                return applied;
             }
             finally
             {
-                RunDeferredCallbacks();
+                _changeLock.Exit();
             }
-
-            return applied;
         }
 
         /// <summary>Counts a change starting on this thread.</summary>
@@ -532,40 +572,55 @@ public class ObservableTimeProvider : TimeProvider
         private static void Defer(TrackedTimer timer, object? state) => (t_deferredCallbacks ??= []).Add((timer, state));
 
         /// <summary>
-        /// Runs the callbacks deferred on this thread once no change is being applied on it. Every deferred
-        /// callback runs; when one throws, the rest still run and the exception propagates.
+        /// Runs the callbacks deferred on this thread once no change is being applied on it. Every one runs, also
+        /// when an earlier one throws.
         /// </summary>
-        private static void RunDeferredCallbacks()
+        /// <returns>The exceptions the callbacks threw, in the order they ran, or <see langword="null"/> when none
+        /// threw.</returns>
+        [SuppressMessage(
+            "Design",
+            "CA1031:Do not catch general exception types",
+            Justification = "Every deferred callback must run even when an earlier one throws; the exceptions are collected and rethrown by the caller, as CancellationTokenSource.Cancel does for its callbacks.")]
+        private static List<Exception>? RunDeferredCallbacks()
         {
             if (t_changeDepth is not 0 || t_deferredCallbacks is not { Count: > 0 } deferred)
             {
-                return;
+                return null;
             }
 
             t_deferredCallbacks = null;
-            RunDeferredCallbacks(deferred, 0);
+            List<Exception>? failures = null;
+            foreach (var (timer, state) in deferred)
+            {
+                try
+                {
+                    timer._callback(state);
+                }
+                catch (Exception exception)
+                {
+                    (failures ??= []).Add(exception);
+                }
+            }
+
+            return failures;
         }
 
-        /// <summary>Runs <paramref name="deferred"/> from <paramref name="index"/> on, each one even when an earlier
-        /// one threw.</summary>
-        /// <param name="deferred">The deferred callbacks.</param>
-        /// <param name="index">The first one to run.</param>
-        private static void RunDeferredCallbacks(List<(TrackedTimer Timer, object? State)> deferred, int index)
+        /// <summary>Throws the exceptions of deferred callbacks: one as it was thrown, several as an
+        /// <see cref="AggregateException"/>.</summary>
+        /// <param name="failures">The exceptions, or <see langword="null"/> when no callback threw.</param>
+        private static void ThrowCallbackFailures(List<Exception>? failures)
         {
-            if (index >= deferred.Count)
+            if (failures is null)
             {
                 return;
             }
 
-            try
+            if (failures.Count is 1)
             {
-                var (timer, state) = deferred[index];
-                timer._callback(state);
+                ExceptionDispatchInfo.Throw(failures[0]);
             }
-            finally
-            {
-                RunDeferredCallbacks(deferred, index + 1);
-            }
+
+            throw new AggregateException(failures);
         }
 
         /// <summary>Marks a change as started. Callers must hold the owner's lock.</summary>

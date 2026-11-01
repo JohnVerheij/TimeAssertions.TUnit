@@ -64,11 +64,12 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
     /// </summary>
     /// <param name="delta">The amount of time to advance.</param>
     /// <param name="cancellationToken">The only bound of the wait, typically the test's token.</param>
-    /// <returns>A task that completes once the loops woken by the advance have created their next timers.</returns>
+    /// <returns>A task that completes once the loops woken by the advance have armed their next timers.</returns>
     /// <remarks>
     /// <para>
     /// A one-shot timer that fired is done; a loop that keeps running schedules its next wait by creating a
-    /// new timer or re-scheduling one, so "as many armed timers as fired one-shot timers" means every woken loop
+    /// timer with a due time or re-scheduling one with <see cref="ITimer.Change"/> (a timer created disabled
+    /// counts once a change arms it), so "as many armed timers as fired one-shot timers" means every woken loop
     /// reached its next wait. Periodic timers keep their schedule and are not waited for; use
     /// <see cref="AdvanceUntilAsync"/> for loops driven by a periodic timer.
     /// </para>
@@ -104,7 +105,7 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
             throw new OperationCanceledException(
                 string.Create(
                     CultureInfo.InvariantCulture,
-                    $"Advancing {delta} fired {fired} one-shot timer(s), but only {TimersArmedCount - armedBefore} timer(s) were armed (created, or re-scheduled with Change) before the wait was canceled. A loop that ends after its timer fires arms no new one; for a periodic timer use AdvanceUntilAsync."),
+                    $"Advancing {delta} fired {fired} one-shot timer(s), but only {TimersArmedCount - armedBefore} timer(s) were armed (created with a due time, or re-scheduled with Change) before the wait was canceled. A loop that ends after its timer fires arms no new one; for a periodic timer use AdvanceUntilAsync."),
                 exception,
                 cancellationToken);
         }

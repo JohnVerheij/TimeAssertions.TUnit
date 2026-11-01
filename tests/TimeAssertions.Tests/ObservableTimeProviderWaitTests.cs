@@ -279,8 +279,9 @@ internal sealed class ObservableTimeProviderWaitTests
         await Assert.That(time.NextTimerDueTime).IsEqualTo(FiveSeconds);
     }
 
-    /// <summary>Changes of one timer from two threads are applied one at a time: a second change waits while the
-    /// first one is inside the inner timer, so the published schedule is the one the inner timer applied last.</summary>
+    /// <summary>Changes of one timer from two threads are applied one at a time: the second change finds the first
+    /// one inside the inner timer and waits for it, so the published schedule is the one the inner timer applied
+    /// last.</summary>
     [Test]
     public async Task Change_ConcurrentOnOneTimer_PublishesTheScheduleAppliedLast(CancellationToken cancellationToken)
     {
@@ -300,10 +301,14 @@ internal sealed class ObservableTimeProviderWaitTests
             }
         };
         probe.OnChangeApplied = applied.Enqueue;
+        var secondWaits = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        time.ChangeLockContended = () => secondWaits.TrySetResult();
 
         var first = Task.Run(() => timer.Change(FiveSeconds, Timeout.InfiniteTimeSpan), cancellationToken);
         await firstInside.Task.WaitAsync(cancellationToken);
         var second = Task.Run(() => timer.Change(OneSecond, Timeout.InfiniteTimeSpan), cancellationToken);
+        await secondWaits.Task.WaitAsync(cancellationToken);
+        await Assert.That(applied.IsEmpty).IsTrue();
         releaseFirst.Set();
         await Task.WhenAll(first, second);
 
@@ -334,6 +339,105 @@ internal sealed class ObservableTimeProviderWaitTests
         await Assert.That(inner.TimerFireCount).IsEqualTo(1);
         await Assert.That(outer.NextTimerDueTime).IsNull();
         await Assert.That(inner.NextTimerDueTime).IsNull();
+        timer.Dispose();
+    }
+
+    /// <summary>A timer created disabled is not an armed wait; it counts once a change arms it.</summary>
+    [Test]
+    public async Task TimersArmedCount_DisabledCreation_CountsOnceArmed(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = new ObservableTimeProvider(new FakeTimeProvider());
+        var disabled = time.CreateTimer(static _ => { }, state: null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        var armed = time.CreateTimer(static _ => { }, state: null, FiveSeconds, Timeout.InfiniteTimeSpan);
+
+        await Assert.That(time.TimersCreatedCount).IsEqualTo(2);
+        await Assert.That(time.TimersArmedCount).IsEqualTo(1);
+
+        disabled.Change(OneSecond, Timeout.InfiniteTimeSpan);
+
+        await Assert.That(time.TimersArmedCount).IsEqualTo(2);
+        disabled.Dispose();
+        armed.Dispose();
+    }
+
+    /// <summary>A callback that a change fires and that throws: the exception propagates from <c>Change</c> as it
+    /// was thrown, after the change is applied.</summary>
+    [Test]
+    public async Task Change_FiredCallbackThrows_PropagatesItsException(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = new ObservableFakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var timer = time.CreateTimer(
+            static _ => throw new InvalidOperationException("callback failed"),
+            state: null,
+            Timeout.InfiniteTimeSpan,
+            Timeout.InfiniteTimeSpan);
+
+        await Assert.That(() => timer.Change(TimeSpan.Zero, Timeout.InfiniteTimeSpan))
+            .Throws<InvalidOperationException>().WithMessage("callback failed", StringComparison.Ordinal);
+        await Assert.That(time.TimerFireCount).IsEqualTo(1);
+        await Assert.That(time.NextTimerDueTime).IsNull();
+        timer.Dispose();
+    }
+
+    /// <summary>Two fires during one change whose callbacks both throw: both run, and <c>Change</c> throws an
+    /// <see cref="AggregateException"/> with both exceptions, in order.</summary>
+    [Test]
+    public async Task Change_TwoFiredCallbacksThrow_ThrowsBothAsAggregate(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var probe = new ProbeTimeProvider();
+        var time = new ObservableTimeProvider(probe);
+        var runs = 0;
+        var timer = time.CreateTimer(
+            _ => throw new InvalidOperationException($"callback {Interlocked.Increment(ref runs)}"),
+            state: null,
+            Timeout.InfiniteTimeSpan,
+            Timeout.InfiniteTimeSpan);
+        probe.OnChange = static (callback, state) =>
+        {
+            callback(state);
+            callback(state);
+        };
+
+        var exception = await Assert.That(() => timer.Change(TimeSpan.Zero, Timeout.InfiniteTimeSpan))
+            .Throws<AggregateException>();
+
+        await Assert.That(runs).IsEqualTo(2);
+        await Assert.That(exception!.InnerExceptions.Count).IsEqualTo(2);
+        await Assert.That(exception.InnerExceptions[0].Message).IsEqualTo("callback 1");
+        await Assert.That(exception.InnerExceptions[1].Message).IsEqualTo("callback 2");
+        timer.Dispose();
+    }
+
+    /// <summary>An inner timer that fires the callback and then throws from its own <c>Change</c>: the callback
+    /// still runs, and the inner timer's exception is the one that propagates, not the callback's.</summary>
+    [Test]
+    public async Task Change_InnerChangeThrowsAfterFiring_ItsExceptionTakesPrecedence(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var probe = new ProbeTimeProvider();
+        var time = new ObservableTimeProvider(probe);
+        var runs = 0;
+        var timer = time.CreateTimer(
+            _ =>
+            {
+                Interlocked.Increment(ref runs);
+                throw new InvalidOperationException("callback failed");
+            },
+            state: null,
+            Timeout.InfiniteTimeSpan,
+            Timeout.InfiniteTimeSpan);
+        probe.OnChange = static (callback, state) =>
+        {
+            callback(state);
+            throw new NotSupportedException("inner change rejected");
+        };
+
+        await Assert.That(() => timer.Change(TimeSpan.Zero, Timeout.InfiniteTimeSpan))
+            .Throws<NotSupportedException>().WithMessage("inner change rejected", StringComparison.Ordinal);
+        await Assert.That(runs).IsEqualTo(1);
         timer.Dispose();
     }
 
