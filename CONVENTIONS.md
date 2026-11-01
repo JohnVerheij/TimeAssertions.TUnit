@@ -30,7 +30,8 @@ enforces this via MA0006 / MA0001.
 Every assertion chain is `await`-able end-to-end. No `.Result`, no `.GetAwaiter().GetResult()`,
 no sync-over-async. Every async public API accepts `CancellationToken cancellationToken = default`
 as its **last** parameter (additive overload where the existing API didn't); defaulting to `default`
-keeps existing call-sites unaffected. The parameter is always named `cancellationToken` (never `ct`).
+keeps existing call-sites unaffected. A wait whose only bound is the token takes it as a required
+parameter instead (see [Waiting: event-driven first](#waiting-event-driven-first)). The parameter is always named `cancellationToken` (never `ct`).
 Only the `CancellationToken` may carry a default in a given overload: any other optional parameter is
 expressed as a separate, shorter overload (each token-last), never as a second default that overlaps a
 shorter overload, so a positional `(..., cancellationToken)` call binds with no named argument and no
@@ -74,9 +75,11 @@ wait re-checks on the change itself. The rules for such a wait:
   a waiter never runs on the thread that changed the state.
 - Publish a change only once it has taken effect: a waiter that sees the new state may act on it at
   once (for example advance a fake clock).
-- The `CancellationToken` is the bound. An optional `TimeSpan timeout` bounds the wait in real time
-  through a `CancellationTokenSource(timeout, TimeProvider.System)` linked with the token: a bound, not
-  a poll interval.
+- The `CancellationToken` is the bound. Where it is the only bound (nothing else ends the wait), it is a
+  required parameter, not `= default`, so a call cannot wait forever by omission. An optional
+  `TimeSpan timeout` bounds the wait in real time through a
+  `CancellationTokenSource(timeout, TimeProvider.System)` linked with the token: a bound, not a poll
+  interval.
 
 Polling is for state the package cannot observe; the schedule below applies only there.
 
