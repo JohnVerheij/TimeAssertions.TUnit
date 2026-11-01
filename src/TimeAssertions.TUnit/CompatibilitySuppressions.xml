@@ -3,42 +3,231 @@
 <Suppressions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <Suppression>
     <DiagnosticId>CP0001</DiagnosticId>
-    <Target>T:TUnit.Assertions.Extensions.ObservableTimeProvider_HasNoTimerFired_Assertion</Target>
+    <Target>T:TimeAssertions.TUnit.EventuallyTimerAssertionExtensions</Target>
     <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0001</DiagnosticId>
-    <Target>T:TUnit.Assertions.Extensions.ObservableTimeProvider_HasTimerFiredAtLeast_Int_Assertion</Target>
+    <Target>T:TimeAssertions.TUnit.HasTimerScheduledEventuallyAssertion</Target>
     <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0001</DiagnosticId>
-    <Target>T:TUnit.Assertions.Extensions.ObservableTimeProvider_HasTimerFiredCount_Int_Assertion</Target>
+    <Target>T:TUnit.Assertions.Extensions.EventuallyTimerAssertionExtensions</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0001</DiagnosticId>
+    <Target>T:TUnit.Assertions.Extensions.HasTimerScheduledEventuallyAssertionExtensions</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0001</DiagnosticId>
+    <Target>T:TUnit.Assertions.Extensions.ObservableTimeProvider_HasNoTimerScheduled_Assertion</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0001</DiagnosticId>
+    <Target>T:TUnit.Assertions.Extensions.ObservableTimeProvider_HasTimerScheduled_TimeSpan_Int_Assertion</Target>
     <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
-    <Target>M:TimeAssertions.TUnit.ActiveTimerAssertions.HasNoTimerFired(TimeAssertions.ObservableTimeProvider)</Target>
+    <Target>M:TimeAssertions.TUnit.ActiveTimerAssertions.HasNoTimerScheduled(TimeAssertions.ObservableTimeProvider)</Target>
     <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
-    <Target>M:TimeAssertions.TUnit.ActiveTimerAssertions.HasTimerFiredAtLeast(TimeAssertions.ObservableTimeProvider,System.Int32)</Target>
+    <Target>M:TimeAssertions.TUnit.ActiveTimerAssertions.HasTimerScheduled(TimeAssertions.ObservableTimeProvider,System.TimeSpan,System.Int32)</Target>
     <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
-    <Target>M:TimeAssertions.TUnit.ActiveTimerAssertions.HasTimerFiredCount(TimeAssertions.ObservableTimeProvider,System.Int32)</Target>
+    <Target>M:TimeAssertions.TUnit.HasActiveTimerCountEventuallyAssertion.#ctor(TUnit.Assertions.Core.AssertionContext{TimeAssertions.ObservableTimeProvider},System.Int32,System.Threading.CancellationToken)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TimeAssertions.TUnit.HasActiveTimerCountEventuallyAssertion.#ctor(TUnit.Assertions.Core.AssertionContext{TimeAssertions.ObservableTimeProvider},System.Int32,System.TimeSpan,System.Nullable{System.TimeSpan},System.Threading.CancellationToken)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TimeAssertions.TUnit.HasActiveTimerCountEventuallyAssertion.#ctor(TUnit.Assertions.Core.AssertionContext{TimeAssertions.ObservableTimeProvider},System.Int32,System.TimeSpan,System.Threading.CancellationToken)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TimeAssertions.TUnit.HasActiveTimersEventuallyAssertion.#ctor(TUnit.Assertions.Core.AssertionContext{TimeAssertions.ObservableTimeProvider},System.Threading.CancellationToken)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TimeAssertions.TUnit.HasActiveTimersEventuallyAssertion.#ctor(TUnit.Assertions.Core.AssertionContext{TimeAssertions.ObservableTimeProvider},System.TimeSpan,System.Nullable{System.TimeSpan},System.Threading.CancellationToken)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TimeAssertions.TUnit.HasActiveTimersEventuallyAssertion.#ctor(TUnit.Assertions.Core.AssertionContext{TimeAssertions.ObservableTimeProvider},System.TimeSpan,System.Threading.CancellationToken)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TimeAssertions.TUnit.HasAtLeastActiveTimerCountEventuallyAssertion.#ctor(TUnit.Assertions.Core.AssertionContext{TimeAssertions.ObservableTimeProvider},System.Int32,System.Threading.CancellationToken)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TimeAssertions.TUnit.HasAtLeastActiveTimerCountEventuallyAssertion.#ctor(TUnit.Assertions.Core.AssertionContext{TimeAssertions.ObservableTimeProvider},System.Int32,System.TimeSpan,System.Nullable{System.TimeSpan},System.Threading.CancellationToken)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TimeAssertions.TUnit.HasAtLeastActiveTimerCountEventuallyAssertion.#ctor(TUnit.Assertions.Core.AssertionContext{TimeAssertions.ObservableTimeProvider},System.Int32,System.TimeSpan,System.Threading.CancellationToken)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TimeAssertions.TUnit.HasAtMostActiveTimerCountEventuallyAssertion.#ctor(TUnit.Assertions.Core.AssertionContext{TimeAssertions.ObservableTimeProvider},System.Int32,System.Threading.CancellationToken)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TimeAssertions.TUnit.HasAtMostActiveTimerCountEventuallyAssertion.#ctor(TUnit.Assertions.Core.AssertionContext{TimeAssertions.ObservableTimeProvider},System.Int32,System.TimeSpan,System.Nullable{System.TimeSpan},System.Threading.CancellationToken)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TimeAssertions.TUnit.HasAtMostActiveTimerCountEventuallyAssertion.#ctor(TUnit.Assertions.Core.AssertionContext{TimeAssertions.ObservableTimeProvider},System.Int32,System.TimeSpan,System.Threading.CancellationToken)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TimeAssertions.TUnit.HasNoActiveTimersEventuallyAssertion.#ctor(TUnit.Assertions.Core.AssertionContext{TimeAssertions.ObservableTimeProvider},System.Threading.CancellationToken)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TimeAssertions.TUnit.HasNoActiveTimersEventuallyAssertion.#ctor(TUnit.Assertions.Core.AssertionContext{TimeAssertions.ObservableTimeProvider},System.TimeSpan,System.Nullable{System.TimeSpan},System.Threading.CancellationToken)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TimeAssertions.TUnit.HasNoActiveTimersEventuallyAssertion.#ctor(TUnit.Assertions.Core.AssertionContext{TimeAssertions.ObservableTimeProvider},System.TimeSpan,System.Threading.CancellationToken)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.ActiveTimerAssertions.HasActiveTimerCount(TUnit.Assertions.Core.IAssertionSource{TimeAssertions.ObservableTimeProvider},System.Int32,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.ActiveTimerAssertions.HasActiveTimerCount``1(TUnit.Assertions.Core.IAssertionSource{``0},System.Int32,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.ActiveTimerAssertions.HasActiveTimers(TUnit.Assertions.Core.IAssertionSource{TimeAssertions.ObservableTimeProvider})</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.ActiveTimerAssertions.HasActiveTimers``1(TUnit.Assertions.Core.IAssertionSource{``0})</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.ActiveTimerAssertions.HasAtLeastActiveTimerCount(TUnit.Assertions.Core.IAssertionSource{TimeAssertions.ObservableTimeProvider},System.Int32,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.ActiveTimerAssertions.HasAtLeastActiveTimerCount``1(TUnit.Assertions.Core.IAssertionSource{``0},System.Int32,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.ActiveTimerAssertions.HasNextTimerDueApproximately(TUnit.Assertions.Core.IAssertionSource{TimeAssertions.ObservableTimeProvider},System.TimeSpan,System.TimeSpan,System.String,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.ActiveTimerAssertions.HasNextTimerDueApproximately``1(TUnit.Assertions.Core.IAssertionSource{``0},System.TimeSpan,System.TimeSpan,System.String,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.ActiveTimerAssertions.HasNoActiveTimers(TUnit.Assertions.Core.IAssertionSource{TimeAssertions.ObservableTimeProvider})</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.ActiveTimerAssertions.HasNoActiveTimers``1(TUnit.Assertions.Core.IAssertionSource{``0})</Target>
     <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
@@ -52,7 +241,42 @@
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.ActiveTimerAssertions.HasNoTimerFired``1(TUnit.Assertions.Core.IAssertionSource{``0})</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.ActiveTimerAssertions.HasNoTimerScheduled``1(TUnit.Assertions.Core.IAssertionSource{``0})</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.ActiveTimerAssertions.HasPendingTimerDueWithin(TUnit.Assertions.Core.IAssertionSource{TimeAssertions.ObservableTimeProvider},System.TimeSpan,System.TimeSpan,System.String,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.ActiveTimerAssertions.HasPendingTimerDueWithin``1(TUnit.Assertions.Core.IAssertionSource{``0},System.TimeSpan,System.TimeSpan,System.String,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:TUnit.Assertions.Extensions.ActiveTimerAssertions.HasTimerFiredAtLeast(TUnit.Assertions.Core.IAssertionSource{TimeAssertions.ObservableTimeProvider},System.Int32,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.ActiveTimerAssertions.HasTimerFiredAtLeast``1(TUnit.Assertions.Core.IAssertionSource{``0},System.Int32,System.String)</Target>
     <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
@@ -65,8 +289,197 @@
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.ActiveTimerAssertions.HasTimerFiredCount``1(TUnit.Assertions.Core.IAssertionSource{``0},System.Int32,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.ActiveTimerAssertions.HasTimerScheduled``1(TUnit.Assertions.Core.IAssertionSource{``0},System.TimeSpan,System.Int32,System.String,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.HasActiveTimerCountEventuallyAssertionExtensions.HasActiveTimerCountEventually(TUnit.Assertions.Core.IAssertionSource{TimeAssertions.ObservableTimeProvider},System.Int32,System.TimeSpan,System.Nullable{System.TimeSpan},System.Threading.CancellationToken,System.String,System.String,System.String,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.HasActiveTimerCountEventuallyAssertionExtensions.HasActiveTimerCountEventually``1(TUnit.Assertions.Core.IAssertionSource{``0},System.Int32,System.Threading.CancellationToken,System.String,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.HasActiveTimerCountEventuallyAssertionExtensions.HasActiveTimerCountEventually``1(TUnit.Assertions.Core.IAssertionSource{``0},System.Int32,System.TimeSpan,System.Threading.CancellationToken,System.String,System.String,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.HasActiveTimersEventuallyAssertionExtensions.HasActiveTimersEventually(TUnit.Assertions.Core.IAssertionSource{TimeAssertions.ObservableTimeProvider},System.TimeSpan,System.Nullable{System.TimeSpan},System.Threading.CancellationToken,System.String,System.String,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.HasActiveTimersEventuallyAssertionExtensions.HasActiveTimersEventually``1(TUnit.Assertions.Core.IAssertionSource{``0},System.Threading.CancellationToken,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.HasActiveTimersEventuallyAssertionExtensions.HasActiveTimersEventually``1(TUnit.Assertions.Core.IAssertionSource{``0},System.TimeSpan,System.Threading.CancellationToken,System.String,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.HasAtLeastActiveTimerCountEventuallyAssertionExtensions.HasAtLeastActiveTimerCountEventually(TUnit.Assertions.Core.IAssertionSource{TimeAssertions.ObservableTimeProvider},System.Int32,System.TimeSpan,System.Nullable{System.TimeSpan},System.Threading.CancellationToken,System.String,System.String,System.String,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.HasAtLeastActiveTimerCountEventuallyAssertionExtensions.HasAtLeastActiveTimerCountEventually``1(TUnit.Assertions.Core.IAssertionSource{``0},System.Int32,System.Threading.CancellationToken,System.String,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.HasAtLeastActiveTimerCountEventuallyAssertionExtensions.HasAtLeastActiveTimerCountEventually``1(TUnit.Assertions.Core.IAssertionSource{``0},System.Int32,System.TimeSpan,System.Threading.CancellationToken,System.String,System.String,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.HasAtMostActiveTimerCountEventuallyAssertionExtensions.HasAtMostActiveTimerCountEventually(TUnit.Assertions.Core.IAssertionSource{TimeAssertions.ObservableTimeProvider},System.Int32,System.TimeSpan,System.Nullable{System.TimeSpan},System.Threading.CancellationToken,System.String,System.String,System.String,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.HasAtMostActiveTimerCountEventuallyAssertionExtensions.HasAtMostActiveTimerCountEventually``1(TUnit.Assertions.Core.IAssertionSource{``0},System.Int32,System.Threading.CancellationToken,System.String,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.HasAtMostActiveTimerCountEventuallyAssertionExtensions.HasAtMostActiveTimerCountEventually``1(TUnit.Assertions.Core.IAssertionSource{``0},System.Int32,System.TimeSpan,System.Threading.CancellationToken,System.String,System.String,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.HasNoActiveTimersEventuallyAssertionExtensions.HasNoActiveTimersEventually(TUnit.Assertions.Core.IAssertionSource{TimeAssertions.ObservableTimeProvider},System.TimeSpan,System.Nullable{System.TimeSpan},System.Threading.CancellationToken,System.String,System.String,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.HasNoActiveTimersEventuallyAssertionExtensions.HasNoActiveTimersEventually``1(TUnit.Assertions.Core.IAssertionSource{``0},System.Threading.CancellationToken,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:TUnit.Assertions.Extensions.HasNoActiveTimersEventuallyAssertionExtensions.HasNoActiveTimersEventually``1(TUnit.Assertions.Core.IAssertionSource{``0},System.TimeSpan,System.Threading.CancellationToken,System.String,System.String)</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
     <DiagnosticId>CP0003</DiagnosticId>
-    <Target>TimeAssertions.TUnit, Version=0.8.1.0, Culture=neutral, PublicKeyToken=null</Target>
+    <Target>TimeAssertions.TUnit, Version=0.9.0.0, Culture=neutral, PublicKeyToken=null</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>T:TUnit.Assertions.Extensions.HasActiveTimerCountEventuallyAssertionExtensions:[T:System.Runtime.CompilerServices.NullableAttribute]</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>T:TUnit.Assertions.Extensions.HasActiveTimerCountEventuallyAssertionExtensions:[T:System.Runtime.CompilerServices.NullableContextAttribute]</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>T:TUnit.Assertions.Extensions.HasActiveTimersEventuallyAssertionExtensions:[T:System.Runtime.CompilerServices.NullableAttribute]</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>T:TUnit.Assertions.Extensions.HasActiveTimersEventuallyAssertionExtensions:[T:System.Runtime.CompilerServices.NullableContextAttribute]</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>T:TUnit.Assertions.Extensions.HasAtLeastActiveTimerCountEventuallyAssertionExtensions:[T:System.Runtime.CompilerServices.NullableAttribute]</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>T:TUnit.Assertions.Extensions.HasAtLeastActiveTimerCountEventuallyAssertionExtensions:[T:System.Runtime.CompilerServices.NullableContextAttribute]</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>T:TUnit.Assertions.Extensions.HasAtMostActiveTimerCountEventuallyAssertionExtensions:[T:System.Runtime.CompilerServices.NullableAttribute]</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>T:TUnit.Assertions.Extensions.HasAtMostActiveTimerCountEventuallyAssertionExtensions:[T:System.Runtime.CompilerServices.NullableContextAttribute]</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>T:TUnit.Assertions.Extensions.HasNoActiveTimersEventuallyAssertionExtensions:[T:System.Runtime.CompilerServices.NullableAttribute]</Target>
+    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
+    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>T:TUnit.Assertions.Extensions.HasNoActiveTimersEventuallyAssertionExtensions:[T:System.Runtime.CompilerServices.NullableContextAttribute]</Target>
     <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>

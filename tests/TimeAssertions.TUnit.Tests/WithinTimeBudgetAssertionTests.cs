@@ -103,7 +103,7 @@ internal sealed class WithinTimeBudgetAssertionTests
     /// <summary>Pins that <c>.And.WithinTimeBudget()</c> works after an intermediate assertion.
     /// The <c>.And</c> continuation returns <c>IAssertionSource&lt;T&gt;</c>, which is the
     /// surface our <c>[AssertionExtension]</c>-emitted extension targets: so timing budgets
-    /// CAN compose with behavioural assertion chains, just via <c>.And</c> rather than directly.</summary>
+    /// CAN compose with behavioral assertion chains, just via <c>.And</c> rather than directly.</summary>
     [Test]
     public async Task AndChain_AfterIntermediateAssertion_Composes(CancellationToken cancellationToken)
     {
@@ -251,7 +251,7 @@ internal sealed class WithinTimeBudgetAssertionTests
 
     /// <summary>External CT cancellation during a slow source surfaces as a plain
     /// <see cref="OperationCanceledException"/>, NOT wrapped as
-    /// <see cref="AssertionException"/>. The test runner records the test as cancelled,
+    /// <see cref="AssertionException"/>. The test runner records the test as canceled,
     /// which is the correct outcome when a parent <c>[Timeout]</c> or test-class cancel
     /// fires mid-operation.</summary>
     [Test]
@@ -267,12 +267,12 @@ internal sealed class WithinTimeBudgetAssertionTests
         }).Throws<OperationCanceledException>();
     }
 
-    /// <summary>Pre-cancelled CT: the source's first await throws
+    /// <summary>Pre-canceled CT: the source's first await throws
     /// <see cref="OperationCanceledException"/>; the assertion propagates the OCE without
     /// wrapping. Confirms the OCE-special-case fires before the generic exception-wrapping
     /// branch.</summary>
     [Test]
-    public async Task PreCancelledToken_PropagatesOperationCanceledException(CancellationToken cancellationToken)
+    public async Task PreCanceledToken_PropagatesOperationCanceledException(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         using var cts = new CancellationTokenSource();
@@ -286,7 +286,7 @@ internal sealed class WithinTimeBudgetAssertionTests
     }
 
     /// <summary>Capturing variant under external cancellation: the OCE propagates AND the
-    /// capture callback is NOT invoked. A partial elapsed from a cancelled operation would
+    /// capture callback is NOT invoked. A partial elapsed from a canceled operation would
     /// mislead consumers about the operation's real cost, so the capture is deliberately
     /// suppressed on cancellation.</summary>
     [Test]
@@ -305,10 +305,10 @@ internal sealed class WithinTimeBudgetAssertionTests
         await Assert.That(captureInvoked).IsFalse();
     }
 
-    /// <summary>Capturing variant with a pre-cancelled CT: the OCE propagates and the
+    /// <summary>Capturing variant with a pre-canceled CT: the OCE propagates and the
     /// capture is suppressed. Same contract as the in-flight cancellation case.</summary>
     [Test]
-    public async Task Capturing_PreCancelledToken_DoesNotInvokeCaptureAndPropagatesOce(CancellationToken cancellationToken)
+    public async Task Capturing_PreCanceledToken_DoesNotInvokeCaptureAndPropagatesOce(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         using var cts = new CancellationTokenSource();

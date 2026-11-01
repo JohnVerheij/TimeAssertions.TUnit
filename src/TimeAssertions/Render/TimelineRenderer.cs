@@ -42,7 +42,7 @@ namespace TimeAssertions.Render;
 /// <b>Deterministic line endings.</b> Lines are terminated with the literal LF byte
 /// (<c>'\n'</c>), not <see cref="Environment.NewLine"/>. The CRLF /
 /// LF split between Windows and Unix would break the "byte-stable output" contract:
-/// the same timeline would serialise differently per OS, producing snapshot mismatches
+/// the same timeline would serialize differently per OS, producing snapshot mismatches
 /// on cross-platform CI. Hardcoding LF keeps snapshots committed on one platform
 /// compatible with test runs on every other.
 /// </para>

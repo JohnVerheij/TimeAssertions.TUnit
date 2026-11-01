@@ -640,4 +640,64 @@ internal sealed class TimeRenderingHelpersTests
                 actual: 1, minimum: -1, Array.Empty<ActiveTimerInfo>()))
             .Throws<ArgumentOutOfRangeException>();
     }
+
+    // ---- FormatScheduledTimerShortfall / FormatUnexpectedScheduledTimers (v0.10.0) ----
+
+    /// <summary>A scheduled-timer shortfall counts only the timers carrying the due time and lists every active
+    /// timer's schedule, with the grep-friendly trailer.</summary>
+    [Test]
+    public async Task FormatScheduledTimerShortfall_CountsMatchingTimersAndListsAll(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var active = new[]
+        {
+            new ActiveTimerInfo(TimeSpan.FromSeconds(30), Timeout.InfiniteTimeSpan),
+            new ActiveTimerInfo(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)),
+        };
+
+        var formatted = TimeRenderingHelpers.FormatScheduledTimerShortfall(active, TimeSpan.FromSeconds(30), minimum: 2);
+
+        await Assert.That(formatted).Contains("expected at least 2 active timer(s) scheduled at 30.0s but found 1 (minimum=2, actual=1):");
+        await Assert.That(formatted).Contains("[dueTime=1.0s, period=1.0s]");
+        await Assert.That(formatted).Contains("[dueTime=30.0s, period=one-shot]");
+    }
+
+    /// <summary>Argument validation: a <see langword="null"/> list and a negative minimum are rejected.</summary>
+    [Test]
+    public async Task FormatScheduledTimerShortfall_InvalidArguments_Throw(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await Assert.That(() => TimeRenderingHelpers.FormatScheduledTimerShortfall(null!, TimeSpan.FromSeconds(1), minimum: 1))
+            .Throws<ArgumentNullException>();
+        await Assert.That(() => TimeRenderingHelpers.FormatScheduledTimerShortfall(
+                Array.Empty<ActiveTimerInfo>(), TimeSpan.FromSeconds(1), minimum: -1))
+            .Throws<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>The unexpected-schedule message lists only timers with a pending due time, not disabled ones.</summary>
+    [Test]
+    public async Task FormatUnexpectedScheduledTimers_ListsOnlyScheduledTimers(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var active = new[]
+        {
+            new ActiveTimerInfo(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan),
+            new ActiveTimerInfo(TimeSpan.FromSeconds(5), Timeout.InfiniteTimeSpan),
+        };
+
+        var formatted = TimeRenderingHelpers.FormatUnexpectedScheduledTimers(active);
+
+        await Assert.That(formatted).Contains("expected no scheduled timer but 1 active timer(s) had a pending due time (count=1):");
+        await Assert.That(formatted).Contains("[dueTime=5.0s, period=one-shot]");
+        await Assert.That(formatted).DoesNotContain("dueTime=infinite");
+    }
+
+    /// <summary>Argument validation: a <see langword="null"/> list is rejected.</summary>
+    [Test]
+    public async Task FormatUnexpectedScheduledTimers_NullActive_ThrowsArgumentNull(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await Assert.That(() => TimeRenderingHelpers.FormatUnexpectedScheduledTimers(null!))
+            .Throws<ArgumentNullException>();
+    }
 }

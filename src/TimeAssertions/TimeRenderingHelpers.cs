@@ -203,6 +203,72 @@ public static class TimeRenderingHelpers
     }
 
     /// <summary>
+    /// Formats the failure message for <c>HasTimerScheduled(dueTime, atLeast)</c> and
+    /// <c>HasTimerScheduledEventually(...)</c>: how many active timers carry <paramref name="dueTime"/>
+    /// against the minimum that was required, followed by each active timer's schedule in deterministic order
+    /// (by due time, then period). When no timers are active the schedule list is omitted.
+    /// </summary>
+    /// <param name="active">The timers active when the assertion ran.</param>
+    /// <param name="dueTime">The due time the timers were expected to carry.</param>
+    /// <param name="minimum">The minimum number of timers carrying <paramref name="dueTime"/>. Must be
+    /// non-negative.</param>
+    /// <returns>A multi-line human-readable summary in <see cref="CultureInfo.InvariantCulture"/>, with a
+    /// grep-friendly <c>(minimum=N, actual=M)</c> trailer on the headline.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="active"/> is
+    /// <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="minimum"/> is negative.</exception>
+    public static string FormatScheduledTimerShortfall(IReadOnlyList<ActiveTimerInfo> active, TimeSpan dueTime, int minimum)
+    {
+        ArgumentNullException.ThrowIfNull(active);
+        ArgumentOutOfRangeException.ThrowIfNegative(minimum);
+
+        var actual = 0;
+        foreach (var timer in active)
+        {
+            if (timer.DueTime == dueTime)
+            {
+                actual++;
+            }
+        }
+
+        var sb = new StringBuilder();
+        sb.Append(CultureInfo.InvariantCulture,
+            $"expected at least {minimum} active timer(s) scheduled at {FormatDuration(dueTime)} but found {actual} (minimum={minimum}, actual={actual}):");
+        AppendTimerSchedules(sb, active);
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Formats the failure message for <c>HasNoTimerScheduled()</c>: how many active timers still carry a
+    /// pending (non-infinite) due time, followed by those timers' schedules in deterministic order (by due
+    /// time, then period). Active timers that are disabled are left out: they are not scheduled.
+    /// </summary>
+    /// <param name="active">The timers active when the assertion ran.</param>
+    /// <returns>A multi-line human-readable summary in <see cref="CultureInfo.InvariantCulture"/>, with a
+    /// grep-friendly <c>(count=N)</c> trailer on the headline.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="active"/> is
+    /// <see langword="null"/>.</exception>
+    public static string FormatUnexpectedScheduledTimers(IReadOnlyList<ActiveTimerInfo> active)
+    {
+        ArgumentNullException.ThrowIfNull(active);
+
+        var scheduled = new List<ActiveTimerInfo>(active.Count);
+        foreach (var timer in active)
+        {
+            if (timer.DueTime != Timeout.InfiniteTimeSpan)
+            {
+                scheduled.Add(timer);
+            }
+        }
+
+        var sb = new StringBuilder();
+        sb.Append(CultureInfo.InvariantCulture,
+            $"expected no scheduled timer but {scheduled.Count} active timer(s) had a pending due time (count={scheduled.Count}):");
+        AppendTimerSchedules(sb, scheduled);
+        return sb.ToString();
+    }
+
+    /// <summary>
     /// Formats the failure message for <c>HasNextTimerDueApproximately(expected, tolerance)</c>: the
     /// expected due time, the allowed tolerance, and either the observed next-timer due time and how
     /// far it fell outside tolerance, or a note that no enabled timer was pending.
@@ -279,7 +345,7 @@ public static class TimeRenderingHelpers
     }
 
     /// <summary>
-    /// Formats the schedule list of the timers that survived a poll-until-clear deadline, for the
+    /// Formats the schedule list of the timers that survived an "eventually" wait, for the
     /// failure message of <c>HasNoActiveTimersEventually(...)</c> / <c>HasActiveTimerCountEventually(...)</c>.
     /// Returns each survivor's schedule on its own indented line, sorted by due time then period for
     /// deterministic (snapshot-stable) output, prefixed with a grep-friendly <c>(count=N)</c> trailer.

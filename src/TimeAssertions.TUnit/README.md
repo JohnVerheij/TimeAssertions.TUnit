@@ -9,9 +9,9 @@
 
 > Part of the **[DotNetAssertions](https://dotnetassertions.dev)** family of assertion extensions for TUnit.
 
-TUnit-native fluent time-assertion DSL on top of `Microsoft.Extensions.Time.Testing.FakeTimeProvider`. Adds `FakeTimeProvider` state assertions, `TimeProvider`-aware `DateTimeOffset` recency / past / future checks, plus the cross-cutting `.WithinTimeBudget(TimeSpan)` chain extension. AOT-compatible, trimmable, no reflection.
+TUnit-native fluent time-assertion DSL on top of `Microsoft.Extensions.Time.Testing.FakeTimeProvider`. Adds `FakeTimeProvider` state assertions, `TimeProvider`-aware `DateTimeOffset` recency / past / future checks, plus the cross-cutting `.WithinTimeBudget(TimeSpan)` chain extension, and timer assertions on an `ObservableTimeProvider`: leaks, fires, schedules, and event-driven waits that react to each timer change instead of polling. AOT-compatible, trimmable, no reflection.
 
-> **Full documentation, "Why TimeProvider in tests", cookbook, design notes, and roadmap:** [github.com/JohnVerheij/TimeAssertions.TUnit](https://github.com/JohnVerheij/TimeAssertions.TUnit)
+> **Full documentation, "Why TimeProvider in tests", cookbook, design notes, and roadmap:** [timeassertions.dev](https://timeassertions.dev) (source: [github.com/JohnVerheij/TimeAssertions.TUnit](https://github.com/JohnVerheij/TimeAssertions.TUnit))
 
 ## Install
 
@@ -21,7 +21,7 @@ dotnet add package TimeAssertions.TUnit
 
 `TimeAssertions` (the framework-agnostic core) and `Microsoft.Extensions.TimeProvider.Testing` come transitively. **Requirements:** TUnit 1.77.0 or later, .NET 10.
 
-The source-generated entry points (`HasAdvancedExactly`, `HasAdvancedApproximately`, `HasUtcNow`, `HasUtcNowApproximately`, `IsRecent`, `IsBeforeNow`, `IsAfterNow`, `WithinTimeBudget`, `WithinTimeBudgetCapturing`, `WasInvokedAtMostOncePer`, `HasNoActiveTimers`, `HasActiveTimerCount`, `HasActiveTimers`, `HasAtLeastActiveTimerCount`, `HasNoActiveTimersEventually`, `HasActiveTimerCountEventually`, `HasAtLeastActiveTimerCountEventually`, `HasAtMostActiveTimerCountEventually`, `HasActiveTimersEventually`, `HasNextTimerDueApproximately`, `HasPendingTimerDueWithin`, `HasTimerFiredCount`, `HasNoTimerFired`, `HasTimerFiredAtLeast`) auto-import via `TUnit.Assertions.Extensions`. Add the following to a `GlobalUsings.cs` in your test project for the call-site and `FakeTimeProvider` namespaces:
+The source-generated entry points (`HasAdvancedExactly`, `HasAdvancedApproximately`, `HasUtcNow`, `HasUtcNowApproximately`, `IsRecent`, `IsBeforeNow`, `IsAfterNow`, `WithinTimeBudget`, `WithinTimeBudgetCapturing`, `WasInvokedAtMostOncePer`, `HasNoActiveTimers`, `HasActiveTimerCount`, `HasActiveTimers`, `HasAtLeastActiveTimerCount`, `HasNoActiveTimersEventually`, `HasActiveTimerCountEventually`, `HasAtLeastActiveTimerCountEventually`, `HasAtMostActiveTimerCountEventually`, `HasActiveTimersEventually`, `HasNextTimerDueApproximately`, `HasPendingTimerDueWithin`, `HasTimerScheduled`, `HasNoTimerScheduled`, `HasTimerScheduledEventually`, `HasTimerFiredCount`, `HasNoTimerFired`, `HasTimerFiredAtLeast`) auto-import via `TUnit.Assertions.Extensions`. Add the following to a `GlobalUsings.cs` in your test project for the call-site and `FakeTimeProvider` namespaces:
 
 ```csharp
 global using Microsoft.Extensions.Time.Testing;
@@ -63,9 +63,12 @@ public async Task PreReleaseExpiration_advances_state_after_clock_moves_forward(
 | `WasInvokedAtMostOncePer(this IReadOnlyList<DateTimeOffset>, TimeSpan interval)` | Rate-limit assertion on a recorded invocation log: every consecutive gap is at least `interval` (added in v0.5.0) |
 | `HasNoActiveTimers()` / `HasActiveTimerCount(int)` on `ObservableTimeProvider` | Timer-leak assertions: no undisposed timers / exact active-timer count, naming each survivor by its schedule on failure (added in v0.6.0) |
 | `HasActiveTimers()` / `HasAtLeastActiveTimerCount(int)` on `ObservableTimeProvider` | Positive-count assertions: at least one / at least `count` active timers, for a lower bound rather than an exact count (added in v0.7.0) |
-| `HasNoActiveTimersEventually(TimeSpan, ...)` / `HasActiveTimerCountEventually(int, TimeSpan, ...)` on `ObservableTimeProvider` | Real-time poll until the active count reaches zero / a target count, for the asynchronous disposal race a synchronous check cannot see (added in v0.7.0) |
+| `HasNoActiveTimersEventually(...)` / `HasActiveTimerCountEventually(int, ...)` on `ObservableTimeProvider` | Wait until the active count reaches zero / a target count, for the asynchronous disposal race a synchronous check cannot see (added in v0.7.0; event-driven since v0.10.0: the count is re-checked on each timer change, bounded by the token or a real-time `timeout`) |
+| `HasAtLeastActiveTimerCountEventually(int, ...)` / `HasAtMostActiveTimerCountEventually(int, ...)` / `HasActiveTimersEventually(...)` on `ObservableTimeProvider` | Wait for a lower bound / an upper bound / at least one active timer (added in v0.8.0; event-driven since v0.10.0) |
 | `HasNextTimerDueApproximately(TimeSpan, TimeSpan)` / `HasPendingTimerDueWithin(TimeSpan, TimeSpan)` on `ObservableTimeProvider` | Pending-timer due-time assertions: inspect the next scheduled timer's due time without advancing the clock, within a tolerance or an inclusive range (added in v0.6.0) |
 | `HasTimerFiredCount(int)` / `HasNoTimerFired()` / `HasTimerFiredAtLeast(int)` on `ObservableTimeProvider` | Timer-fire assertions: how many times timer callbacks ran in total, cumulative and surviving disposal (added in v0.9.0) |
+| `HasTimerScheduled(TimeSpan, int atLeast = 1)` / `HasNoTimerScheduled()` / `HasTimerScheduledEventually(TimeSpan, ...)` on `ObservableTimeProvider` | Due-time assertions: find a timer by the due time the code passed, among any number of timers; assert nothing is scheduled; wait until a timer (or `atLeast` timers) carries the due time (added in v0.10.0) |
+| `ObservableFakeTimeProvider` (core) | One object to inject, advance, and assert on: `AdvanceAndSettleAsync`, `AdvanceOnEachTimerUntilAsync`, and `AdvanceUntilAsync` drive timer loops without real time (added in v0.10.0) |
 
 ## Failure diagnostics
 
@@ -83,6 +86,8 @@ Part of an assertion family for TUnit:
 - [JsonAssertions.TUnit](https://github.com/JohnVerheij/JsonAssertions.TUnit)
 - [SseAssertions.TUnit](https://github.com/JohnVerheij/SseAssertions.TUnit)
 - [GrpcAssertions.TUnit](https://github.com/JohnVerheij/GrpcAssertions.TUnit)
+- [TracingAssertions.TUnit](https://github.com/JohnVerheij/TracingAssertions.TUnit)
+- [MetricsAssertions.TUnit](https://github.com/JohnVerheij/MetricsAssertions.TUnit)
 
 ## License
 

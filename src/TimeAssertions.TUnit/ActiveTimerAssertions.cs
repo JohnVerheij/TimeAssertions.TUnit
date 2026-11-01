@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TimeAssertions;
 using TUnit.Assertions.Attributes;
 using TUnit.Assertions.Core;
@@ -20,12 +21,12 @@ namespace TimeAssertions.TUnit;
 /// </para>
 /// <para>
 /// For an asynchronous disposal race (the timer is disposed on a background <c>StopAsync</c> that
-/// has not completed when the assertion runs), use the polling overload
-/// <c>await Assert.That(time).HasNoActiveTimersEventually(timeout)</c>, which re-checks the live
-/// active count on the real wall clock until it reaches zero or the timeout elapses. The
-/// count-targeted siblings (<c>HasActiveTimerCountEventually</c>,
-/// <c>HasAtLeastActiveTimerCountEventually</c>, <c>HasAtMostActiveTimerCountEventually</c>,
-/// <c>HasActiveTimersEventually</c>) poll for other steady states.
+/// has not completed when the assertion runs), use
+/// <c>await Assert.That(time).HasNoActiveTimersEventually(cancellationToken)</c>, which re-checks the
+/// live active count each time a timer changes until it reaches zero. The count-targeted siblings
+/// (<c>HasActiveTimerCountEventually</c>, <c>HasAtLeastActiveTimerCountEventually</c>,
+/// <c>HasAtMostActiveTimerCountEventually</c>, <c>HasActiveTimersEventually</c>) and
+/// <c>HasTimerScheduledEventually</c> wait for other states the same way.
 /// </para>
 /// <para>
 /// To verify how many times a timer's callback ran, advance fake time on the inner provider and
@@ -199,6 +200,62 @@ public static class ActiveTimerAssertions
     }
 
     /// <summary>
+    /// Asserts that at least <paramref name="atLeast"/> active timers carry the due time
+    /// <paramref name="dueTime"/>, inspecting the schedules the timers currently carry <em>without
+    /// advancing the clock</em>. Unlike <see cref="HasNextTimerDueApproximately"/>, which looks at the
+    /// earliest timer only, this finds a timer among any number of loops: "the auto-close is scheduled in
+    /// 30 s" while a heartbeat runs every second, or "both ping loops armed their 30 s delay".
+    /// </summary>
+    /// <param name="value">The observable provider that tracked the timers.</param>
+    /// <param name="dueTime">The due time to look for, as the code under test passed it (for example the
+    /// delay of a <c>Task.Delay(delay, timeProvider, ct)</c>). Compared exactly. Must be non-negative.</param>
+    /// <param name="atLeast">The minimum number of active timers carrying <paramref name="dueTime"/>. Must
+    /// be positive.</param>
+    /// <returns><see cref="AssertionResult.Passed"/> when enough active timers carry
+    /// <paramref name="dueTime"/>; otherwise <see cref="AssertionResult.Failed(string)"/> naming the active
+    /// timers' schedules.</returns>
+    /// <remarks>
+    /// A timer carries the due time it was created or last changed with; after a fire, a periodic timer
+    /// carries its period and a one-shot timer none. To wait for a timer that background code has yet to
+    /// schedule, use <c>HasTimerScheduledEventually</c>.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="dueTime"/> is negative, or
+    /// <paramref name="atLeast"/> is not positive.</exception>
+    [GenerateAssertion(InlineMethodBody = false)]
+    public static AssertionResult HasTimerScheduled(this ObservableTimeProvider value, TimeSpan dueTime, int atLeast = 1)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentOutOfRangeException.ThrowIfLessThan(dueTime, TimeSpan.Zero);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(atLeast);
+
+        var active = value.ActiveTimers;
+        return CountScheduledAt(active, dueTime) >= atLeast
+            ? AssertionResult.Passed
+            : AssertionResult.Failed(TimeRenderingHelpers.FormatScheduledTimerShortfall(active, dueTime, atLeast));
+    }
+
+    /// <summary>
+    /// Asserts that no active timer has a pending due time: nothing is scheduled to fire. Unlike
+    /// <see cref="HasNoActiveTimers"/>, an undisposed timer that is disabled (a one-shot timer that already
+    /// fired, or one changed to <see cref="System.Threading.Timeout.InfiniteTimeSpan"/>) passes: it exists
+    /// but will not fire.
+    /// </summary>
+    /// <param name="value">The observable provider that tracked the timers.</param>
+    /// <returns><see cref="AssertionResult.Passed"/> when no active timer has a pending due time; otherwise
+    /// <see cref="AssertionResult.Failed(string)"/> naming the scheduled timers.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
+    [GenerateAssertion(InlineMethodBody = false)]
+    public static AssertionResult HasNoTimerScheduled(this ObservableTimeProvider value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        return value.NextTimerDueTime is null
+            ? AssertionResult.Passed
+            : AssertionResult.Failed(TimeRenderingHelpers.FormatUnexpectedScheduledTimers(value.ActiveTimers));
+    }
+
+    /// <summary>
     /// Asserts that timer callbacks fired exactly <paramref name="expected"/> times in total across
     /// every timer created through the <see cref="ObservableTimeProvider"/>. The count is cumulative
     /// and is not reset on disposal, so it reports how many times a hosted service's loop ran after a
@@ -267,5 +324,23 @@ public static class ActiveTimerAssertions
         return actual >= count
             ? AssertionResult.Passed
             : AssertionResult.Failed(TimeRenderingHelpers.FormatTimerFireShortfall(actual, count, value.ActiveTimers));
+    }
+
+    /// <summary>Counts the timers in <paramref name="timers"/> that carry <paramref name="dueTime"/>.</summary>
+    /// <param name="timers">The timers to inspect.</param>
+    /// <param name="dueTime">The due time to match exactly.</param>
+    /// <returns>The number of matching timers.</returns>
+    internal static int CountScheduledAt(IReadOnlyList<ActiveTimerInfo> timers, TimeSpan dueTime)
+    {
+        var count = 0;
+        foreach (var timer in timers)
+        {
+            if (timer.DueTime == dueTime)
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 }

@@ -72,7 +72,7 @@ internal sealed class ConsumerSurfaceSmokeTests
     }
 
     /// <summary>Pins that the cross-cutting <c>WithinTimeBudget</c> chain resolves via
-    /// <c>.And</c> after a behavioural assertion, the canonical pattern documented in the
+    /// <c>.And</c> after a behavioral assertion, the canonical pattern documented in the
     /// README.</summary>
     [Test]
     public async Task WithinTimeBudgetResolvesAndPassesAsync(CancellationToken ct)
@@ -101,6 +101,45 @@ internal sealed class ConsumerSurfaceSmokeTests
 
         await Assert.That(captureInvoked).IsTrue();
         await Assert.That(captured).IsGreaterThanOrEqualTo(TimeSpan.Zero);
+    }
+
+    /// <summary>Pins the v0.10.0 timer surface for an external consumer: an <c>ObservableFakeTimeProvider</c>
+    /// driving a <c>Task.Delay</c> loop with <c>AdvanceAndSettleAsync</c>, the due-time assertions, and the
+    /// event-driven waits. The Native AOT gate compiles and runs this ahead of time.</summary>
+    [Test]
+    public async Task ObservableFakeTimeProviderDrivesATimerLoopAsync(CancellationToken ct)
+    {
+        var time = new ObservableFakeTimeProvider();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var beats = 0;
+        var loop = BeatAsync();
+
+        await Assert.That(time).HasTimerScheduledEventually(TimeSpan.FromSeconds(1), ct);
+        await time.AdvanceAndSettleAsync(TimeSpan.FromSeconds(1), ct);
+        await Assert.That(Volatile.Read(ref beats)).IsEqualTo(1);
+        await Assert.That(time).HasTimerScheduled(TimeSpan.FromSeconds(1));
+        await Assert.That(time).HasTimerFiredCount(1);
+
+        await stop.CancelAsync();
+        await loop;
+        await Assert.That(time).HasNoActiveTimersEventually(ct);
+        await Assert.That(time).HasNoTimerScheduled();
+
+        async Task BeatAsync()
+        {
+            try
+            {
+                while (true)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(1), time, stop.Token);
+                    Interlocked.Increment(ref beats);
+                }
+            }
+            catch (OperationCanceledException) when (stop.IsCancellationRequested)
+            {
+                // Stopped by the test.
+            }
+        }
     }
 
     private static async Task<int> FastValueAsync(CancellationToken ct)

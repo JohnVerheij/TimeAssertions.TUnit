@@ -11,13 +11,13 @@
     <IsPackable>true</IsPackable>
     <PackageId>TimeAssertions</PackageId>
     <ProductName>TimeAssertions</ProductName>
-    <Version>0.9.0</Version>
-    <PackageValidationBaselineVersion>0.8.1</PackageValidationBaselineVersion>
+    <Version>0.10.0</Version>
+    <PackageValidationBaselineVersion>0.9.0</PackageValidationBaselineVersion>
     <Authors>John Verheij</Authors>
     <Copyright>Copyright (c) 2026 John Verheij</Copyright>
-    <Description>Framework-agnostic core for assertion-level timing budgets. Provides duration formatting and rendering helpers for failure-message context, plus ObservableTimeProvider, a TimeProvider decorator that tracks undisposed timers for leak detection in hosted-service tests. Test-framework-specific entry points live in adapter packages (TimeAssertions.TUnit ships today; xUnit, NUnit, MSTest adapters are possible if there is demand).</Description>
-    <PackageTags>assertions;testing;timing;timespan;timeprovider;duration;dotnet;aot</PackageTags>
-    <PackageProjectUrl>https://github.com/JohnVerheij/TimeAssertions.TUnit</PackageProjectUrl>
+    <Description>Framework-agnostic core for testing time-dependent code. ObservableTimeProvider is a TimeProvider decorator that tracks the timers created against it (leaks, schedules, fires) and lets a test await timer events instead of sleeping; ObservableFakeTimeProvider adds a FakeTimeProvider with advance helpers that wait until the woken loops have armed their next timer. Also ships duration formatting and rendering helpers for failure messages. Test-framework-specific entry points live in adapter packages (TimeAssertions.TUnit ships today; xUnit, NUnit, MSTest adapters are possible if there is demand).</Description>
+    <PackageTags>assertions;testing;timing;timespan;timeprovider;faketimeprovider;timers;duration;dotnet;aot</PackageTags>
+    <PackageProjectUrl>https://timeassertions.dev</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <!-- Fallback: nuget.org renders this as a clickable link to the matching GitHub release.
@@ -63,6 +63,10 @@
   <ItemGroup>
     <!-- Alphabetical per dpfa Proj0015 -->
     <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
+    <!-- Microsoft.Extensions.TimeProvider.Testing brings FakeTimeProvider, which
+         ObservableFakeTimeProvider owns and advances. MIT-licensed, from the same Microsoft
+         repository as the TimeProvider abstraction; the adapter already ships it to consumers. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
     <PackageReference Include="Microsoft.Sbom.Targets" PrivateAssets="all" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="all" />
   </ItemGroup>
@@ -77,6 +81,11 @@
 
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The core tests drive the change-ordering seam and read the armed-timer count directly. -->
+    <InternalsVisibleTo Include="TimeAssertions.Tests" />
   </ItemGroup>
 
 </Project>

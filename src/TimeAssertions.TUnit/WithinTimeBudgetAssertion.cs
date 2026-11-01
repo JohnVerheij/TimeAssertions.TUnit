@@ -14,11 +14,11 @@ namespace TimeAssertions.TUnit;
 /// <see cref="AssertionExtensionAttribute"/> source generator.
 /// </summary>
 /// <typeparam name="T">The value type of the underlying assertion. Inferred at the call site
-/// when chained via <c>.And.WithinTimeBudget(...)</c> after a behavioural assertion.</typeparam>
+/// when chained via <c>.And.WithinTimeBudget(...)</c> after a behavioral assertion.</typeparam>
 /// <remarks>
 /// <para>
 /// <b>Canonical chain pattern:</b> place <c>.WithinTimeBudget()</c> after <c>.And</c> on a
-/// behavioural assertion. The <c>.And</c> continuation returns
+/// behavioral assertion. The <c>.And</c> continuation returns
 /// <c>IAssertionSource&lt;T&gt;</c>, so the source generator's emitted
 /// <c>WithinTimeBudget&lt;T&gt;(this IAssertionSource&lt;T&gt;, ...)</c> extension binds with
 /// type inference:
@@ -31,7 +31,7 @@ namespace TimeAssertions.TUnit;
 /// <para>
 /// <b>Post-facto check, NOT cancellation.</b> The wall-clock duration captured by TUnit's
 /// <see cref="EvaluationMetadata{T}.Duration"/> is compared against the budget after the
-/// assertion's evaluator has run; the assertion is not cancelled mid-flight. This decouples
+/// assertion's evaluator has run; the assertion is not canceled mid-flight. This decouples
 /// TimeAssertions from TUnit's assertion lifecycle internals and avoids overlap with each
 /// sibling package's domain-specific timeout API.
 /// </para>
@@ -46,7 +46,7 @@ namespace TimeAssertions.TUnit;
 /// test-class CT, runner cancel), the
 /// <see cref="OperationCanceledException"/> propagates through this assertion to the
 /// test runner via <see cref="ExceptionDispatchInfo"/> without being wrapped as an
-/// assertion failure. The test is recorded as cancelled, not failed. Non-OCE source
+/// assertion failure. The test is recorded as canceled, not failed. Non-OCE source
 /// exceptions continue to surface as <see cref="AssertionResult.Failed(string)"/>.
 /// </para>
 /// </remarks>
@@ -55,7 +55,7 @@ public sealed class WithinTimeBudgetAssertion<T> : Assertion<T>
 {
     private readonly TimeSpan _budget;
 
-    /// <summary>Initialises the assertion with a wall-clock budget. Called by the TUnit source
+    /// <summary>Initializes the assertion with a wall-clock budget. Called by the TUnit source
     /// generator.</summary>
     /// <param name="context">The assertion context supplied by TUnit.</param>
     /// <param name="budget">The maximum wall-clock duration the preceding assertion's evaluator
@@ -77,7 +77,7 @@ public sealed class WithinTimeBudgetAssertion<T> : Assertion<T>
         // External cancellation (parent [Timeout], test-class CT, runner cancel) reaches
         // this assertion via metadata.Exception. We don't own a CancellationTokenSource here:
         // any OperationCanceledException came from outside, not from an internal timeout, so
-        // re-throw it to the test runner so the test is recorded as cancelled rather than
+        // re-throw it to the test runner so the test is recorded as canceled rather than
         // assertion-failed. ExceptionDispatchInfo preserves the original stack trace.
         if (metadata.Exception is OperationCanceledException oce)
         {

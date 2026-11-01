@@ -9,5 +9,5 @@ global using System;                                // TimeSpan, DateTimeOffset,
 global using System.Threading;                      // CancellationToken
 global using System.Threading.Tasks;                // Task
 global using Microsoft.Extensions.Time.Testing;     // FakeTimeProvider
-global using TimeAssertions;                        // TimeRenderingHelpers (rendering helpers)
+global using TimeAssertions;                        // ObservableFakeTimeProvider, TimeRenderingHelpers
 global using TimeAssertions.TUnit;                  // WithinTimeBudgetAssertion / WithinTimeBudgetCapturingAssertion
