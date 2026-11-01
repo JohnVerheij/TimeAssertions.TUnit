@@ -290,6 +290,7 @@ internal sealed class ObservableFakeTimeProviderTests
         await time.WaitForTimersCreatedAsync(2, cancellationToken);
 
         await Assert.That(time.TimersArmedCount).IsEqualTo(1);
+        await Assert.That(settle.IsCompleted).IsFalse();
         armNext.SetResult();
         await settle;
         await Assert.That(time.NextTimerDueTime).IsEqualTo(FiveSeconds);
