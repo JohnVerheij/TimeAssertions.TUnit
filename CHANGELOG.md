@@ -40,7 +40,7 @@ Minor release. The "eventually" timer assertions now react to each timer change 
 - **`ObservableTimeProvider`** is no longer `sealed`, and its `TimeProvider` overrides are; every timer assertion now applies to a derived provider such as `ObservableFakeTimeProvider` (the generated assertion extensions are generic over the provider type). Code that calls the assertions is unaffected; assemblies compiled against 0.9.0 need a rebuild.
 - **`ObservableTimeProvider`** publishes a timer's new schedule (`ActiveTimers`, `NextTimerDueTime`) only once the inner timer has applied the change, so a test that sees the new schedule and then advances the fake clock fires the timer. A change that the inner timer rejects now leaves the previous schedule in place.
 - **`TimeAssertions`** (the core package) now depends on `Microsoft.Extensions.TimeProvider.Testing` 10.11.0 for `ObservableFakeTimeProvider`. `TimeAssertions.TUnit` already depended on it, so a TUnit consumer gets no new package.
-- **`TUnit.Assertions`** and **`TUnit.Core`** minimum versions raised from 1.53.0 to 1.76.45, and **`Microsoft.Extensions.TimeProvider.Testing`** from 10.7.0 to 10.11.0.
+- **`TUnit.Assertions`** and **`TUnit.Core`** minimum versions raised from 1.53.0 to 1.77.0, and **`Microsoft.Extensions.TimeProvider.Testing`** from 10.7.0 to 10.11.0.
 
 ### Deprecated
 
