@@ -142,12 +142,16 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
         while (!until.IsCompleted)
         {
             var created = handled;
-            var nextTimer = WaitUntilAsync(provider => provider.TimersCreatedCount > created, cancellationToken);
+            using var timerWait = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var nextTimer = WaitUntilAsync(provider => provider.TimersCreatedCount > created, timerWait.Token);
             _ = await Task.WhenAny(nextTimer, until).ConfigureAwait(false);
 
-            // The task's outcome wins over a cancellation that ended the wait at the same time.
+            // The task's outcome wins over a cancellation that ended the wait at the same time. The timer wait
+            // is ended and awaited here, so none outlives the call.
             if (until.IsCompleted)
             {
+                await timerWait.CancelAsync().ConfigureAwait(false);
+                await nextTimer.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
                 break;
             }
 
@@ -276,12 +280,15 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
         }
         catch (OperationCanceledException exception)
         {
-            throw new OperationCanceledException(
-                string.Create(
+            var armed = TimersArmedCount - armedBefore;
+            var message = armed >= fired
+                ? string.Create(
                     CultureInfo.InvariantCulture,
-                    $"{Describe(progress)}: the last advance fired {fired} one-shot timer(s), but only {TimersArmedCount - armedBefore} timer(s) were armed (created with a due time, or re-scheduled with Change) before the wait was canceled.{hint}"),
-                exception,
-                cancellationToken);
+                    $"{Describe(progress)}: the last advance fired {fired} one-shot timer(s), and {armed} timer(s) were armed, but the token was canceled before the settle returned.")
+                : string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{Describe(progress)}: the last advance fired {fired} one-shot timer(s), but only {armed} timer(s) were armed (created with a due time, or re-scheduled with Change) before the wait was canceled.{hint}");
+            throw new OperationCanceledException(message, exception, cancellationToken);
         }
     }
 

@@ -261,26 +261,42 @@ public class ObservableTimeProvider : TimeProvider
     public async Task WaitUntilAsync(Func<ObservableTimeProvider, bool> condition, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(condition);
-        while (true)
+        Interlocked.Increment(ref _pendingWaitCount);
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            // Take the change signal before checking, so a change between the check and the await is
-            // not lost: it completes the signal taken here, and the loop checks again.
-            TaskCompletionSource changed;
-            lock (_lock)
+            while (true)
             {
-                changed = _changed ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            }
+                cancellationToken.ThrowIfCancellationRequested();
 
-            if (condition(this))
-            {
-                return;
-            }
+                // Take the change signal before checking, so a change between the check and the await is
+                // not lost: it completes the signal taken here, and the loop checks again.
+                TaskCompletionSource changed;
+                lock (_lock)
+                {
+                    changed = _changed ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                }
 
-            await changed.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+                if (condition(this))
+                {
+                    return;
+                }
+
+                await changed.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _pendingWaitCount);
         }
     }
+
+    // Declared after WaitUntilAsync: a member declared before it renames its compiler-generated state machine,
+    // which package validation reports as a change of its AsyncStateMachineAttribute against the baseline.
+    private int _pendingWaitCount;
+
+    /// <summary>Gets the number of <see cref="WaitUntilAsync"/> calls that have not completed yet. A seam for the
+    /// tests that check that no wait outlives the helper that started it.</summary>
+    internal int PendingWaitCount => Volatile.Read(ref _pendingWaitCount);
 
     /// <summary>
     /// Waits until at least <paramref name="count"/> timers have been created through this provider (see

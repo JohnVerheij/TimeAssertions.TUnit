@@ -368,6 +368,31 @@ internal sealed class ObservableFakeTimeProviderTests
         timer.Dispose();
     }
 
+    /// <summary>A callback that re-arms and cancels the token during the advance ends the settle with its counts met
+    /// (the wait checks the token first): the cancellation reports the counts without a shortfall or the loop
+    /// hint.</summary>
+    [Test]
+    public async Task AdvanceAndSettleAsync_CanceledDuringTheAdvanceWithTheCountsMet_ReportsNoShortfall(CancellationToken cancellationToken)
+    {
+        var time = new ObservableFakeTimeProvider(Start);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+        void ReArmAndCancel()
+        {
+            _ = time.CreateTimer(static _ => { }, state: null, OneSecond, Timeout.InfiniteTimeSpan);
+            cts.Cancel();
+        }
+
+        _ = time.CreateTimer(_ => ReArmAndCancel(), state: null, OneSecond, Timeout.InfiniteTimeSpan);
+
+        var exception = await Assert.That(async () => await time.AdvanceAndSettleAsync(OneSecond, cts.Token))
+            .ThrowsExactly<OperationCanceledException>();
+
+        await Assert.That(exception!.Message).IsEqualTo(
+            "Advanced 1 time(s) by 00:00:01, 00:00:01 in total (clock now 2026-01-01T00:00:01.0000000+00:00): the last advance fired 1 one-shot timer(s), and 1 timer(s) were armed, but the token was canceled before the settle returned.");
+        await Assert.That(exception.CancellationToken).IsEqualTo(cts.Token);
+    }
+
     /// <summary>A canceled token throws before the clock moves, and says so.</summary>
     [Test]
     public async Task AdvanceAndSettleAsync_PreCanceledToken_DoesNotAdvance(CancellationToken cancellationToken)
@@ -521,6 +546,22 @@ internal sealed class ObservableFakeTimeProviderTests
         await Assert.That(time.GetUtcNow()).IsEqualTo(Start);
     }
 
+    /// <summary>The wait for the next timer ends with the call: when the task completes while that wait is pending,
+    /// no wait is left registered on the provider once the call has returned.</summary>
+    [Test]
+    public async Task AdvanceOnEachTimerUntilAsync_TaskCompletesWhileWaitingForATimer_LeavesNoWaitPending(CancellationToken cancellationToken)
+    {
+        var time = new ObservableFakeTimeProvider(Start);
+        var connected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var advancing = time.AdvanceOnEachTimerUntilAsync(connected.Task, OneSecond, cancellationToken);
+        await Assert.That(time.PendingWaitCount).IsEqualTo(1);
+        connected.SetResult();
+        await advancing;
+
+        await Assert.That(time.PendingWaitCount).IsEqualTo(0);
+    }
+
     /// <summary>When the task has completed by the time the token is canceled, the task's outcome is reported:
     /// its fault, or its result.</summary>
     [Test]
@@ -641,6 +682,7 @@ internal sealed class ObservableFakeTimeProviderTests
         await Assert.That(exception!.Message).IsEqualTo(
             "Advanced 3 time(s) by 00:00:01, 00:00:03 in total (clock now 2026-01-01T00:00:03.0000000+00:00), but the task had not completed when the wait was canceled: the next advance waited for timer 4, and 3 timer(s) were created. A loop in a wait longer than the step is not woken by an advance, so it creates no new timer.");
         await Assert.That(exception.CancellationToken).IsEqualTo(cts.Token);
+        await Assert.That(time.PendingWaitCount).IsEqualTo(0);
     }
 
     /// <summary>A null task and a non-positive step are rejected, in both forms.</summary>
