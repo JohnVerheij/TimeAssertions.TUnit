@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Linq;
 using System.Runtime.ExceptionServices;
 using System.Threading;
@@ -243,17 +244,20 @@ public class ObservableTimeProvider : TimeProvider
     }
 
     /// <summary>
-    /// Waits until <paramref name="condition"/> holds. The condition is checked immediately and then again
-    /// after every observed change (a timer created, re-scheduled, fired, or disposed), never on a polling
-    /// loop. It runs on the waiting side, never under the internal lock, so it may read any member of the
-    /// provider.
+    /// Waits until <paramref name="condition"/> holds. The token is checked first: a canceled token throws before
+    /// the condition is evaluated, even when the condition already holds. Otherwise the condition is checked at
+    /// once and then again after every observed change (a timer created, re-scheduled, fired, or disposed), never
+    /// on a polling loop. It runs on the waiting side, never under the internal lock, so it may read any member of
+    /// the provider.
     /// </summary>
     /// <param name="condition">The condition to wait for, given this provider.</param>
     /// <param name="cancellationToken">The only bound of the wait, typically the test's token.</param>
     /// <returns>A task that completes once <paramref name="condition"/> holds.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="condition"/> is <see langword="null"/>.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled before the
-    /// condition held.</exception>
+    /// call (the condition is then not evaluated) or before the condition held. The exception cannot describe an
+    /// arbitrary condition; <see cref="WaitForTimersCreatedAsync"/> and <see cref="WaitForTimersDisposedAsync"/>
+    /// say how many timers they saw.</exception>
     public async Task WaitUntilAsync(Func<ObservableTimeProvider, bool> condition, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(condition);
@@ -289,22 +293,58 @@ public class ObservableTimeProvider : TimeProvider
     /// on it.
     /// </summary>
     /// <param name="count">The cumulative number of created timers to wait for.</param>
-    /// <param name="cancellationToken">The only bound of the wait, typically the test's token.</param>
+    /// <param name="cancellationToken">The only bound of the wait, typically the test's token. To fail this wait
+    /// sooner than the test's timeout, pass a linked token with
+    /// <see cref="CancellationTokenSource.CancelAfter(TimeSpan)"/>.</param>
     /// <returns>A task that completes once <see cref="TimersCreatedCount"/> reaches <paramref name="count"/>.</returns>
-    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled first.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled first. The
+    /// message says how many timers were awaited and how many were created.</exception>
     public Task WaitForTimersCreatedAsync(long count, CancellationToken cancellationToken)
-        => WaitUntilAsync(provider => provider.TimersCreatedCount >= count, cancellationToken);
+        => WaitForCountAsync(static provider => provider.TimersCreatedCount, count, "created", cancellationToken);
 
     /// <summary>
     /// Waits until at least <paramref name="count"/> timers created through this provider have been disposed
     /// (see <see cref="TimersDisposedCount"/>).
     /// </summary>
     /// <param name="count">The cumulative number of disposed timers to wait for.</param>
-    /// <param name="cancellationToken">The only bound of the wait, typically the test's token.</param>
+    /// <param name="cancellationToken">The only bound of the wait, typically the test's token. To fail this wait
+    /// sooner than the test's timeout, pass a linked token with
+    /// <see cref="CancellationTokenSource.CancelAfter(TimeSpan)"/>.</param>
     /// <returns>A task that completes once <see cref="TimersDisposedCount"/> reaches <paramref name="count"/>.</returns>
-    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled first.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled first. The
+    /// message says how many timers were awaited and how many were disposed.</exception>
     public Task WaitForTimersDisposedAsync(long count, CancellationToken cancellationToken)
-        => WaitUntilAsync(provider => provider.TimersDisposedCount >= count, cancellationToken);
+        => WaitForCountAsync(static provider => provider.TimersDisposedCount, count, "disposed", cancellationToken);
+
+    /// <summary>
+    /// Waits until <paramref name="read"/> reaches <paramref name="count"/>, and on cancellation throws an
+    /// <see cref="OperationCanceledException"/> that names the count awaited and the count reached.
+    /// </summary>
+    /// <param name="read">Reads the cumulative count to wait for.</param>
+    /// <param name="count">The count to wait for.</param>
+    /// <param name="counted">What the count counts, as in "timer(s) created".</param>
+    /// <param name="cancellationToken">The only bound of the wait.</param>
+    /// <returns>A task that completes once the count reaches <paramref name="count"/>.</returns>
+    private async Task WaitForCountAsync(
+        Func<ObservableTimeProvider, long> read,
+        long count,
+        string counted,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await WaitUntilAsync(provider => read(provider) >= count, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException exception)
+        {
+            throw new OperationCanceledException(
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"Waited for {count} timer(s) {counted}, but {read(this)} timer(s) were {counted} before the wait was canceled."),
+                exception,
+                cancellationToken);
+        }
+    }
 
     /// <inheritdoc/>
     public sealed override DateTimeOffset GetUtcNow() => _inner.GetUtcNow();

@@ -47,7 +47,7 @@ public static class ActiveTimerAssertions
     /// <see cref="AssertionResult.Failed(string)"/> with a message naming each surviving timer's
     /// schedule.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
-    [GenerateAssertion(InlineMethodBody = false)]
+    [GenerateAssertion(ExpectationMessage = "to have no active timers", InlineMethodBody = false)]
     public static AssertionResult HasNoActiveTimers(this ObservableTimeProvider value)
     {
         ArgumentNullException.ThrowIfNull(value);
@@ -71,7 +71,7 @@ public static class ActiveTimerAssertions
     /// active timers' schedules.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="expected"/> is negative.</exception>
-    [GenerateAssertion(InlineMethodBody = false)]
+    [GenerateAssertion(ExpectationMessage = "to have {expected} active timer(s)", InlineMethodBody = false)]
     public static AssertionResult HasActiveTimerCount(this ObservableTimeProvider value, int expected)
     {
         ArgumentNullException.ThrowIfNull(value);
@@ -93,7 +93,7 @@ public static class ActiveTimerAssertions
     /// <returns><see cref="AssertionResult.Passed"/> when at least one timer is active; otherwise
     /// <see cref="AssertionResult.Failed(string)"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
-    [GenerateAssertion(InlineMethodBody = false)]
+    [GenerateAssertion(ExpectationMessage = "to have at least one active timer", InlineMethodBody = false)]
     public static AssertionResult HasActiveTimers(this ObservableTimeProvider value)
     {
         ArgumentNullException.ThrowIfNull(value);
@@ -116,7 +116,7 @@ public static class ActiveTimerAssertions
     /// active timers' schedules.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="count"/> is negative.</exception>
-    [GenerateAssertion(InlineMethodBody = false)]
+    [GenerateAssertion(ExpectationMessage = "to have at least {count} active timer(s)", InlineMethodBody = false)]
     public static AssertionResult HasAtLeastActiveTimerCount(this ObservableTimeProvider value, int count)
     {
         ArgumentNullException.ThrowIfNull(value);
@@ -146,7 +146,7 @@ public static class ActiveTimerAssertions
     /// due times, or noting that no enabled timer was pending.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="tolerance"/> is negative.</exception>
-    [GenerateAssertion(InlineMethodBody = false)]
+    [GenerateAssertion(ExpectationMessage = "to have the next timer due in approximately {expected} within tolerance {tolerance}", InlineMethodBody = false)]
     public static AssertionResult HasNextTimerDueApproximately(
         this ObservableTimeProvider value,
         TimeSpan expected,
@@ -181,7 +181,7 @@ public static class ActiveTimerAssertions
     /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="max"/> is less than
     /// <paramref name="min"/>.</exception>
-    [GenerateAssertion(InlineMethodBody = false)]
+    [GenerateAssertion(ExpectationMessage = "to have the next timer due within [{min}, {max}]", InlineMethodBody = false)]
     public static AssertionResult HasPendingTimerDueWithin(
         this ObservableTimeProvider value,
         TimeSpan min,
@@ -222,7 +222,7 @@ public static class ActiveTimerAssertions
     /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="dueTime"/> is negative, or
     /// <paramref name="atLeast"/> is not positive.</exception>
-    [GenerateAssertion(InlineMethodBody = false)]
+    [GenerateAssertion(ExpectationMessage = "to have at least {atLeast} active timer(s) scheduled at {dueTime}", InlineMethodBody = false)]
     public static AssertionResult HasTimerScheduled(this ObservableTimeProvider value, TimeSpan dueTime, int atLeast = 1)
     {
         ArgumentNullException.ThrowIfNull(value);
@@ -245,7 +245,7 @@ public static class ActiveTimerAssertions
     /// <returns><see cref="AssertionResult.Passed"/> when no active timer has a pending due time; otherwise
     /// <see cref="AssertionResult.Failed(string)"/> naming the scheduled timers.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
-    [GenerateAssertion(InlineMethodBody = false)]
+    [GenerateAssertion(ExpectationMessage = "to have no scheduled timer", InlineMethodBody = false)]
     public static AssertionResult HasNoTimerScheduled(this ObservableTimeProvider value)
     {
         ArgumentNullException.ThrowIfNull(value);
@@ -268,7 +268,7 @@ public static class ActiveTimerAssertions
     /// message naming the expected and actual counts and the active timers' per-timer fire counts.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="expected"/> is negative.</exception>
-    [GenerateAssertion(InlineMethodBody = false)]
+    [GenerateAssertion(ExpectationMessage = "to have fired timer callbacks {expected} time(s)", InlineMethodBody = false)]
     public static AssertionResult HasTimerFiredCount(this ObservableTimeProvider value, int expected)
     {
         ArgumentNullException.ThrowIfNull(value);
@@ -290,7 +290,7 @@ public static class ActiveTimerAssertions
     /// <see cref="AssertionResult.Failed(string)"/> with a message naming the cumulative fire count
     /// and the active timers' per-timer fire counts.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
-    [GenerateAssertion(InlineMethodBody = false)]
+    [GenerateAssertion(ExpectationMessage = "to have fired no timer callback", InlineMethodBody = false)]
     public static AssertionResult HasNoTimerFired(this ObservableTimeProvider value)
     {
         ArgumentNullException.ThrowIfNull(value);
@@ -314,7 +314,7 @@ public static class ActiveTimerAssertions
     /// message naming the minimum and actual counts and the active timers' per-timer fire counts.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="count"/> is negative.</exception>
-    [GenerateAssertion(InlineMethodBody = false)]
+    [GenerateAssertion(ExpectationMessage = "to have fired timer callbacks at least {count} time(s)", InlineMethodBody = false)]
     public static AssertionResult HasTimerFiredAtLeast(this ObservableTimeProvider value, int count)
     {
         ArgumentNullException.ThrowIfNull(value);

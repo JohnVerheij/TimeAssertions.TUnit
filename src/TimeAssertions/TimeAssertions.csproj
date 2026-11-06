@@ -11,11 +11,11 @@
     <IsPackable>true</IsPackable>
     <PackageId>TimeAssertions</PackageId>
     <ProductName>TimeAssertions</ProductName>
-    <Version>0.10.0</Version>
-    <PackageValidationBaselineVersion>0.9.0</PackageValidationBaselineVersion>
+    <Version>0.11.0</Version>
+    <PackageValidationBaselineVersion>0.10.0</PackageValidationBaselineVersion>
     <Authors>John Verheij</Authors>
     <Copyright>Copyright (c) 2026 John Verheij</Copyright>
-    <Description>Framework-agnostic core for testing time-dependent code. ObservableTimeProvider is a TimeProvider decorator that tracks the timers created against it (leaks, schedules, fires) and lets a test await timer events instead of sleeping; ObservableFakeTimeProvider adds a FakeTimeProvider with advance helpers that wait until the woken loops have armed their next timer. Also ships duration formatting and rendering helpers for failure messages. Test-framework-specific entry points live in adapter packages (TimeAssertions.TUnit ships today; xUnit, NUnit, MSTest adapters are possible if there is demand).</Description>
+    <Description>Framework-agnostic core for testing time-dependent code. ObservableTimeProvider is a TimeProvider decorator that tracks the timers created against it (leaks, schedules, fires) and lets a test await timer events instead of sleeping; ObservableFakeTimeProvider adds a FakeTimeProvider with advance helpers that wait until the woken loops have armed their next timer. Also ships duration formatting and rendering helpers for failure messages. Test-framework-specific entry points live in adapter packages (TimeAssertions.TUnit); adapters for other test frameworks are not planned, as the family targets TUnit.</Description>
     <PackageTags>assertions;testing;timing;timespan;timeprovider;faketimeprovider;timers;duration;dotnet;aot</PackageTags>
     <PackageProjectUrl>https://timeassertions.dev</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

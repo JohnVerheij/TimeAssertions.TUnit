@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Time.Testing;
 using TimeAssertions;
+using TUnit.Assertions.Exceptions;
 
 namespace TimeAssertions.Tests;
 
@@ -19,6 +20,10 @@ internal sealed class ObservableFakeTimeProviderTests
     private static readonly DateTimeOffset Start = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
     private static readonly TimeSpan OneSecond = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan FiveSeconds = TimeSpan.FromSeconds(5);
+
+    /// <summary>The cancellation message of a one-second settle whose fired one-shot timer armed nothing.</summary>
+    private const string OneAdvanceUnsettled =
+        "Advanced 1 time(s) by 00:00:01, 00:00:01 in total (clock now 2026-01-01T00:00:01.0000000+00:00): the last advance fired 1 one-shot timer(s), but only 0 timer(s) were armed (created with a due time, or re-scheduled with Change) before the wait was canceled. A loop that ends after its timer fires arms no new one; for a periodic timer use AdvanceUntilAsync.";
 
     // --- construction and the owned fake ---
 
@@ -200,9 +205,9 @@ internal sealed class ObservableFakeTimeProviderTests
             cancellationToken);
 
         var exception = await Assert.That(async () => await time.AdvanceAndSettleAsync(OneSecond, settle.Token))
-            .Throws<OperationCanceledException>();
+            .ThrowsExactly<OperationCanceledException>();
 
-        await Assert.That(exception!.Message).Contains("fired 1 one-shot timer(s), but only 0 timer(s) were armed");
+        await Assert.That(exception!.Message).IsEqualTo(OneAdvanceUnsettled);
         await Assert.That(exception.CancellationToken).IsEqualTo(settle.Token);
         await finalRun;
     }
@@ -322,7 +327,7 @@ internal sealed class ObservableFakeTimeProviderTests
 
         var exception = await Assert.That(async () => await time.AdvanceAndSettleAsync(OneSecond, settle.Token))
             .Throws<OperationCanceledException>();
-        await Assert.That(exception!.Message).Contains("but only 0 timer(s) were armed");
+        await Assert.That(exception!.Message).IsEqualTo(OneAdvanceUnsettled);
         timer.Dispose();
     }
 
@@ -358,12 +363,12 @@ internal sealed class ObservableFakeTimeProviderTests
 
         var exception = await Assert.That(async () => await time.AdvanceAndSettleAsync(OneSecond, settle.Token))
             .Throws<OperationCanceledException>();
-        await Assert.That(exception!.Message).Contains("but only 0 timer(s) were armed");
+        await Assert.That(exception!.Message).IsEqualTo(OneAdvanceUnsettled);
         await Assert.That(accepted.Value).IsEqualTo(0);
         timer.Dispose();
     }
 
-    /// <summary>A canceled token throws before the clock moves.</summary>
+    /// <summary>A canceled token throws before the clock moves, and says so.</summary>
     [Test]
     public async Task AdvanceAndSettleAsync_PreCanceledToken_DoesNotAdvance(CancellationToken cancellationToken)
     {
@@ -372,8 +377,12 @@ internal sealed class ObservableFakeTimeProviderTests
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 
-        await Assert.That(async () => await time.AdvanceAndSettleAsync(OneSecond, cts.Token))
-            .Throws<OperationCanceledException>();
+        var exception = await Assert.That(async () => await time.AdvanceAndSettleAsync(OneSecond, cts.Token))
+            .ThrowsExactly<OperationCanceledException>();
+
+        await Assert.That(exception!.Message).IsEqualTo(
+            "Advanced 0 time(s) by 00:00:01, 00:00:00 in total (clock now 2026-01-01T00:00:00.0000000+00:00), but the token was canceled before the first advance.");
+        await Assert.That(exception.CancellationToken).IsEqualTo(cts.Token);
         await Assert.That(time.GetUtcNow()).IsEqualTo(Start);
     }
 
@@ -389,28 +398,149 @@ internal sealed class ObservableFakeTimeProviderTests
         var connect = ConnectWithBackoffAsync(time, failures: 3, attempts, cancellationToken);
 
         await time.AdvanceOnEachTimerUntilAsync(connect, TimeSpan.FromSeconds(30), cancellationToken);
-        await connect;
 
         await Assert.That(attempts.Value).IsEqualTo(4);
         await Assert.That(time.GetUtcNow()).IsEqualTo(Start + TimeSpan.FromSeconds(90));
     }
 
-    /// <summary>A task that has already completed ends the helper without advancing.</summary>
+    /// <summary>The <see cref="Task{TResult}"/> form returns the task's result once it completes.</summary>
     [Test]
-    public async Task AdvanceOnEachTimerUntilAsync_AlreadyCompleted_DoesNotAdvance(CancellationToken cancellationToken)
+    public async Task AdvanceOnEachTimerUntilAsync_TaskWithResult_ReturnsTheResult(CancellationToken cancellationToken)
+    {
+        var time = new ObservableFakeTimeProvider(Start);
+
+        var attempts = await time.AdvanceOnEachTimerUntilAsync(
+            CountAttemptsWithBackoffAsync(time, failures: 3, cancellationToken), TimeSpan.FromSeconds(30), cancellationToken);
+
+        await Assert.That(attempts).IsEqualTo(4);
+        await Assert.That(time.GetUtcNow()).IsEqualTo(Start + TimeSpan.FromSeconds(90));
+    }
+
+    /// <summary>A task that faults after some advances fails the helper with the task's own exception.</summary>
+    [Test]
+    public async Task AdvanceOnEachTimerUntilAsync_TaskFaultsAfterAdvances_ThrowsTheFault(CancellationToken cancellationToken)
+    {
+        var time = new ObservableFakeTimeProvider(Start);
+
+        var exception = await Assert.That(async () => await time.AdvanceOnEachTimerUntilAsync(
+                GiveUpAfterBackoffAsync(time, failures: 3, cancellationToken), TimeSpan.FromSeconds(30), cancellationToken))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(exception!.Message).IsEqualTo("gave up after 3 attempt(s)");
+        await Assert.That(time.GetUtcNow()).IsEqualTo(Start + TimeSpan.FromSeconds(90));
+    }
+
+    /// <summary>The <see cref="Task{TResult}"/> form rethrows a fault the same way.</summary>
+    [Test]
+    public async Task AdvanceOnEachTimerUntilAsync_TaskWithResultFaults_ThrowsTheFault(CancellationToken cancellationToken)
+    {
+        var time = new ObservableFakeTimeProvider(Start);
+
+        var exception = await Assert.That(async () => await time.AdvanceOnEachTimerUntilAsync(
+                GiveUpWithResultAfterBackoffAsync(time, failures: 2, cancellationToken), TimeSpan.FromSeconds(30), cancellationToken))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(exception!.Message).IsEqualTo("gave up after 2 attempt(s)");
+    }
+
+    /// <summary>A task that has already faulted fails the helper at once, without advancing.</summary>
+    [Test]
+    public async Task AdvanceOnEachTimerUntilAsync_AlreadyFaulted_ThrowsWithoutAdvancing(CancellationToken cancellationToken)
     {
         var time = new ObservableFakeTimeProvider(Start);
         _ = time.CreateTimer(static _ => { }, state: null, OneSecond, Timeout.InfiniteTimeSpan);
 
-        await time.AdvanceOnEachTimerUntilAsync(Task.CompletedTask, OneSecond, cancellationToken);
+        await Assert.That(async () => await time.AdvanceOnEachTimerUntilAsync(
+                Task.FromException(new InvalidOperationException("gave up")), OneSecond, cancellationToken))
+            .ThrowsExactly<InvalidOperationException>();
+        await Assert.That(time.GetUtcNow()).IsEqualTo(Start);
+    }
+
+    /// <summary>A canceled task fails the helper with the task's own cancellation, not with the helper's.</summary>
+    [Test]
+    public async Task AdvanceOnEachTimerUntilAsync_TaskCanceled_ThrowsItsCancellation(CancellationToken cancellationToken)
+    {
+        var time = new ObservableFakeTimeProvider(Start);
+        using var taskSource = new CancellationTokenSource();
+        await taskSource.CancelAsync();
+
+        var exception = await Assert.That(async () => await time.AdvanceOnEachTimerUntilAsync(
+                Task.FromCanceled(taskSource.Token), OneSecond, cancellationToken))
+            .ThrowsExactly<TaskCanceledException>();
+
+        await Assert.That(exception!.CancellationToken).IsEqualTo(taskSource.Token);
+    }
+
+    /// <summary>A task that faulted with several exceptions fails the helper with the first, as <c>await</c> does.</summary>
+    [Test]
+    public async Task AdvanceOnEachTimerUntilAsync_SeveralFaults_ThrowsTheFirst(CancellationToken cancellationToken)
+    {
+        var time = new ObservableFakeTimeProvider(Start);
+
+        var exception = await Assert.That(async () => await time.AdvanceOnEachTimerUntilAsync(
+                Task.WhenAll(
+                    Task.FromException(new InvalidOperationException("first")),
+                    Task.FromException(new InvalidOperationException("second"))),
+                OneSecond,
+                cancellationToken))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(exception!.Message).IsEqualTo("first");
+    }
+
+    /// <summary>A failing assertion's task passed as the task fails the helper with that assertion's exception, so
+    /// an assertion cannot pass unnoticed. The assertion is awaited where it is written (TUnitAssertions0002), in a
+    /// local function whose task is passed.</summary>
+    [Test]
+    public async Task AdvanceOnEachTimerUntilAsync_FailingAssertionTask_ThrowsTheAssertionException(CancellationToken cancellationToken)
+    {
+        var time = new ObservableFakeTimeProvider(Start);
+        var created = time.TimersCreatedCount;
+
+        async Task CreatedOneAsync() => await Assert.That(created).IsEqualTo(1);
+
+        var exception = await Assert.That(async () => await time.AdvanceOnEachTimerUntilAsync(CreatedOneAsync(), OneSecond, cancellationToken))
+            .Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).StartsWith("Expected to be 1");
+    }
+
+    /// <summary>A task that completes while the helper waits for a timer ends the helper with the task's outcome,
+    /// not with a cancellation.</summary>
+    [Test]
+    public async Task AdvanceOnEachTimerUntilAsync_TaskCompletesWhileWaitingForATimer_Completes(CancellationToken cancellationToken)
+    {
+        var time = new ObservableFakeTimeProvider(Start);
+        var connected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var advancing = time.AdvanceOnEachTimerUntilAsync(connected.Task, OneSecond, cancellationToken);
+        await Assert.That(advancing.IsCompleted).IsFalse();
+        connected.SetResult();
+        await advancing;
 
         await Assert.That(time.GetUtcNow()).IsEqualTo(Start);
     }
 
-    /// <summary>Canceling the token while the helper waits for a timer throws
-    /// <see cref="OperationCanceledException"/>.</summary>
+    /// <summary>When the task has completed by the time the token is canceled, the task's outcome is reported:
+    /// its fault, or its result.</summary>
     [Test]
-    public async Task AdvanceOnEachTimerUntilAsync_CanceledWhileWaiting_Throws(CancellationToken cancellationToken)
+    public async Task AdvanceOnEachTimerUntilAsync_TokenCanceledAfterTheTaskCompleted_ReportsTheTaskOutcome(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = new ObservableFakeTimeProvider(Start);
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.That(async () => await time.AdvanceOnEachTimerUntilAsync(
+                Task.FromException(new InvalidOperationException("gave up")), OneSecond, cts.Token))
+            .ThrowsExactly<InvalidOperationException>();
+        await Assert.That(await time.AdvanceOnEachTimerUntilAsync(Task.FromResult(7), OneSecond, cts.Token)).IsEqualTo(7);
+    }
+
+    /// <summary>Canceling the token before any timer exists says that no advance was made and no timer was
+    /// created, and keeps the canceled wait as the inner exception.</summary>
+    [Test]
+    public async Task AdvanceOnEachTimerUntilAsync_CanceledBeforeAnyTimer_SaysNoAdvanceWasMade(CancellationToken cancellationToken)
     {
         var time = new ObservableFakeTimeProvider(Start);
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -423,16 +553,97 @@ internal sealed class ObservableFakeTimeProviderTests
             },
             cancellationToken);
 
-        await Assert.That(async () =>
+        var exception = await Assert.That(async () =>
             {
                 var never = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                 await time.AdvanceOnEachTimerUntilAsync(never.Task, OneSecond, cts.Token);
             })
-            .Throws<OperationCanceledException>();
+            .ThrowsExactly<OperationCanceledException>();
+
+        await Assert.That(exception!.Message).IsEqualTo(
+            "Advanced 0 time(s) by 00:00:01, 00:00:00 in total (clock now 2026-01-01T00:00:00.0000000+00:00), but the task had not completed when the wait was canceled: the first advance waited for timer 1, and 0 timer(s) were created.");
+        await Assert.That(exception.CancellationToken).IsEqualTo(cts.Token);
+        await Assert.That(exception.InnerException).IsAssignableTo<OperationCanceledException>();
         await Assert.That(time.GetUtcNow()).IsEqualTo(Start);
     }
 
-    /// <summary>A null task and a non-positive step are rejected.</summary>
+    /// <summary>A token that is already canceled stops the call before the first advance, even when a timer
+    /// exists; the cancellation counts that timer.</summary>
+    [Test]
+    public async Task AdvanceOnEachTimerUntilAsync_PreCanceledTokenWithATimer_CountsTheTimer(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = new ObservableFakeTimeProvider(Start);
+        _ = time.CreateTimer(static _ => { }, state: null, OneSecond, Timeout.InfiniteTimeSpan);
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        var exception = await Assert.That(async () =>
+            {
+                var never = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                await time.AdvanceOnEachTimerUntilAsync(never.Task, OneSecond, cts.Token);
+            })
+            .ThrowsExactly<OperationCanceledException>();
+
+        await Assert.That(exception!.Message).IsEqualTo(
+            "Advanced 0 time(s) by 00:00:01, 00:00:00 in total (clock now 2026-01-01T00:00:00.0000000+00:00), but the task had not completed when the wait was canceled: the first advance waited for timer 1, and 1 timer(s) were created.");
+        await Assert.That(time.GetUtcNow()).IsEqualTo(Start);
+    }
+
+    /// <summary>The <see cref="Task{TResult}"/> form rethrows the cancellation of its task, as awaiting it would.</summary>
+    [Test]
+    public async Task AdvanceOnEachTimerUntilAsync_CanceledTaskWithResult_RethrowsItsCancellation(CancellationToken cancellationToken)
+    {
+        var time = new ObservableFakeTimeProvider(Start);
+        using var canceled = new CancellationTokenSource();
+        await canceled.CancelAsync();
+
+        await Assert.That(async () =>
+                await time.AdvanceOnEachTimerUntilAsync(Task.FromCanceled<int>(canceled.Token), OneSecond, cancellationToken))
+            .ThrowsExactly<TaskCanceledException>();
+    }
+
+    /// <summary>Canceling the token after some advances names the advances, the total, the clock, and the timer
+    /// counts.</summary>
+    [Test]
+    public async Task AdvanceOnEachTimerUntilAsync_CanceledAfterAdvances_SaysHowFarItAdvanced(CancellationToken cancellationToken)
+    {
+        var time = new ObservableFakeTimeProvider(Start);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var fires = new Counter();
+
+        // Each fire arms the next one-second timer; the third fire cancels instead, so the loop stops creating timers.
+        void Arm() => _ = time.CreateTimer(
+            _ =>
+            {
+                fires.Increment();
+                if (fires.Value < 3)
+                {
+                    Arm();
+                }
+                else
+                {
+                    cts.Cancel();
+                }
+            },
+            state: null,
+            OneSecond,
+            Timeout.InfiniteTimeSpan);
+        Arm();
+
+        var exception = await Assert.That(async () =>
+            {
+                var never = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                await time.AdvanceOnEachTimerUntilAsync(never.Task, OneSecond, cts.Token);
+            })
+            .ThrowsExactly<OperationCanceledException>();
+
+        await Assert.That(exception!.Message).IsEqualTo(
+            "Advanced 3 time(s) by 00:00:01, 00:00:03 in total (clock now 2026-01-01T00:00:03.0000000+00:00), but the task had not completed when the wait was canceled: the next advance waited for timer 4, and 3 timer(s) were created. A loop in a wait longer than the step is not woken by an advance, so it creates no new timer.");
+        await Assert.That(exception.CancellationToken).IsEqualTo(cts.Token);
+    }
+
+    /// <summary>A null task and a non-positive step are rejected, in both forms.</summary>
     [Test]
     public async Task AdvanceOnEachTimerUntilAsync_InvalidArguments_Throw(CancellationToken cancellationToken)
     {
@@ -442,6 +653,33 @@ internal sealed class ObservableFakeTimeProviderTests
             .Throws<ArgumentNullException>();
         await Assert.That(async () => await time.AdvanceOnEachTimerUntilAsync(Task.CompletedTask, TimeSpan.Zero, cancellationToken))
             .Throws<ArgumentOutOfRangeException>();
+        await Assert.That(async () => await time.AdvanceOnEachTimerUntilAsync(default(Task<int>)!, OneSecond, cancellationToken))
+            .Throws<ArgumentNullException>();
+        await Assert.That(async () => await time.AdvanceOnEachTimerUntilAsync(Task.FromResult(1), TimeSpan.Zero, cancellationToken))
+            .Throws<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>The call shapes a caller writes compile and bind as intended: a <see cref="Task{TResult}"/> argument
+    /// binds the generic form, a <see cref="Task"/> the other, and method groups and async lambdas both work.</summary>
+    [Test]
+    public async Task AdvanceOnEachTimerUntilAsync_CallShapes_Bind(CancellationToken cancellationToken)
+    {
+        var time = new ObservableFakeTimeProvider(Start);
+        Func<Task, TimeSpan, CancellationToken, Task> withoutResult = time.AdvanceOnEachTimerUntilAsync;
+        Func<Task<int>, TimeSpan, CancellationToken, Task<int>> withResult = time.AdvanceOnEachTimerUntilAsync;
+        Func<Task<int>, TimeSpan, CancellationToken, Task> withResultAsTask = time.AdvanceOnEachTimerUntilAsync;
+        Func<Task> lambda = () => time.AdvanceOnEachTimerUntilAsync(Task.FromResult(1), OneSecond, cancellationToken);
+
+        await withoutResult(Task.CompletedTask, OneSecond, cancellationToken);
+        await Assert.That(await withResult(Task.FromResult(3), OneSecond, cancellationToken)).IsEqualTo(3);
+        await withResultAsTask(Task.FromResult(4), OneSecond, cancellationToken);
+        await lambda();
+        await Assert.That(await time.AdvanceOnEachTimerUntilAsync(
+            Task.Run(async () => await CountAttemptsWithBackoffAsync(time, failures: 1, cancellationToken), cancellationToken),
+            TimeSpan.FromSeconds(30),
+            cancellationToken)).IsEqualTo(2);
+        await Assert.That(await time.AdvanceOnEachTimerUntilAsync(
+            Task.WhenAll(Task.FromResult(1), Task.FromResult(2)), OneSecond, cancellationToken)).IsEquivalentTo([1, 2]);
     }
 
     // --- AdvanceUntilAsync ---
@@ -497,7 +735,8 @@ internal sealed class ObservableFakeTimeProviderTests
                 await time.AdvanceUntilAsync(OneSecond, static () => false, TimeSpan.FromSeconds(3), cancellationToken))
             .Throws<TimeoutException>();
 
-        await Assert.That(exception!.Message).Contains("did not hold after advancing 00:00:03 of fake time in steps of 00:00:01");
+        await Assert.That(exception!.Message).IsEqualTo(
+            "Advanced 3 time(s) by 00:00:01, 00:00:03 in total (clock now 2026-01-01T00:00:03.0000000+00:00), but the condition did not hold within the maximum advance of 00:00:03.");
         await Assert.That(time.GetUtcNow()).IsEqualTo(Start + TimeSpan.FromSeconds(3));
     }
 
@@ -513,9 +752,65 @@ internal sealed class ObservableFakeTimeProviderTests
                 await time.AdvanceUntilAsync(TimeSpan.FromSeconds(2), static () => false, TimeSpan.FromSeconds(3), cancellationToken))
             .Throws<TimeoutException>();
 
-        await Assert.That(exception!.Message).Contains("after advancing 00:00:03 of fake time");
+        await Assert.That(exception!.Message).IsEqualTo(
+            "Advanced 2 time(s) by up to 00:00:02, 00:00:03 in total (clock now 2026-01-01T00:00:03.0000000+00:00), but the condition did not hold within the maximum advance of 00:00:03.");
         await Assert.That(time.GetUtcNow()).IsEqualTo(Start + TimeSpan.FromSeconds(3));
         await Assert.That(time.TimerFireCount).IsEqualTo(0);
+    }
+
+    /// <summary>A canceled settle inside the helper names the helper's own advances so far, not only the last one.</summary>
+    [Test]
+    public async Task AdvanceUntilAsync_SettleCanceled_SaysHowFarItAdvanced(CancellationToken cancellationToken)
+    {
+        var time = new ObservableFakeTimeProvider(Start);
+        using var settle = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var finalRun = Task.Delay(TimeSpan.FromSeconds(2), time, cancellationToken);
+
+        _ = Task.Run(
+            async () =>
+            {
+                await time.WaitUntilAsync(static provider => provider.TimerFireCount >= 1, cancellationToken);
+                await settle.CancelAsync();
+            },
+            cancellationToken);
+
+        var exception = await Assert.That(async () =>
+                await time.AdvanceUntilAsync(OneSecond, static () => false, TimeSpan.FromSeconds(5), settle.Token))
+            .ThrowsExactly<OperationCanceledException>();
+
+        await Assert.That(exception!.Message).IsEqualTo(
+            "Advanced 2 time(s) by 00:00:01, 00:00:02 in total (clock now 2026-01-01T00:00:02.0000000+00:00): the last advance fired 1 one-shot timer(s), but only 0 timer(s) were armed (created with a due time, or re-scheduled with Change) before the wait was canceled. A loop that ends after its timer fires arms no new one.");
+        await finalRun;
+    }
+
+    /// <summary>A token canceled between two steps (here by the condition) stops the helper before the next
+    /// advance, and the cancellation names the advances made so far.</summary>
+    [Test]
+    public async Task AdvanceUntilAsync_CanceledBetweenSteps_SaysHowFarItAdvanced(CancellationToken cancellationToken)
+    {
+        var time = new ObservableFakeTimeProvider(Start);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var checks = new Counter();
+
+        bool CancelOnThirdCheck()
+        {
+            checks.Increment();
+            if (checks.Value == 3)
+            {
+                cts.Cancel();
+            }
+
+            return false;
+        }
+
+        var exception = await Assert.That(async () =>
+                await time.AdvanceUntilAsync(OneSecond, CancelOnThirdCheck, TimeSpan.FromSeconds(5), cts.Token))
+            .ThrowsExactly<OperationCanceledException>();
+
+        await Assert.That(exception!.Message).IsEqualTo(
+            "Advanced 2 time(s) by 00:00:01, 00:00:02 in total (clock now 2026-01-01T00:00:02.0000000+00:00), but the token was canceled before the next advance.");
+        await Assert.That(exception.CancellationToken).IsEqualTo(cts.Token);
+        await Assert.That(time.GetUtcNow()).IsEqualTo(Start + TimeSpan.FromSeconds(2));
     }
 
     /// <summary>A non-positive step, a null condition, and a negative maximum are rejected.</summary>
@@ -611,6 +906,31 @@ internal sealed class ObservableFakeTimeProviderTests
         }
 
         attempts.Increment();
+    }
+
+    /// <summary>A connect like <see cref="ConnectWithBackoffAsync"/> that returns its number of attempts.</summary>
+    private static async Task<int> CountAttemptsWithBackoffAsync(TimeProvider time, int failures, CancellationToken cancellationToken)
+    {
+        for (var attempt = 1; attempt <= failures; attempt++)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5 * attempt), time, cancellationToken).ConfigureAwait(false);
+        }
+
+        return failures + 1;
+    }
+
+    /// <summary>A connect that waits a growing backoff after each of <paramref name="failures"/> failed attempts
+    /// and then gives up.</summary>
+    private static async Task GiveUpAfterBackoffAsync(TimeProvider time, int failures, CancellationToken cancellationToken)
+    {
+        _ = await GiveUpWithResultAfterBackoffAsync(time, failures, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>The <see cref="Task{TResult}"/> form of <see cref="GiveUpAfterBackoffAsync"/>.</summary>
+    private static async Task<int> GiveUpWithResultAfterBackoffAsync(TimeProvider time, int failures, CancellationToken cancellationToken)
+    {
+        await CountAttemptsWithBackoffAsync(time, failures, cancellationToken).ConfigureAwait(false);
+        throw new InvalidOperationException($"gave up after {failures} attempt(s)");
     }
 
     /// <summary>A thread-safe counter shared between a loop and the test.</summary>

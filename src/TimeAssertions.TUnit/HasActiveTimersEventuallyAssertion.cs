@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using TimeAssertions;
@@ -25,9 +24,10 @@ namespace TimeAssertions.TUnit;
 /// token only, typically the test's own.
 /// </para>
 /// <para>
-/// <b>Cancellation.</b> When the token is canceled the wait throws <see cref="OperationCanceledException"/> and
-/// the test is recorded as canceled rather than failed. For a failure that describes the timers, pass a
-/// timeout shorter than the test's own timeout.
+/// <b>Cancellation.</b> When the token is canceled the wait throws an <see cref="OperationCanceledException"/>
+/// that says so ("Canceled while waiting for at least one active timer: the active-timer count stayed at 0"), so
+/// the test is recorded as canceled and its report still says why. To fail sooner than the test's own timeout,
+/// pass a <c>timeout</c>.
 /// </para>
 /// <code>
 /// _ = service.StartAsync(ct);
@@ -37,6 +37,9 @@ namespace TimeAssertions.TUnit;
 [AssertionExtension("HasActiveTimersEventually")]
 public sealed class HasActiveTimersEventuallyAssertion : Assertion<ObservableTimeProvider>
 {
+    /// <summary>The failure and cancellation text: no timer became active.</summary>
+    private const string NoActiveTimer = "the active-timer count stayed at 0";
+
     private readonly TimeSpan? _timeout;
     private readonly CancellationToken _cancellationToken;
 
@@ -77,9 +80,6 @@ public sealed class HasActiveTimersEventuallyAssertion : Assertion<ObservableTim
         _timeout = timeout;
         _within = timeout is { } bound ? " within " + TimeRenderingHelpers.FormatDuration(bound) : string.Empty;
         _cancellationToken = cancellationToken;
-        Context.ExpressionBuilder.Append(
-            CultureInfo.InvariantCulture,
-            $".HasActiveTimersEventually({(_timeout is { } timeoutValue ? TimeRenderingHelpers.FormatDuration(timeoutValue) : "cancellationToken")})");
     }
 
     /// <inheritdoc/>
@@ -97,16 +97,16 @@ public sealed class HasActiveTimersEventuallyAssertion : Assertion<ObservableTim
         }
 
         var reached = await TimerWait
-            .UntilAsync(value, static provider => provider.ActiveTimerCount >= 1, _timeout, _cancellationToken)
+            .UntilAsync(
+                value,
+                static provider => provider.ActiveTimerCount >= 1,
+                _timeout,
+                GetExpectation(),
+                static _ => NoActiveTimer,
+                _cancellationToken)
             .ConfigureAwait(false);
 
-        if (reached)
-        {
-            return AssertionResult.Passed;
-        }
-
-        return AssertionResult.Failed(
-            $"expected at least one active timer{_within} but the active-timer count stayed at 0");
+        return reached ? AssertionResult.Passed : AssertionResult.Failed(NoActiveTimer);
     }
 
     /// <inheritdoc/>

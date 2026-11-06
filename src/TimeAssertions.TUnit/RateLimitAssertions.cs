@@ -56,7 +56,7 @@ public static class RateLimitAssertions
     /// <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="interval"/> is
     /// negative.</exception>
-    [GenerateAssertion(InlineMethodBody = false)]
+    [GenerateAssertion(ExpectationMessage = "to have consecutive timestamps at least {interval} apart", InlineMethodBody = false)]
     public static AssertionResult WasInvokedAtMostOncePer(
         this IReadOnlyList<DateTimeOffset> timestamps,
         TimeSpan interval)

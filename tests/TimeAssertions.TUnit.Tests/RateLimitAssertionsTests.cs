@@ -80,7 +80,7 @@ internal sealed class RateLimitAssertionsTests
             await Assert.That(timestamps).WasInvokedAtMostOncePer(TimeSpan.FromSeconds(30));
         }).Throws<AssertionException>();
 
-        await Assert.That(exception!.Message).Contains("interval violation at index 1");
+        await Assert.That(exception!.Message).Contains("but the gap at index 1 was");
         await Assert.That(exception.Message).Contains("(gap=5000ms, minimum=30000ms)");
     }
 
@@ -102,7 +102,7 @@ internal sealed class RateLimitAssertionsTests
             await Assert.That(timestamps).WasInvokedAtMostOncePer(TimeSpan.FromSeconds(30));
         }).Throws<AssertionException>();
 
-        await Assert.That(exception!.Message).Contains("interval violation at index 1");
+        await Assert.That(exception!.Message).Contains("but the gap at index 1 was");
     }
 
     /// <summary>Zero interval: any non-decreasing sequence passes. The check is
@@ -150,7 +150,7 @@ internal sealed class RateLimitAssertionsTests
             await Assert.That(timestamps).WasInvokedAtMostOncePer(TimeSpan.Zero);
         }).Throws<AssertionException>();
 
-        await Assert.That(exception!.Message).Contains("interval violation at index 1");
+        await Assert.That(exception!.Message).Contains("but the gap at index 1 was");
     }
 
     /// <summary>Argument validation: negative interval rejected with

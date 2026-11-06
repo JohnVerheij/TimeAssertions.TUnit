@@ -53,7 +53,7 @@ internal sealed class ActiveTimerAssertionsTests
             await Assert.That(time).HasNoActiveTimers();
         }).Throws<AssertionException>();
 
-        await Assert.That(exception!.Message).Contains("expected no active timers but 1 remained");
+        await Assert.That(exception!.Message).Contains("but 1 remained (count=1):");
         await Assert.That(exception.Message).Contains("(count=1)");
         await Assert.That(exception.Message).Contains("[dueTime=1.0s, period=5.0s]");
     }
@@ -108,7 +108,7 @@ internal sealed class ActiveTimerAssertionsTests
             await Assert.That(time).HasActiveTimerCount(2);
         }).Throws<AssertionException>();
 
-        await Assert.That(exception!.Message).Contains("expected 2 active timer(s) but found 1");
+        await Assert.That(exception!.Message).Contains("but found 1 (expected=2, actual=1)");
         await Assert.That(exception.Message).Contains("(expected=2, actual=1)");
     }
 
@@ -161,7 +161,7 @@ internal sealed class ActiveTimerAssertionsTests
             await Assert.That(time).HasNextTimerDueApproximately(TimeSpan.FromSeconds(2), tolerance: TimeSpan.FromMilliseconds(100));
         }).Throws<AssertionException>();
 
-        await Assert.That(exception!.Message).Contains("expected the next timer due in approximately 2.0s");
+        await Assert.That(exception!.Message).Contains("but it was due in 2.4s, off by 400ms");
         await Assert.That(exception.Message).Contains("(expected=2000ms, tolerance=100ms, actual=2400ms, delta=400ms)");
     }
 
@@ -252,7 +252,7 @@ internal sealed class ActiveTimerAssertionsTests
             await Assert.That(time).HasPendingTimerDueWithin(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(4));
         }).Throws<AssertionException>();
 
-        await Assert.That(exception!.Message).Contains("expected a pending timer due within [1.0s, 4.0s]");
+        await Assert.That(exception!.Message).Contains("but it was due in 5.0s");
         await Assert.That(exception.Message).Contains("(min=1000ms, max=4000ms, actual=5000ms)");
     }
 
@@ -318,7 +318,7 @@ internal sealed class ActiveTimerAssertionsTests
             await Assert.That(time).HasTimerFiredCount(3);
         }).Throws<AssertionException>();
 
-        await Assert.That(exception!.Message).Contains("expected timer callbacks to have fired 3 time(s) but they fired 1");
+        await Assert.That(exception!.Message).Contains("but they fired 1 time(s) (expected=3, actual=1)");
         await Assert.That(exception.Message).Contains("(expected=3, actual=1)");
     }
 
@@ -358,7 +358,7 @@ internal sealed class ActiveTimerAssertionsTests
             await Assert.That(time).HasNoTimerFired();
         }).Throws<AssertionException>();
 
-        await Assert.That(exception!.Message).Contains("expected no timer callback to have fired but 2 fired");
+        await Assert.That(exception!.Message).Contains("but 2 fired (expected=0, actual=2)");
         await Assert.That(exception.Message).Contains("(expected=0, actual=2)");
     }
 
@@ -389,7 +389,7 @@ internal sealed class ActiveTimerAssertionsTests
             await Assert.That(time).HasTimerFiredAtLeast(3);
         }).Throws<AssertionException>();
 
-        await Assert.That(exception!.Message).Contains("expected timer callbacks to have fired at least 3 time(s) but they fired 1");
+        await Assert.That(exception!.Message).Contains("but they fired 1 time(s) (minimum=3, actual=1)");
         await Assert.That(exception.Message).Contains("(minimum=3, actual=1)");
     }
 

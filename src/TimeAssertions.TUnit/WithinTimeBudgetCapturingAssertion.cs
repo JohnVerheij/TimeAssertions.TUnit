@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using TimeAssertions;
@@ -60,9 +59,6 @@ public sealed class WithinTimeBudgetCapturingAssertion<T> : Assertion<T>
         ArgumentNullException.ThrowIfNull(capture);
         _budget = budget;
         _capture = capture;
-        Context.ExpressionBuilder.Append(
-            CultureInfo.InvariantCulture,
-            $".WithinTimeBudgetCapturing({TimeRenderingHelpers.FormatDuration(budget)})");
     }
 
     /// <inheritdoc/>

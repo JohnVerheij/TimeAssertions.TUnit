@@ -15,6 +15,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-06: an advance that observes its task, cancellations that say why, one message rule
+
+Minor release with breaking changes (see BREAKING and Upgrade). `AdvanceOnEachTimerUntilAsync` now fails when its task fails and returns its result; a wait that its token ends says what it saw, in an `OperationCanceledException`; every failure message states the expectation once and then only what was found. The `pollingInterval` overloads deprecated in 0.10.0 are removed.
+
+### BREAKING
+
+- **`ObservableFakeTimeProvider.AdvanceOnEachTimerUntilAsync(Task until, TimeSpan step, CancellationToken cancellationToken)`** now completes as `until` did: a fault of `until` is rethrown, and a cancellation of `until` rethrows its `OperationCanceledException`. Before, the call completed when `until` did and dropped its outcome, so a failed task could pass unnoticed. A test that awaits `until` after the call gets the same exception one line earlier. A test that expects the fault asserts on the call: `await Assert.That(() => clock.AdvanceOnEachTimerUntilAsync(run, step, ct)).Throws<X>();` (with `VSTHRD003` enabled, start the operation inside the lambda).
+- **The five `[Obsolete]` `pollingInterval` overloads** of `HasNoActiveTimersEventually`, `HasActiveTimersEventually`, `HasActiveTimerCountEventually`, `HasAtLeastActiveTimerCountEventually` and `HasAtMostActiveTimerCountEventually` are removed, with the class `TimeAssertions.TUnit.EventuallyTimerAssertionExtensions` that held only them, as announced in 0.10.0.
+- **`HasAdvancedExactly`, `HasAdvancedApproximately`, `HasUtcNow`, and `HasUtcNowApproximately`** return `AssertionResult` instead of `bool`, so a failure says how far the clock advanced, or where it stands, in a culture-independent format. Calls through `Assert.That(...)` compile unchanged; code that calls the methods directly as `bool` helpers must change, and code compiled against 0.10.0 must be rebuilt.
+- **`WaitForTimersCreatedAsync`, `WaitForTimersDisposedAsync`, the six "eventually" timer assertions, and `AdvanceOnEachTimerUntilAsync`** throw, when their token ends the wait, an `OperationCanceledException` that says what was awaited and what was found (see Changed), instead of the `TaskCanceledException` that a cancellation during the wait threw before. Code that catches or asserts exactly `TaskCanceledException` there catches `OperationCanceledException`, the base type, which also covers the old one.
+
+### Added
+
+- **`ObservableFakeTimeProvider.AdvanceOnEachTimerUntilAsync<T>(Task<T> until, TimeSpan step, CancellationToken cancellationToken)`** advances as the `Task` form does and returns the result of `until`, for example the record of a task of LogAssertions' `WaitForLogAsync` on a `FakeLogCollector`.
+
+### Changed
+
+- **`WaitForTimersCreatedAsync`** and **`WaitForTimersDisposedAsync`** end, when their token is canceled, with an `OperationCanceledException` that names the count they waited for and the count they saw (`Waited for 3 timer(s) created, but 1 timer(s) were created before the wait was canceled.`), instead of a bare cancellation.
+- **`AdvanceOnEachTimerUntilAsync`**, **`AdvanceAndSettleAsync`** and **`AdvanceUntilAsync`** say in their cancellation, and `AdvanceUntilAsync` also in its `TimeoutException`, how many times they advanced, by what step, how far in total, and the fake clock's time in the round-trip format; `AdvanceOnEachTimerUntilAsync` adds the timer counts, and the settle the fired and armed counts. A token that is already canceled before an advance stops them with the same description, before the clock moves (`AdvanceAndSettleAsync` and `AdvanceUntilAsync` threw a bare `The operation was canceled.` there).
+- **The six "eventually" timer assertions** end, when their token (not their `timeout`) ends the wait, with an `OperationCanceledException` that names the expectation and what was found (`Canceled while waiting for no active timers: 1 remained (count=1):` and the timers), instead of `A task was canceled.`. The test is still recorded as canceled.
+- **Failure messages** follow one rule. TUnit's `Expected …` line states the expectation (every timer and rate-limit assertion now sets one, instead of `to satisfy Method(args)`), and the `but …` text states only what was found, with its trailer and timer list. `HasUtcNow` and `HasUtcNowApproximately` name the expected time in the `but …` text instead, in the round-trip format, since TUnit would render it in the current culture in the `Expected …` line. A colon introduces the timer list only when one follows, a zero period renders as `one-shot`, the rate-limit timestamps align, and the call expression appears once (the "eventually" and budget assertions printed it twice). The `TimeRenderingHelpers` methods render the new texts.
+- **`IsRecent`** throws `ArgumentOutOfRangeException` for a negative `window`, as its documentation said; a negative window always failed before.
+- **`TUnit.Assertions`** and **`TUnit.Core`** minimum versions raised from 1.77.0 to 1.81.0.
+
+**Upgrade:** remove the `pollingInterval` argument from the "eventually" timer assertions. After `AdvanceOnEachTimerUntilAsync`, remove an `await` of the same task: the call already rethrows its failure, and the `Task<T>` form returns its result. A test that expects the task to fail asserts on the call, as shown under BREAKING. Use `HasAdvancedExactly`, `HasAdvancedApproximately`, `HasUtcNow` and `HasUtcNowApproximately` through `Assert.That(...)`. Catch `OperationCanceledException` where code caught `TaskCanceledException` from a timer wait, an "eventually" assertion or `AdvanceOnEachTimerUntilAsync`. A test that pins a failure message text takes the new text.
+
 ## [0.10.0] - 2026-11-01: event-driven timer waits, an observable fake clock, due-time assertions
 
 Minor release. The "eventually" timer assertions now react to each timer change instead of polling, the core gains awaitable timer events and an `ObservableFakeTimeProvider` that advances without real time, and new assertions find a timer by its due time. The `pollingInterval` overloads are deprecated (see Upgrade).
@@ -225,7 +251,8 @@ First public release, positioned as the TUnit assertion package for projects com
 
 - **AOT-compatible, trimmable, no runtime reflection** in the assertion path.
 
-[unreleased]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.10.0...HEAD
+[unreleased]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.8.0...v0.8.1

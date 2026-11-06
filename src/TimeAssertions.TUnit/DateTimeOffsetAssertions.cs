@@ -22,9 +22,13 @@ public static class DateTimeOffsetAssertions
     /// <param name="window">The recency window. Must be non-negative.</param>
     /// <param name="timeProvider">The time source to compare against, or
     /// <see langword="null"/> to use <see cref="TimeProvider.System"/>.</param>
-    [GenerateAssertion(ExpectationMessage = "to be within the last {window} relative to the supplied time provider", InlineMethodBody = true)]
+    /// <returns><see langword="true"/> when the timestamp is at most <paramref name="window"/> before "now" and
+    /// not after it.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="window"/> is negative.</exception>
+    [GenerateAssertion(ExpectationMessage = "to be within the last {window} relative to the supplied time provider", InlineMethodBody = false)]
     public static bool IsRecent(this DateTimeOffset value, TimeSpan window, TimeProvider? timeProvider = null)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(window, TimeSpan.Zero);
         var now = (timeProvider ?? TimeProvider.System).GetUtcNow();
         var elapsed = now - value;
         return elapsed >= TimeSpan.Zero && elapsed <= window;

@@ -59,7 +59,7 @@ internal sealed class ScheduledTimerAssertionsTests
         {
             await Assert.That(time).HasTimerScheduled(PingInterval, atLeast: 2);
         }).Throws<AssertionException>();
-        await Assert.That(exception!.Message).Contains("expected at least 2 active timer(s) scheduled at 30.0s but found 1 (minimum=2, actual=1):");
+        await Assert.That(exception!.Message).Contains("but found 1 (minimum=2, actual=1) among 3 active timer(s):");
         await Assert.That(exception.Message).Contains("[dueTime=60:00, period=one-shot]");
 
         _ = time.CreateTimer(static _ => { }, state: null, PingInterval, Timeout.InfiniteTimeSpan);
@@ -130,7 +130,7 @@ internal sealed class ScheduledTimerAssertionsTests
             await Assert.That(time).HasNoTimerScheduled();
         }).Throws<AssertionException>();
 
-        await Assert.That(exception!.Message).Contains("expected no scheduled timer but 1 active timer(s) had a pending due time (count=1):");
+        await Assert.That(exception!.Message).Contains("but 1 active timer(s) had a pending due time (count=1):");
         await Assert.That(exception.Message).Contains("[dueTime=30.0s, period=one-shot]");
         await Assert.That(exception.Message).DoesNotContain("dueTime=infinite");
     }
@@ -194,10 +194,12 @@ internal sealed class ScheduledTimerAssertionsTests
             await Assert.That(time).HasTimerScheduledEventually(PingInterval, atLeast: 2, TimeSpan.Zero, cancellationToken);
         }).Throws<AssertionException>();
 
-        await Assert.That(exception!.Message).Contains("expected at least 2 active timer(s) scheduled at 30.0s within");
+        await Assert.That(exception!.Message).Contains("Expected at least 2 active timer(s) scheduled at 30.0s within");
         await Assert.That(exception.Message).Contains("(minimum=2, actual=0)");
         await Assert.That(exception.Message).Contains("[dueTime=1.0s, period=1.0s]");
-        await Assert.That(exception.Message).Contains(".HasTimerScheduledEventually(30.0s, atLeast: 2,");
+        await Assert.That(exception.Message).Contains("at Assert.That(time).HasTimerScheduledEventually(PingInterval, 2, TimeSpan.Zero, cancellationToken)");
+        await Assert.That(exception.Message.IndexOf(".HasTimerScheduledEventually(", StringComparison.Ordinal))
+            .IsEqualTo(exception.Message.LastIndexOf(".HasTimerScheduledEventually(", StringComparison.Ordinal));
     }
 
     /// <summary>Canceling the token while the token-only form waits throws

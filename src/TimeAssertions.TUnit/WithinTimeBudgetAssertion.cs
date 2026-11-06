@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using TimeAssertions;
@@ -36,9 +35,9 @@ namespace TimeAssertions.TUnit;
 /// sibling package's domain-specific timeout API.
 /// </para>
 /// <para>
-/// For polling / streaming workloads, use the package's own timeout API (e.g.
-/// <c>LogAssertions.WithinTimeout</c>): <c>.WithinTimeBudget()</c> would let an unbounded
-/// poll run and only flag the overrun at the end.
+/// For a wait on background work, use a bounded wait instead (this package's <c>*Eventually</c>
+/// assertions, or a sibling package's wait such as LogAssertions' <c>WaitForLogAsync</c>):
+/// <c>.WithinTimeBudget()</c> would let an unbounded wait run and only flag the overrun at the end.
 /// </para>
 /// <para>
 /// <b>External cancellation propagates intact.</b> When the wrapped operation's
@@ -66,9 +65,6 @@ public sealed class WithinTimeBudgetAssertion<T> : Assertion<T>
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(budget, TimeSpan.Zero);
         _budget = budget;
-        Context.ExpressionBuilder.Append(
-            CultureInfo.InvariantCulture,
-            $".WithinTimeBudget({TimeRenderingHelpers.FormatDuration(budget)})");
     }
 
     /// <inheritdoc/>

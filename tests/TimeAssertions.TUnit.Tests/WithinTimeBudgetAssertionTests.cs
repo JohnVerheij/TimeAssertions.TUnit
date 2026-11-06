@@ -11,7 +11,9 @@ namespace TimeAssertions.TUnit.Tests;
 /// <c>IAssertionSource&lt;T&gt;</c>. Two chain shapes work:
 /// <list type="bullet">
 /// <item><b>Canonical:</b> <c>Assert.That(x).IsEqualTo(...).And.WithinTimeBudget(TimeSpan)</c>: type inference works, no explicit <c>&lt;T&gt;</c> needed.</item>
-/// <item>Direct-on-source: <c>Assert.That(asyncTask).WithinTimeBudget&lt;int&gt;(TimeSpan)</c>: requires explicit type argument because the Task-source's inferred type doesn't drive the generator-emitted overload.</item>
+/// <item>Direct-on-source: <c>Assert.That(asyncTask).WithinTimeBudget&lt;int&gt;(TimeSpan)</c>: a <c>Task&lt;T&gt;</c> source
+/// needs the explicit type argument, because TUnit's task source is both an <c>IAssertionSource&lt;T&gt;</c> and an
+/// <c>IAssertionSource&lt;Task&lt;T&gt;&gt;</c>; a value or delegate source infers it.</item>
 /// </list>
 /// </summary>
 [Category("Smoke")]
@@ -322,5 +324,23 @@ internal sealed class WithinTimeBudgetAssertionTests
         }).Throws<OperationCanceledException>();
 
         await Assert.That(captureInvoked).IsFalse();
+    }
+
+    /// <summary>The README's claim: <c>Eventually(...).And.WithinTimeBudget(...)</c> with a canceled token surfaces
+    /// the cancellation, not an assertion failure, so the test is recorded as canceled.</summary>
+    [Test]
+    public async Task EventuallyThenBudget_TokenCanceled_PropagatesOperationCanceledException(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+        var count = 0;
+
+        await Assert.That(async () =>
+        {
+            await Assert.That(() => count)
+                .Eventually(a => a.IsEqualTo(1), TimeSpan.FromSeconds(5), cancellationToken: cts.Token)
+                .And.WithinTimeBudget(TimeSpan.FromSeconds(5));
+        }).Throws<OperationCanceledException>();
     }
 }
