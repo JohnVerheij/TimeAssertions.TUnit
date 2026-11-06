@@ -85,10 +85,9 @@ Polling is for state the package cannot observe; the schedule below applies only
 
 ## Polling-loop default-schedule agreement
 
-`LogAssertions.WithinTimeout` (and any future polling terminator across the family) follows an
-explicit, fully-pinned schedule. Each package implements independently (the family rule forbids
-cross-package code reference); the convention pins the schedule so consumers see uniform behavior
-without literal code sharing.
+A polling terminator anywhere in the family follows an explicit, fully-pinned schedule. Each
+package implements independently (the family rule forbids cross-package code reference); the
+convention pins the schedule so consumers see uniform behavior without literal code sharing.
 
 **Schedule.** Exponential schedule: 100ms, 200ms, 400ms, 800ms, then 1000ms cap. Escalates
 one step per failed poll. Resets to 100ms on a true poll. Both axes pinned (multiplier and
@@ -106,17 +105,17 @@ to a timer-built wait via `timeProvider.CreateTimer(...)` plus a `TaskCompletion
 rule applies to `EveryWindow`, `WithinHardTimeBudget`, and any future polling/timer-driven
 family API.
 
-## `ToSnapshotString()` format-version header
+## Renderer output format
 
-Family rendering helpers (e.g. `LogAssertions.ToSnapshotString()`) emit a fixed header line
-as the first line of the output: `# <Package> snapshot v<N>`. The header is part of the
-deterministic format, not metadata: it appears in every committed snapshot.
+Family renderers (the `<Thing>Renderer.Render(...)` types and the `ToSnapshotString()`
+projections, for example `LogSnapshotRenderer`, `LogContractRenderer`, `PoseRenderer`,
+`TimelineRenderer`, and `MeasurementSet.ToSnapshotString()`) emit only the rendered content:
+no header line and no format-version marker, so a committed baseline holds nothing but the data.
+The output is deterministic: a stable order, LF line endings, and invariant culture.
 
-Format-version bumps (added field, reordered output, etc.) increment the version number
-(`v2`, `v3`...) and are **always a major-version bump on the package itself**. Consumers'
-committed snapshots therefore carry an explicit format-version marker that survives `git
-diff` review and lets a future `MatchesSnapshot` rendering detect format-incompatibility
-cleanly rather than silently failing on a one-line drift.
+A change to a renderer's output format changes every consumer's committed baseline, so it is a
+breaking change: listed under `BREAKING` in the CHANGELOG, with the migration (review the diff,
+then accept the new baselines).
 
 ## `[EditorBrowsable(Never)]` on assertion bases
 

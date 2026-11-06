@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Time.Testing;
@@ -79,17 +80,26 @@ internal sealed class ObservableTimeProviderWaitTests
         await wait;
     }
 
-    /// <summary>A canceled token ends the wait before the condition is checked.</summary>
+    /// <summary>The token is checked first: a canceled token throws before the condition is evaluated, even though
+    /// the condition already holds.</summary>
     [Test]
-    public async Task WaitUntilAsync_PreCanceledToken_Throws(CancellationToken cancellationToken)
+    public async Task WaitUntilAsync_PreCanceledToken_ThrowsBeforeEvaluatingTheCondition(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var time = new ObservableTimeProvider(new FakeTimeProvider());
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
+        var evaluations = 0;
 
-        await Assert.That(async () => await time.WaitUntilAsync(static _ => true, cts.Token))
-            .Throws<OperationCanceledException>();
+        await Assert.That(async () => await time.WaitUntilAsync(
+                _ =>
+                {
+                    evaluations++;
+                    return true;
+                },
+                cts.Token))
+            .ThrowsExactly<OperationCanceledException>();
+        await Assert.That(evaluations).IsEqualTo(0);
     }
 
     /// <summary>Canceling the token while the wait is pending throws <see cref="OperationCanceledException"/>.</summary>
@@ -176,6 +186,92 @@ internal sealed class ObservableTimeProviderWaitTests
         await wait;
 
         await Assert.That(time.TimersDisposedCount).IsEqualTo(1);
+    }
+
+    /// <summary>
+    /// The README's "until N timers are pending" recipe: a fired one-shot timer that its owner has not disposed still
+    /// counts in <see cref="ObservableTimeProvider.ActiveTimerCount"/> but is no longer pending (its due time is
+    /// infinite), so the condition counts the active timers that carry a due time.
+    /// </summary>
+    [Test]
+    public async Task WaitUntilAsync_PendingTimerRecipe_SkipsAFiredOneShotTimer(CancellationToken cancellationToken)
+    {
+        var fake = new FakeTimeProvider();
+        var time = new ObservableTimeProvider(fake);
+        _ = time.CreateTimer(static _ => { }, state: null, OneSecond, Timeout.InfiniteTimeSpan);
+        fake.Advance(OneSecond);
+        _ = time.CreateTimer(static _ => { }, state: null, FiveSeconds, Timeout.InfiniteTimeSpan);
+
+        var twoPending = time.WaitUntilAsync(
+            static provider => provider.ActiveTimers.Count(static timer => timer.DueTime != Timeout.InfiniteTimeSpan) >= 2,
+            cancellationToken);
+        await Assert.That(time.ActiveTimerCount).IsEqualTo(2);
+        await Assert.That(twoPending.IsCompleted).IsFalse();
+
+        _ = time.CreateTimer(static _ => { }, state: null, FiveSeconds, Timeout.InfiniteTimeSpan);
+        await twoPending;
+    }
+
+    /// <summary>A creation wait that its token ends says how many timers it waited for and how many were created.</summary>
+    [Test]
+    public async Task WaitForTimersCreatedAsync_CanceledWhileWaiting_SaysHowManyWereCreated(CancellationToken cancellationToken)
+    {
+        var fake = new FakeTimeProvider();
+        var time = new ObservableTimeProvider(fake);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _ = time.CreateTimer(_ => cts.Cancel(), state: null, OneSecond, Timeout.InfiniteTimeSpan);
+
+        var exception = await Assert.That(async () =>
+            {
+                var wait = time.WaitForTimersCreatedAsync(3, cts.Token);
+                fake.Advance(OneSecond);
+                await wait;
+            })
+            .ThrowsExactly<OperationCanceledException>();
+
+        await Assert.That(exception!.Message).IsEqualTo(
+            "Waited for 3 timer(s) created, but 1 timer(s) were created before the wait was canceled.");
+        await Assert.That(exception.CancellationToken).IsEqualTo(cts.Token);
+        await Assert.That(exception.InnerException).IsTypeOf<TaskCanceledException>();
+    }
+
+    /// <summary>A creation wait on a token canceled before the call fails at once, with the same message.</summary>
+    [Test]
+    public async Task WaitForTimersCreatedAsync_PreCanceledToken_SaysHowManyWereCreated(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = new ObservableTimeProvider(new FakeTimeProvider());
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        var exception = await Assert.That(async () => await time.WaitForTimersCreatedAsync(1, cts.Token))
+            .ThrowsExactly<OperationCanceledException>();
+
+        await Assert.That(exception!.Message).IsEqualTo(
+            "Waited for 1 timer(s) created, but 0 timer(s) were created before the wait was canceled.");
+    }
+
+    /// <summary>A disposal wait that its token ends says how many disposals it waited for and how many happened.</summary>
+    [Test]
+    public async Task WaitForTimersDisposedAsync_CanceledWhileWaiting_SaysHowManyWereDisposed(CancellationToken cancellationToken)
+    {
+        var fake = new FakeTimeProvider();
+        var time = new ObservableTimeProvider(fake);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        time.CreateTimer(static _ => { }, state: null, OneSecond, Timeout.InfiniteTimeSpan).Dispose();
+        _ = time.CreateTimer(_ => cts.Cancel(), state: null, OneSecond, Timeout.InfiniteTimeSpan);
+
+        var exception = await Assert.That(async () =>
+            {
+                var wait = time.WaitForTimersDisposedAsync(2, cts.Token);
+                fake.Advance(OneSecond);
+                await wait;
+            })
+            .ThrowsExactly<OperationCanceledException>();
+
+        await Assert.That(exception!.Message).IsEqualTo(
+            "Waited for 2 timer(s) disposed, but 1 timer(s) were disposed before the wait was canceled.");
+        await Assert.That(exception.CancellationToken).IsEqualTo(cts.Token);
     }
 
     /// <summary>A fire wakes the wait, so a condition on <see cref="ObservableTimeProvider.TimerFireCount"/>

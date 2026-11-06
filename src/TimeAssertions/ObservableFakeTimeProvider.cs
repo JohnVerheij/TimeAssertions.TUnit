@@ -63,7 +63,8 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
     /// re-scheduled with <see cref="ITimer.Change"/> (a callback that re-arms its own one-shot timer).
     /// </summary>
     /// <param name="delta">The amount of time to advance.</param>
-    /// <param name="cancellationToken">The only bound of the wait, typically the test's token.</param>
+    /// <param name="cancellationToken">The only bound of the wait, typically the test's token. To fail sooner than
+    /// the test's timeout, pass a linked token with <see cref="CancellationTokenSource.CancelAfter(TimeSpan)"/>.</param>
     /// <returns>A task that completes once the loops woken by the advance have armed their next timers.</returns>
     /// <remarks>
     /// <para>
@@ -82,54 +83,51 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
     /// <para>
     /// A loop that ends after its timer fired arms no new one, so the wait then runs until
     /// <paramref name="cancellationToken"/> is canceled. The resulting <see cref="OperationCanceledException"/>
-    /// says how many timers fired and how many were armed.
+    /// says how many timers fired and how many were armed. A token that is already canceled stops the call before
+    /// the clock moves.
     /// </para>
     /// </remarks>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled before
-    /// the woken loops re-armed.</exception>
-    public async Task AdvanceAndSettleAsync(TimeSpan delta, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        var armedBefore = TimersArmedCount;
-        var oneShotFiresBefore = OneShotFireCount;
-        Fake.Advance(delta);
-        var fired = OneShotFireCount - oneShotFiresBefore;
-
-        try
-        {
-            await WaitUntilAsync(provider => provider.TimersArmedCount - armedBefore >= fired, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException exception) when (cancellationToken.IsCancellationRequested)
-        {
-            throw new OperationCanceledException(
-                string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"Advancing {delta} fired {fired} one-shot timer(s), but only {TimersArmedCount - armedBefore} timer(s) were armed (created with a due time, or re-scheduled with Change) before the wait was canceled. A loop that ends after its timer fires arms no new one; for a periodic timer use AdvanceUntilAsync."),
-                exception,
-                cancellationToken);
-        }
-    }
+    /// the advance, or before the woken loops re-armed.</exception>
+    public Task AdvanceAndSettleAsync(TimeSpan delta, CancellationToken cancellationToken)
+        => AdvanceAndSettleCoreAsync(
+            delta,
+            new AdvanceProgress(0, delta, TimeSpan.Zero, Shortened: false),
+            " A loop that ends after its timer fires arms no new one; for a periodic timer use AdvanceUntilAsync.",
+            cancellationToken);
 
     /// <summary>
-    /// Advances the fake clock by <paramref name="step"/> each time the code under test has created a timer,
-    /// until <paramref name="until"/> completes. Drives a loop through any number of timed waits (for example
-    /// a reconnect backoff per failed attempt) without real time: it advances only once a timer exists, so no
-    /// advance is lost.
+    /// Advances the fake clock by <paramref name="step"/> each time a timer has been created through this provider
+    /// since the previous advance (for the first advance, any timer, including one created before the call), until
+    /// <paramref name="until"/> completes; then completes as <paramref name="until"/> did. Drives a loop through any
+    /// number of timed waits (for example a reconnect backoff per failed attempt) without real time: it advances
+    /// only once a timer exists, so no advance is lost.
     /// </summary>
     /// <param name="until">The task whose completion ends the advancing, for example a start that returns once connected.</param>
     /// <param name="step">The fake time per advance; at least the longest single wait the loop schedules.</param>
-    /// <param name="cancellationToken">The only bound of the wait, typically the test's token.</param>
-    /// <returns>A task that completes once <paramref name="until"/> has completed. It does not observe the
-    /// outcome of <paramref name="until"/>; await that task afterwards.</returns>
+    /// <param name="cancellationToken">The only bound of the wait, typically the test's token. To fail sooner than
+    /// the test's timeout, pass a linked token with <see cref="CancellationTokenSource.CancelAfter(TimeSpan)"/>.</param>
+    /// <returns>A task that completes once <paramref name="until"/> has completed successfully.</returns>
     /// <remarks>
-    /// The first advance happens as soon as any timer has been created through this provider, including one
-    /// created before the call; after that, each advance waits for a timer created since the previous one.
+    /// <para>
+    /// The outcome of <paramref name="until"/> is observed as <c>await until</c> observes it: a fault rethrows the
+    /// task's (first) exception and a cancellation rethrows its <see cref="OperationCanceledException"/>, so a failed
+    /// task cannot go unnoticed. When the test expects the fault, assert that this call throws it. When
+    /// <paramref name="until"/> has completed by the time <paramref name="cancellationToken"/> is canceled, its
+    /// outcome is the one reported. For a task with a result, use
+    /// <see cref="AdvanceOnEachTimerUntilAsync{T}(Task{T}, TimeSpan, CancellationToken)"/>, which returns it.
+    /// </para>
+    /// <para>
+    /// The counts are those of the whole provider, so use it on a provider the loop has to itself. A loop in a wait
+    /// longer than <paramref name="step"/> is not woken by an advance and creates no new timer, so the call then runs
+    /// until <paramref name="cancellationToken"/> is canceled; the <see cref="OperationCanceledException"/> says how
+    /// many advances were made, how far the clock moved, and how many timers were created.
+    /// </para>
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="until"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="step"/> is not positive.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled before
-    /// <paramref name="until"/> completed.</exception>
+    /// <paramref name="until"/> completed, or <paramref name="until"/> was canceled.</exception>
     [SuppressMessage(
         "Usage",
         "VSTHRD003:Avoid awaiting foreign Tasks",
@@ -140,19 +138,65 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(step, TimeSpan.Zero);
 
         long handled = 0;
+        var progress = new AdvanceProgress(0, step, TimeSpan.Zero, Shortened: false);
         while (!until.IsCompleted)
         {
-            var nextTimer = WaitForTimersCreatedAsync(handled + 1, cancellationToken);
-            if (await Task.WhenAny(nextTimer, until).ConfigureAwait(false) == until)
+            var created = handled;
+            using var timerWait = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var nextTimer = WaitUntilAsync(provider => provider.TimersCreatedCount > created, timerWait.Token);
+            _ = await Task.WhenAny(nextTimer, until).ConfigureAwait(false);
+
+            // The task's outcome wins over a cancellation that ended the wait at the same time. The timer wait
+            // is ended and awaited here, so none outlives the call.
+            if (until.IsCompleted)
             {
-                return;
+                await timerWait.CancelAsync().ConfigureAwait(false);
+                await nextTimer.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+                break;
             }
 
-            // Surfaces a cancellation of the wait instead of advancing.
-            await nextTimer.ConfigureAwait(false);
+            try
+            {
+                await nextTimer.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException exception)
+            {
+                throw CanceledWhileAdvancing(progress, created + 1, exception, cancellationToken);
+            }
+
             handled = TimersCreatedCount;
             Fake.Advance(step);
+            progress = progress.After(step);
         }
+
+        await until.ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Advances the fake clock by <paramref name="step"/> each time a timer has been created through this provider
+    /// since the previous advance, until <paramref name="until"/> completes, and returns its result. Behaves as
+    /// <see cref="AdvanceOnEachTimerUntilAsync(Task, TimeSpan, CancellationToken)"/> in every other respect, for
+    /// example for a task of LogAssertions' <c>WaitForLogAsync</c> on a <c>FakeLogCollector</c>, whose result is the
+    /// awaited record.
+    /// </summary>
+    /// <typeparam name="T">The result type of <paramref name="until"/>.</typeparam>
+    /// <param name="until">The task whose completion ends the advancing.</param>
+    /// <param name="step">The fake time per advance; at least the longest single wait the loop schedules.</param>
+    /// <param name="cancellationToken">The only bound of the wait, typically the test's token.</param>
+    /// <returns>The result of <paramref name="until"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="until"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="step"/> is not positive.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled before
+    /// <paramref name="until"/> completed, or <paramref name="until"/> was canceled.</exception>
+    [SuppressMessage(
+        "Usage",
+        "VSTHRD003:Avoid awaiting foreign Tasks",
+        Justification = "Observing the caller's task is the documented contract of this method: it advances until that task completes. Test code runs without a SynchronizationContext or JoinableTaskFactory, so there is no thread to deadlock.")]
+    public async Task<T> AdvanceOnEachTimerUntilAsync<T>(Task<T> until, TimeSpan step, CancellationToken cancellationToken)
+    {
+        Task completion = until;
+        await AdvanceOnEachTimerUntilAsync(completion, step, cancellationToken).ConfigureAwait(false);
+        return await until.ConfigureAwait(false);
     }
 
     /// <summary>
@@ -171,27 +215,125 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="step"/> is not positive, or
     /// <paramref name="maxAdvance"/> is negative.</exception>
     /// <exception cref="TimeoutException"><paramref name="until"/> did not hold after advancing
-    /// <paramref name="maxAdvance"/>.</exception>
-    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled during a
-    /// settle wait.</exception>
+    /// <paramref name="maxAdvance"/>. The message says how many advances were made and how far the clock moved.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled before an
+    /// advance or during a settle wait. The message says how many advances were made and how far the clock moved,
+    /// and for a settle wait how many timers the last advance fired and armed.</exception>
     public async Task AdvanceUntilAsync(TimeSpan step, Func<bool> until, TimeSpan maxAdvance, CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(step, TimeSpan.Zero);
         ArgumentNullException.ThrowIfNull(until);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxAdvance, TimeSpan.Zero);
 
-        var advanced = TimeSpan.Zero;
+        var progress = new AdvanceProgress(0, step, TimeSpan.Zero, Shortened: false);
         while (!until())
         {
-            if (advanced >= maxAdvance)
+            if (progress.Total >= maxAdvance)
             {
                 throw new TimeoutException(
-                    $"The condition did not hold after advancing {advanced} of fake time in steps of {step}.");
+                    $"{Describe(progress)}, but the condition did not hold within the maximum advance of {maxAdvance}.");
             }
 
-            var next = step < maxAdvance - advanced ? step : maxAdvance - advanced;
-            await AdvanceAndSettleAsync(next, cancellationToken).ConfigureAwait(false);
-            advanced += next;
+            var next = step < maxAdvance - progress.Total ? step : maxAdvance - progress.Total;
+            await AdvanceAndSettleCoreAsync(
+                next,
+                progress,
+                " A loop that ends after its timer fires arms no new one.",
+                cancellationToken).ConfigureAwait(false);
+            progress = progress.After(next);
         }
+    }
+
+    /// <summary>
+    /// Advances by <paramref name="delta"/> and waits until as many timers have been armed as one-shot timers fired.
+    /// On cancellation, throws an <see cref="OperationCanceledException"/> that describes the calling helper's
+    /// advances and the counts; a token that is already canceled stops it before the clock moves.
+    /// </summary>
+    /// <param name="delta">The amount of time to advance.</param>
+    /// <param name="done">The calling helper's advances before this one, for the message.</param>
+    /// <param name="hint">The sentence that ends the message of a canceled settle wait, with a leading space.</param>
+    /// <param name="cancellationToken">The only bound of the wait.</param>
+    /// <returns>A task that completes once the woken loops have armed their next timers.</returns>
+    private async Task AdvanceAndSettleCoreAsync(
+        TimeSpan delta,
+        AdvanceProgress done,
+        string hint,
+        CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested)
+        {
+            throw new OperationCanceledException(
+                $"{Describe(done)}, but the token was canceled before the {(done.Count is 0 ? "first" : "next")} advance.",
+                cancellationToken);
+        }
+
+        var progress = done.After(delta);
+        var armedBefore = TimersArmedCount;
+        var oneShotFiresBefore = OneShotFireCount;
+        Fake.Advance(delta);
+        var fired = OneShotFireCount - oneShotFiresBefore;
+
+        try
+        {
+            await WaitUntilAsync(provider => provider.TimersArmedCount - armedBefore >= fired, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException exception)
+        {
+            var armed = TimersArmedCount - armedBefore;
+            var message = armed >= fired
+                ? string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{Describe(progress)}: the last advance fired {fired} one-shot timer(s), and {armed} timer(s) were armed, but the token was canceled before the settle returned.")
+                : string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{Describe(progress)}: the last advance fired {fired} one-shot timer(s), but only {armed} timer(s) were armed (created with a due time, or re-scheduled with Change) before the wait was canceled.{hint}");
+            throw new OperationCanceledException(message, exception, cancellationToken);
+        }
+    }
+
+    /// <summary>Builds the exception for a cancellation that ended <c>AdvanceOnEachTimerUntilAsync</c> before its
+    /// task completed, with the advances made and the timers created.</summary>
+    /// <param name="progress">The advances made.</param>
+    /// <param name="awaitedTimer">The cumulative number of the timer the next advance waited for.</param>
+    /// <param name="inner">The cancellation of the wait for that timer.</param>
+    /// <param name="cancellationToken">The token that was canceled.</param>
+    /// <returns>The exception to throw.</returns>
+    private OperationCanceledException CanceledWhileAdvancing(
+        AdvanceProgress progress,
+        long awaitedTimer,
+        OperationCanceledException inner,
+        CancellationToken cancellationToken)
+    {
+        var message = progress.Count is 0
+            ? string.Create(
+                CultureInfo.InvariantCulture,
+                $"{Describe(progress)}, but the task had not completed when the wait was canceled: the first advance waited for timer {awaitedTimer}, and {TimersCreatedCount} timer(s) were created.")
+            : string.Create(
+                CultureInfo.InvariantCulture,
+                $"{Describe(progress)}, but the task had not completed when the wait was canceled: the next advance waited for timer {awaitedTimer}, and {TimersCreatedCount} timer(s) were created. A loop in a wait longer than the step is not woken by an advance, so it creates no new timer.");
+        return new OperationCanceledException(message, inner, cancellationToken);
+    }
+
+    /// <summary>Describes the advances an advance helper made, the same way in every helper's message:
+    /// "Advanced 3 time(s) by 00:00:01, 00:00:03 in total (clock now ...)".</summary>
+    /// <param name="progress">The advances made.</param>
+    /// <returns>The description, with the clock's time in the invariant round-trip format.</returns>
+    private string Describe(AdvanceProgress progress) =>
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"Advanced {progress.Count} time(s) by {(progress.Shortened ? "up to " : string.Empty)}{progress.Step}, {progress.Total} in total (clock now {GetUtcNow():O})");
+
+    /// <summary>The advances an advance helper has made, for its failure messages.</summary>
+    /// <param name="Count">The number of advances made.</param>
+    /// <param name="Step">The fake time per advance.</param>
+    /// <param name="Total">The fake time advanced in total.</param>
+    /// <param name="Shortened">Whether the last advance was shorter than <paramref name="Step"/>.</param>
+    private readonly record struct AdvanceProgress(long Count, TimeSpan Step, TimeSpan Total, bool Shortened)
+    {
+        /// <summary>The progress after one more advance by <paramref name="delta"/>.</summary>
+        /// <param name="delta">The fake time of the advance.</param>
+        /// <returns>The new progress.</returns>
+        public AdvanceProgress After(TimeSpan delta) => new(Count + 1, Step, Total + delta, delta < Step);
     }
 }

@@ -77,7 +77,7 @@ internal sealed class EventuallyActiveTimerAssertionsTests
             await Assert.That(time).HasNoActiveTimersEventually(ShortTimeout, cancellationToken);
         }).Throws<AssertionException>();
 
-        await Assert.That(exception!.Message).Contains("expected the active-timer count to reach 0");
+        await Assert.That(exception!.Message).Contains("but 1 remained (count=1):");
         await Assert.That(exception.Message).Contains("(count=1)");
         await Assert.That(exception.Message).Contains("[dueTime=1.0s, period=5.0s]");
     }
@@ -212,7 +212,7 @@ internal sealed class EventuallyActiveTimerAssertionsTests
             await Assert.That(time).HasActiveTimerCountEventually(0, TimeSpan.Zero, cancellationToken);
         }).Throws<AssertionException>();
 
-        await Assert.That(exception!.Message).Contains("expected the active-timer count to reach 0");
+        await Assert.That(exception!.Message).Contains("but found 1 (expected=0, actual=1)");
         await Assert.That(exception.Message).Contains("(expected=0, actual=1)");
     }
 
@@ -269,7 +269,7 @@ internal sealed class EventuallyActiveTimerAssertionsTests
             await Assert.That(time).HasActiveTimers();
         }).Throws<AssertionException>();
 
-        await Assert.That(exception!.Message).Contains("expected at least 1 active timer(s) but found 0");
+        await Assert.That(exception!.Message).Contains("but found 0 (minimum=1, actual=0)");
         await Assert.That(exception.Message).Contains("(minimum=1, actual=0)");
     }
 
@@ -311,7 +311,7 @@ internal sealed class EventuallyActiveTimerAssertionsTests
             await Assert.That(time).HasAtLeastActiveTimerCount(3);
         }).Throws<AssertionException>();
 
-        await Assert.That(exception!.Message).Contains("expected at least 3 active timer(s) but found 1");
+        await Assert.That(exception!.Message).Contains("but found 1 (minimum=3, actual=1):");
         await Assert.That(exception.Message).Contains("(minimum=3, actual=1)");
         await Assert.That(exception.Message).Contains("[dueTime=1.0s, period=5.0s]");
     }
@@ -330,8 +330,7 @@ internal sealed class EventuallyActiveTimerAssertionsTests
 
     // --- token-only form ---
     // The (ct) form has no real-time bound: only the token ends the wait. The (timeout), (timeout, ct) and
-    // (ct) shapes are all generated from the assertion constructors; the deprecated pollingInterval forms
-    // are covered in EventuallyPollingIntervalObsoleteTests.
+    // (ct) shapes are all generated from the assertion constructors.
 
     /// <summary>The token-only form waits for a disposal that happens on a background continuation.</summary>
     [Test]
@@ -372,8 +371,9 @@ internal sealed class EventuallyActiveTimerAssertionsTests
         await Assert.That(time).HasActiveTimerCountEventually(2, cancellationToken);
     }
 
-    /// <summary>Canceling the token while the token-only form waits throws
-    /// <see cref="OperationCanceledException"/>: with no timeout, the token is the only way out.</summary>
+    /// <summary>Canceling the token while the token-only form waits throws an
+    /// <see cref="OperationCanceledException"/> (not the wait's <see cref="TaskCanceledException"/>) that says what
+    /// it waited for: with no timeout, the token is the only way out.</summary>
     [Test]
     public async Task HasActiveTimersEventually_TokenOnly_CanceledWhileWaiting_Throws(CancellationToken cancellationToken)
     {
@@ -389,10 +389,13 @@ internal sealed class EventuallyActiveTimerAssertionsTests
             },
             cancellationToken);
 
-        await Assert.That(async () =>
+        var exception = await Assert.That(async () =>
         {
             await Assert.That(time).HasActiveTimersEventually(cts.Token);
-        }).Throws<OperationCanceledException>();
+        }).ThrowsExactly<OperationCanceledException>();
+
+        await Assert.That(exception!.Message).IsEqualTo(
+            "Canceled while waiting for at least one active timer: the active-timer count stayed at 0");
     }
 
     /// <summary>Overload-resolution matrix: every supported call shape compiles and resolves with no
@@ -464,7 +467,7 @@ internal sealed class EventuallyActiveTimerAssertionsTests
             await Assert.That(time).HasAtLeastActiveTimerCountEventually(2, TimeSpan.Zero, cancellationToken);
         }).Throws<AssertionException>();
 
-        await Assert.That(exception!.Message).Contains("expected the active-timer count to reach at least 2");
+        await Assert.That(exception!.Message).Contains("but found 0 (minimum=2, actual=0)");
         await Assert.That(exception.Message).Contains("(minimum=2, actual=0)");
     }
 
@@ -543,7 +546,7 @@ internal sealed class EventuallyActiveTimerAssertionsTests
             await Assert.That(time).HasAtMostActiveTimerCountEventually(0, TimeSpan.Zero, cancellationToken);
         }).Throws<AssertionException>();
 
-        await Assert.That(exception!.Message).Contains("expected the active-timer count to fall to at most 0");
+        await Assert.That(exception!.Message).Contains("but found 2 (maximum=0, actual=2):");
         await Assert.That(exception.Message).Contains("(maximum=0, actual=2)");
     }
 
@@ -599,7 +602,7 @@ internal sealed class EventuallyActiveTimerAssertionsTests
             await Assert.That(time).HasActiveTimersEventually(TimeSpan.Zero, cancellationToken);
         }).Throws<AssertionException>();
 
-        await Assert.That(exception!.Message).Contains("expected at least one active timer");
+        await Assert.That(exception!.Message).Contains("Expected at least one active timer");
         await Assert.That(exception.Message).Contains("stayed at 0");
     }
 

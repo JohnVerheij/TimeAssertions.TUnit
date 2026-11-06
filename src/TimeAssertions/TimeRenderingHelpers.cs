@@ -10,6 +10,11 @@ namespace TimeAssertions;
 /// Formatting utilities for rendering elapsed durations and timing budgets in human-readable
 /// form for assertion-failure messages. Pure; no I/O; allocation-conscious.
 /// </summary>
+/// <remarks>
+/// The failure texts describe only what was found: the assertion states what was expected (TUnit prints it as
+/// <c>Expected …</c>, then the text as <c>but …</c>). Each text ends with a grep-friendly trailer and, where timers
+/// are involved, the timers' schedules, introduced by a colon only when at least one timer follows.
+/// </remarks>
 public static class TimeRenderingHelpers
 {
     /// <summary>
@@ -65,7 +70,7 @@ public static class TimeRenderingHelpers
     /// </remarks>
     /// <param name="elapsed">The wall-clock duration the assertion's evaluator took.</param>
     /// <param name="budget">The configured timing budget.</param>
-    /// <returns>A multi-line human-readable summary.</returns>
+    /// <returns>A one-line human-readable summary.</returns>
     public static string FormatBudgetOverrun(TimeSpan elapsed, TimeSpan budget)
     {
         var excess = elapsed - budget;
@@ -79,12 +84,12 @@ public static class TimeRenderingHelpers
 
     /// <summary>
     /// Formats a rate-limit violation summary for the failure message of
-    /// <c>WasInvokedAtMostOncePer(...)</c>. Names the first violating consecutive pair by
-    /// index, the observed gap, and the configured minimum interval.
+    /// <c>WasInvokedAtMostOncePer(...)</c>: the first consecutive pair that is too close, by index, with the
+    /// observed gap and the configured minimum interval, for example
+    /// <c>the gap at index 2 was 5.0s (minimum 30.0s)</c>.
     /// </summary>
     /// <remarks>
-    /// The rendered shape pins a one-line headline with the violation index and gap,
-    /// followed by the two violating timestamps in ISO 8601 round-trip form, and a
+    /// The headline is followed by the two timestamps of the pair in ISO 8601 round-trip form, and a
     /// grep-friendly fixed-unit parenthetical (analogous to
     /// <see cref="FormatBudgetOverrun"/>'s <c>(elapsed=, budget=, overrun=)</c> trailer)
     /// so CI log scrapers can extract the numbers without parsing the prose.
@@ -121,23 +126,21 @@ public static class TimeRenderingHelpers
 
         var sb = new StringBuilder();
         sb.Append(CultureInfo.InvariantCulture,
-            $"interval violation at index {violatingIndex}: gap was {FormatDuration(gap)} (minimum {FormatDuration(interval)})").AppendLine();
+            $"the gap at index {violatingIndex} was {FormatDuration(gap)} (minimum {FormatDuration(interval)})").AppendLine();
         sb.Append(CultureInfo.InvariantCulture, $"  timestamps[{violatingIndex - 1}]: {prior:O}").AppendLine();
-        sb.Append(CultureInfo.InvariantCulture, $"  timestamps[{violatingIndex}]:   {current:O}").AppendLine();
+        sb.Append(CultureInfo.InvariantCulture, $"  timestamps[{violatingIndex}]: {current:O}").AppendLine();
         sb.Append(CultureInfo.InvariantCulture, $"  (gap={gapMs:F0}ms, minimum={intervalMs:F0}ms)");
         return sb.ToString();
     }
 
     /// <summary>
-    /// Formats the failure message for <c>HasNoActiveTimers()</c>: names each timer that remained
-    /// active by the schedule it was created with (or last changed to), so a leak failure reports
-    /// <em>which</em> timers survived rather than a bare count. Survivors are listed in a
-    /// deterministic order (by due time, then period) so the message is snapshot-stable.
+    /// Formats the failure text for <c>HasNoActiveTimers()</c> and <c>HasNoActiveTimersEventually(...)</c>: how
+    /// many timers remained active, with a grep-friendly <c>(count=N)</c> trailer, followed by each survivor's
+    /// schedule in deterministic order (by due time, then period), so a leak names <em>which</em> timers survived
+    /// rather than a bare count. For example <c>2 remained (count=2):</c> and two schedule lines.
     /// </summary>
-    /// <param name="survivors">The timers still active when the assertion ran. Expected non-empty:
-    /// the assertion only renders a failure when at least one timer leaked.</param>
-    /// <returns>A multi-line human-readable summary in <see cref="CultureInfo.InvariantCulture"/>,
-    /// with a grep-friendly <c>(count=N)</c> trailer on the headline.</returns>
+    /// <param name="survivors">The timers still active when the assertion ran.</param>
+    /// <returns>A multi-line human-readable summary in <see cref="CultureInfo.InvariantCulture"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="survivors"/> is
     /// <see langword="null"/>.</exception>
     public static string FormatActiveTimerLeak(IReadOnlyList<ActiveTimerInfo> survivors)
@@ -145,22 +148,21 @@ public static class TimeRenderingHelpers
         ArgumentNullException.ThrowIfNull(survivors);
 
         var sb = new StringBuilder();
-        sb.Append(CultureInfo.InvariantCulture,
-            $"expected no active timers but {survivors.Count} remained (count={survivors.Count}):");
+        sb.Append(CultureInfo.InvariantCulture, $"{survivors.Count} remained (count={survivors.Count})");
         AppendTimerSchedules(sb, survivors);
         return sb.ToString();
     }
 
     /// <summary>
-    /// Formats the failure message for <c>HasActiveTimerCount(expected)</c>: the expected and actual
-    /// active-timer counts, followed by each active timer's schedule in deterministic order (by due
-    /// time, then period). When no timers are active the schedule list is omitted.
+    /// Formats the failure text for <c>HasActiveTimerCount(expected)</c> and
+    /// <c>HasActiveTimerCountEventually(...)</c>: the active-timer count found, with a grep-friendly
+    /// <c>(expected=N, actual=M)</c> trailer, followed by each active timer's schedule in deterministic order (by
+    /// due time, then period). For example <c>found 2 (expected=3, actual=2):</c> and two schedule lines.
     /// </summary>
     /// <param name="active">The timers active when the assertion ran.</param>
     /// <param name="expected">The expected active-timer count that was not met. Must be
     /// non-negative.</param>
-    /// <returns>A multi-line human-readable summary in <see cref="CultureInfo.InvariantCulture"/>,
-    /// with a grep-friendly <c>(expected=N, actual=M)</c> trailer on the headline.</returns>
+    /// <returns>A multi-line human-readable summary in <see cref="CultureInfo.InvariantCulture"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="active"/> is
     /// <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="expected"/> is negative.</exception>
@@ -170,23 +172,21 @@ public static class TimeRenderingHelpers
         ArgumentOutOfRangeException.ThrowIfNegative(expected);
 
         var sb = new StringBuilder();
-        sb.Append(CultureInfo.InvariantCulture,
-            $"expected {expected} active timer(s) but found {active.Count} (expected={expected}, actual={active.Count}):");
+        sb.Append(CultureInfo.InvariantCulture, $"found {active.Count} (expected={expected}, actual={active.Count})");
         AppendTimerSchedules(sb, active);
         return sb.ToString();
     }
 
     /// <summary>
-    /// Formats the failure message for <c>HasActiveTimers()</c> and
-    /// <c>HasAtLeastActiveTimerCount(count)</c>: the minimum that was required and the actual count,
-    /// followed by each active timer's schedule in deterministic order (by due time, then period).
-    /// When no timers are active the schedule list is omitted.
+    /// Formats the failure text for <c>HasActiveTimers()</c>, <c>HasAtLeastActiveTimerCount(count)</c> and
+    /// <c>HasAtLeastActiveTimerCountEventually(...)</c>: the active-timer count found, with a grep-friendly
+    /// <c>(minimum=N, actual=M)</c> trailer, followed by each active timer's schedule in deterministic order (by
+    /// due time, then period). For example <c>found 2 (minimum=3, actual=2):</c> and two schedule lines.
     /// </summary>
     /// <param name="active">The timers active when the assertion ran.</param>
     /// <param name="minimum">The minimum active-timer count that was required. Must be
     /// non-negative.</param>
-    /// <returns>A multi-line human-readable summary in <see cref="CultureInfo.InvariantCulture"/>,
-    /// with a grep-friendly <c>(minimum=N, actual=M)</c> trailer on the headline.</returns>
+    /// <returns>A multi-line human-readable summary in <see cref="CultureInfo.InvariantCulture"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="active"/> is
     /// <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="minimum"/> is negative.</exception>
@@ -196,24 +196,23 @@ public static class TimeRenderingHelpers
         ArgumentOutOfRangeException.ThrowIfNegative(minimum);
 
         var sb = new StringBuilder();
-        sb.Append(CultureInfo.InvariantCulture,
-            $"expected at least {minimum} active timer(s) but found {active.Count} (minimum={minimum}, actual={active.Count}):");
+        sb.Append(CultureInfo.InvariantCulture, $"found {active.Count} (minimum={minimum}, actual={active.Count})");
         AppendTimerSchedules(sb, active);
         return sb.ToString();
     }
 
     /// <summary>
-    /// Formats the failure message for <c>HasTimerScheduled(dueTime, atLeast)</c> and
-    /// <c>HasTimerScheduledEventually(...)</c>: how many active timers carry <paramref name="dueTime"/>
-    /// against the minimum that was required, followed by each active timer's schedule in deterministic order
-    /// (by due time, then period). When no timers are active the schedule list is omitted.
+    /// Formats the failure text for <c>HasTimerScheduled(dueTime, atLeast)</c> and
+    /// <c>HasTimerScheduledEventually(...)</c>: how many active timers carry <paramref name="dueTime"/>, with a
+    /// grep-friendly <c>(minimum=N, actual=M)</c> trailer and the number of active timers, followed by each active
+    /// timer's schedule in deterministic order (by due time, then period). For example
+    /// <c>found 1 (minimum=2, actual=1) among 2 active timer(s):</c> and two schedule lines.
     /// </summary>
     /// <param name="active">The timers active when the assertion ran.</param>
     /// <param name="dueTime">The due time the timers were expected to carry.</param>
     /// <param name="minimum">The minimum number of timers carrying <paramref name="dueTime"/>. Must be
     /// non-negative.</param>
-    /// <returns>A multi-line human-readable summary in <see cref="CultureInfo.InvariantCulture"/>, with a
-    /// grep-friendly <c>(minimum=N, actual=M)</c> trailer on the headline.</returns>
+    /// <returns>A multi-line human-readable summary in <see cref="CultureInfo.InvariantCulture"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="active"/> is
     /// <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="minimum"/> is negative.</exception>
@@ -233,19 +232,19 @@ public static class TimeRenderingHelpers
 
         var sb = new StringBuilder();
         sb.Append(CultureInfo.InvariantCulture,
-            $"expected at least {minimum} active timer(s) scheduled at {FormatDuration(dueTime)} but found {actual} (minimum={minimum}, actual={actual}):");
+            $"found {actual} (minimum={minimum}, actual={actual}) among {active.Count} active timer(s)");
         AppendTimerSchedules(sb, active);
         return sb.ToString();
     }
 
     /// <summary>
-    /// Formats the failure message for <c>HasNoTimerScheduled()</c>: how many active timers still carry a
-    /// pending (non-infinite) due time, followed by those timers' schedules in deterministic order (by due
-    /// time, then period). Active timers that are disabled are left out: they are not scheduled.
+    /// Formats the failure text for <c>HasNoTimerScheduled()</c>: how many active timers still carry a pending
+    /// (non-infinite) due time, with a grep-friendly <c>(count=N)</c> trailer, followed by those timers' schedules
+    /// in deterministic order (by due time, then period). Active timers that are disabled are left out: they are
+    /// not scheduled. For example <c>2 active timer(s) had a pending due time (count=2):</c> and two schedule lines.
     /// </summary>
     /// <param name="active">The timers active when the assertion ran.</param>
-    /// <returns>A multi-line human-readable summary in <see cref="CultureInfo.InvariantCulture"/>, with a
-    /// grep-friendly <c>(count=N)</c> trailer on the headline.</returns>
+    /// <returns>A multi-line human-readable summary in <see cref="CultureInfo.InvariantCulture"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="active"/> is
     /// <see langword="null"/>.</exception>
     public static string FormatUnexpectedScheduledTimers(IReadOnlyList<ActiveTimerInfo> active)
@@ -263,15 +262,14 @@ public static class TimeRenderingHelpers
 
         var sb = new StringBuilder();
         sb.Append(CultureInfo.InvariantCulture,
-            $"expected no scheduled timer but {scheduled.Count} active timer(s) had a pending due time (count={scheduled.Count}):");
+            $"{scheduled.Count} active timer(s) had a pending due time (count={scheduled.Count})");
         AppendTimerSchedules(sb, scheduled);
         return sb.ToString();
     }
 
     /// <summary>
-    /// Formats the failure message for <c>HasNextTimerDueApproximately(expected, tolerance)</c>: the
-    /// expected due time, the allowed tolerance, and either the observed next-timer due time and how
-    /// far it fell outside tolerance, or a note that no enabled timer was pending.
+    /// Formats the failure text for <c>HasNextTimerDueApproximately(expected, tolerance)</c>: either the observed
+    /// next-timer due time and how far it fell outside tolerance, or a note that no enabled timer was pending.
     /// </summary>
     /// <remarks>
     /// The rendered shape pins a one-line headline followed by a grep-friendly fixed-unit
@@ -298,7 +296,7 @@ public static class TimeRenderingHelpers
         {
             return string.Create(
                 CultureInfo.InvariantCulture,
-                $"expected the next timer due in approximately {FormatDuration(expected)} (±{FormatDuration(tolerance)}) but no enabled timer was pending (expected={expectedMs:F0}ms, tolerance={toleranceMs:F0}ms, actual=none)");
+                $"no enabled timer was pending (expected={expectedMs:F0}ms, tolerance={toleranceMs:F0}ms, actual=none)");
         }
 
         var actualValue = actual.Value;
@@ -307,13 +305,12 @@ public static class TimeRenderingHelpers
         var deltaMs = delta.TotalMilliseconds;
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"expected the next timer due in approximately {FormatDuration(expected)} (±{FormatDuration(tolerance)}) but it was due in {FormatDuration(actualValue)}, off by {FormatDuration(delta)} (expected={expectedMs:F0}ms, tolerance={toleranceMs:F0}ms, actual={actualMs:F0}ms, delta={deltaMs:F0}ms)");
+            $"it was due in {FormatDuration(actualValue)}, off by {FormatDuration(delta)} (expected={expectedMs:F0}ms, tolerance={toleranceMs:F0}ms, actual={actualMs:F0}ms, delta={deltaMs:F0}ms)");
     }
 
     /// <summary>
-    /// Formats the failure message for <c>HasPendingTimerDueWithin(min, max)</c>: the inclusive
-    /// range, and either the observed next-timer due time, or a note that no enabled timer was
-    /// pending.
+    /// Formats the failure text for <c>HasPendingTimerDueWithin(min, max)</c>: either the observed next-timer due
+    /// time, or a note that no enabled timer was pending.
     /// </summary>
     /// <remarks>
     /// The rendered shape pins a one-line headline followed by a grep-friendly fixed-unit
@@ -334,27 +331,24 @@ public static class TimeRenderingHelpers
         {
             return string.Create(
                 CultureInfo.InvariantCulture,
-                $"expected a pending timer due within [{FormatDuration(min)}, {FormatDuration(max)}] but no enabled timer was pending (min={minMs:F0}ms, max={maxMs:F0}ms, actual=none)");
+                $"no enabled timer was pending (min={minMs:F0}ms, max={maxMs:F0}ms, actual=none)");
         }
 
         var actualValue = actual.Value;
         var actualMs = actualValue.TotalMilliseconds;
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"expected a pending timer due within [{FormatDuration(min)}, {FormatDuration(max)}] but it was due in {FormatDuration(actualValue)} (min={minMs:F0}ms, max={maxMs:F0}ms, actual={actualMs:F0}ms)");
+            $"it was due in {FormatDuration(actualValue)} (min={minMs:F0}ms, max={maxMs:F0}ms, actual={actualMs:F0}ms)");
     }
 
     /// <summary>
-    /// Formats the schedule list of the timers that survived an "eventually" wait, for the
-    /// failure message of <c>HasNoActiveTimersEventually(...)</c> / <c>HasActiveTimerCountEventually(...)</c>.
-    /// Returns each survivor's schedule on its own indented line, sorted by due time then period for
-    /// deterministic (snapshot-stable) output, prefixed with a grep-friendly <c>(count=N)</c> trailer.
-    /// The caller supplies the headline (which names the timeout); this renders only the survivor list.
+    /// Formats the schedules of <paramref name="survivors"/> for a failure text whose headline the caller supplies,
+    /// for example the one of <c>HasAtMostActiveTimerCountEventually(...)</c>: a colon and one indented line per
+    /// timer, sorted by due time then period for deterministic (snapshot-stable) output.
     /// </summary>
-    /// <param name="survivors">The timers still active when the deadline elapsed.</param>
-    /// <returns>A multi-line string in <see cref="CultureInfo.InvariantCulture"/> beginning with the
-    /// <c>(count=N)</c> trailer, followed by one indented schedule line per survivor. Empty survivors
-    /// render the trailer alone.</returns>
+    /// <param name="survivors">The timers still active when the wait ended.</param>
+    /// <returns>A colon followed by one indented schedule line per timer, in
+    /// <see cref="CultureInfo.InvariantCulture"/>; empty when <paramref name="survivors"/> is empty.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="survivors"/> is
     /// <see langword="null"/>.</exception>
     public static string FormatActiveTimerSurvivors(IReadOnlyList<ActiveTimerInfo> survivors)
@@ -362,22 +356,20 @@ public static class TimeRenderingHelpers
         ArgumentNullException.ThrowIfNull(survivors);
 
         var sb = new StringBuilder();
-        sb.Append(CultureInfo.InvariantCulture, $" (count={survivors.Count})");
         AppendTimerSchedules(sb, survivors);
         return sb.ToString();
     }
 
     /// <summary>
-    /// Formats the failure message for <c>HasTimerFiredCount(expected)</c>: the expected and actual
-    /// cumulative fire counts across every timer the provider created, followed by the still-active
-    /// timers with their per-timer fire counts (when any remain active). The count is cumulative and
-    /// survives disposal, so a mismatch with an empty active list still reports the totals.
+    /// Formats the failure text for <c>HasTimerFiredCount(expected)</c>: the cumulative fire count found, with a
+    /// grep-friendly <c>(expected=N, actual=M)</c> trailer, followed by the still-active timers with their
+    /// per-timer fire counts. The count is cumulative and survives disposal, so a mismatch with no active timer
+    /// still reports the totals. For example <c>they fired 1 time(s) (expected=3, actual=1):</c> and the timers.
     /// </summary>
     /// <param name="actual">The observed cumulative fire count.</param>
     /// <param name="expected">The expected fire count that was not met. Must be non-negative.</param>
     /// <param name="active">The timers still active when the assertion ran.</param>
-    /// <returns>A human-readable summary in <see cref="CultureInfo.InvariantCulture"/>, with a
-    /// grep-friendly <c>(expected=N, actual=M)</c> trailer on the headline.</returns>
+    /// <returns>A human-readable summary in <see cref="CultureInfo.InvariantCulture"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="active"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="expected"/> is negative.</exception>
     public static string FormatTimerFireCountMismatch(long actual, int expected, IReadOnlyList<ActiveTimerInfo> active)
@@ -386,45 +378,41 @@ public static class TimeRenderingHelpers
         ArgumentOutOfRangeException.ThrowIfNegative(expected);
 
         var sb = new StringBuilder();
-        sb.Append(CultureInfo.InvariantCulture,
-            $"expected timer callbacks to have fired {expected} time(s) but they fired {actual} (expected={expected}, actual={actual}):");
+        sb.Append(CultureInfo.InvariantCulture, $"they fired {actual} time(s) (expected={expected}, actual={actual})");
         AppendTimerFireCounts(sb, active);
         return sb.ToString();
     }
 
     /// <summary>
-    /// Formats the failure message for <c>HasNoTimerFired()</c>: the observed cumulative fire count
-    /// that should have been zero, followed by the still-active timers with their per-timer fire
-    /// counts (when any remain active).
+    /// Formats the failure text for <c>HasNoTimerFired()</c>: the cumulative fire count that should have been
+    /// zero, with a grep-friendly <c>(expected=0, actual=M)</c> trailer, followed by the still-active timers with
+    /// their per-timer fire counts. For example <c>1 fired (expected=0, actual=1):</c> and the timers.
     /// </summary>
     /// <param name="actual">The observed cumulative fire count. Expected greater than zero: the
     /// assertion only renders a failure when at least one callback fired.</param>
     /// <param name="active">The timers still active when the assertion ran.</param>
-    /// <returns>A human-readable summary in <see cref="CultureInfo.InvariantCulture"/>, with a
-    /// grep-friendly <c>(expected=0, actual=M)</c> trailer on the headline.</returns>
+    /// <returns>A human-readable summary in <see cref="CultureInfo.InvariantCulture"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="active"/> is <see langword="null"/>.</exception>
     public static string FormatNoTimerFired(long actual, IReadOnlyList<ActiveTimerInfo> active)
     {
         ArgumentNullException.ThrowIfNull(active);
 
         var sb = new StringBuilder();
-        sb.Append(CultureInfo.InvariantCulture,
-            $"expected no timer callback to have fired but {actual} fired (expected=0, actual={actual}):");
+        sb.Append(CultureInfo.InvariantCulture, $"{actual} fired (expected=0, actual={actual})");
         AppendTimerFireCounts(sb, active);
         return sb.ToString();
     }
 
     /// <summary>
-    /// Formats the failure message for <c>HasTimerFiredAtLeast(minimum)</c>: the required minimum and
-    /// the actual cumulative fire count, followed by the still-active timers with their per-timer fire
-    /// counts (when any remain active). The liveness counterpart used when timing jitter makes an
-    /// exact fire count brittle.
+    /// Formats the failure text for <c>HasTimerFiredAtLeast(minimum)</c>: the cumulative fire count found, with a
+    /// grep-friendly <c>(minimum=N, actual=M)</c> trailer, followed by the still-active timers with their
+    /// per-timer fire counts. The liveness counterpart used when timing jitter makes an exact fire count brittle.
+    /// For example <c>they fired 1 time(s) (minimum=5, actual=1):</c> and the timers.
     /// </summary>
     /// <param name="actual">The observed cumulative fire count.</param>
     /// <param name="minimum">The minimum fire count that was required. Must be non-negative.</param>
     /// <param name="active">The timers still active when the assertion ran.</param>
-    /// <returns>A human-readable summary in <see cref="CultureInfo.InvariantCulture"/>, with a
-    /// grep-friendly <c>(minimum=N, actual=M)</c> trailer on the headline.</returns>
+    /// <returns>A human-readable summary in <see cref="CultureInfo.InvariantCulture"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="active"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="minimum"/> is negative.</exception>
     public static string FormatTimerFireShortfall(long actual, int minimum, IReadOnlyList<ActiveTimerInfo> active)
@@ -433,44 +421,50 @@ public static class TimeRenderingHelpers
         ArgumentOutOfRangeException.ThrowIfNegative(minimum);
 
         var sb = new StringBuilder();
-        sb.Append(CultureInfo.InvariantCulture,
-            $"expected timer callbacks to have fired at least {minimum} time(s) but they fired {actual} (minimum={minimum}, actual={actual}):");
+        sb.Append(CultureInfo.InvariantCulture, $"they fired {actual} time(s) (minimum={minimum}, actual={actual})");
         AppendTimerFireCounts(sb, active);
         return sb.ToString();
     }
 
     /// <summary>
-    /// Appends each active timer's schedule and fire count on its own indented line, sorted by due
-    /// time then period for deterministic (snapshot-stable) output. When no timers are active nothing
-    /// is appended, so the cumulative-count headline stands alone.
+    /// Appends a colon and each active timer's schedule and fire count on its own indented line, sorted by due
+    /// time then period for deterministic (snapshot-stable) output. When no timers are active nothing is
+    /// appended, so the cumulative-count headline stands alone.
     /// </summary>
     /// <param name="sb">The target builder; the lines are appended after its current content.</param>
     /// <param name="timers">The active timers to render. May be empty.</param>
     private static void AppendTimerFireCounts(StringBuilder sb, IReadOnlyList<ActiveTimerInfo> timers)
     {
-        var ordered = new List<ActiveTimerInfo>(timers);
-        ordered.Sort(static (a, b) =>
+        foreach (var timer in Ordered(sb, timers))
         {
-            var byDue = a.DueTime.CompareTo(b.DueTime);
-            return byDue is not 0 ? byDue : a.Period.CompareTo(b.Period);
-        });
-
-        foreach (var timer in ordered)
-        {
-            var due = timer.DueTime == Timeout.InfiniteTimeSpan ? "infinite" : FormatDuration(timer.DueTime);
-            var period = timer.Period == Timeout.InfiniteTimeSpan ? "one-shot" : FormatDuration(timer.Period);
-            sb.AppendLine().Append(CultureInfo.InvariantCulture, $"  [dueTime={due}, period={period}, fired={timer.TimesFired}]");
+            sb.AppendLine().Append(CultureInfo.InvariantCulture,
+                $"  [dueTime={FormatDueTime(timer)}, period={FormatPeriod(timer)}, fired={timer.TimesFired}]");
         }
     }
 
     /// <summary>
-    /// Appends each timer's schedule on its own indented line, sorted by due time then period for
-    /// deterministic (snapshot-stable) output. A <see cref="Timeout.InfiniteTimeSpan"/> period
-    /// renders as <c>one-shot</c>; an infinite due time renders as <c>infinite</c>.
+    /// Appends a colon and each timer's schedule on its own indented line, sorted by due time then period for
+    /// deterministic (snapshot-stable) output. When there is no timer nothing is appended.
     /// </summary>
     /// <param name="sb">The target builder; the schedule lines are appended after its current content.</param>
     /// <param name="timers">The timers to render. May be empty, in which case nothing is appended.</param>
     private static void AppendTimerSchedules(StringBuilder sb, IReadOnlyList<ActiveTimerInfo> timers)
+    {
+        foreach (var timer in Ordered(sb, timers))
+        {
+            sb.AppendLine().Append(CultureInfo.InvariantCulture,
+                $"  [dueTime={FormatDueTime(timer)}, period={FormatPeriod(timer)}]");
+        }
+    }
+
+    /// <summary>
+    /// Sorts <paramref name="timers"/> by due time, then period, and appends the colon that introduces them to
+    /// <paramref name="sb"/> when there is at least one.
+    /// </summary>
+    /// <param name="sb">The target builder.</param>
+    /// <param name="timers">The timers to render.</param>
+    /// <returns>The timers in rendering order.</returns>
+    private static List<ActiveTimerInfo> Ordered(StringBuilder sb, IReadOnlyList<ActiveTimerInfo> timers)
     {
         var ordered = new List<ActiveTimerInfo>(timers);
         ordered.Sort(static (a, b) =>
@@ -479,11 +473,25 @@ public static class TimeRenderingHelpers
             return byDue is not 0 ? byDue : a.Period.CompareTo(b.Period);
         });
 
-        foreach (var timer in ordered)
+        if (ordered.Count > 0)
         {
-            var due = timer.DueTime == Timeout.InfiniteTimeSpan ? "infinite" : FormatDuration(timer.DueTime);
-            var period = timer.Period == Timeout.InfiniteTimeSpan ? "one-shot" : FormatDuration(timer.Period);
-            sb.AppendLine().Append(CultureInfo.InvariantCulture, $"  [dueTime={due}, period={period}]");
+            sb.Append(':');
         }
+
+        return ordered;
     }
+
+    /// <summary>Renders a timer's due time; <see cref="Timeout.InfiniteTimeSpan"/> (disabled) as <c>infinite</c>.</summary>
+    /// <param name="timer">The timer.</param>
+    /// <returns>The due time text.</returns>
+    private static string FormatDueTime(ActiveTimerInfo timer) =>
+        timer.DueTime == Timeout.InfiniteTimeSpan ? "infinite" : FormatDuration(timer.DueTime);
+
+    /// <summary>Renders a timer's period. A non-periodic timer (period <see cref="Timeout.InfiniteTimeSpan"/> or
+    /// <see cref="TimeSpan.Zero"/>, per the <see cref="TimeProvider.CreateTimer"/> contract) renders as
+    /// <c>one-shot</c>.</summary>
+    /// <param name="timer">The timer.</param>
+    /// <returns>The period text.</returns>
+    private static string FormatPeriod(ActiveTimerInfo timer) =>
+        timer.Period == Timeout.InfiniteTimeSpan || timer.Period == TimeSpan.Zero ? "one-shot" : FormatDuration(timer.Period);
 }

@@ -240,27 +240,28 @@ namespace TimeAssertions.TUnit
 {
     public static class ActiveTimerAssertions
     {
-        [TUnit.Assertions.Attributes.GenerateAssertion(InlineMethodBody=false)]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have {expected} active timer(s)", InlineMethodBody=false)]
         public static TUnit.Assertions.Core.AssertionResult HasActiveTimerCount(this TimeAssertions.ObservableTimeProvider value, int expected) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion(InlineMethodBody=false)]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have at least one active timer", InlineMethodBody=false)]
         public static TUnit.Assertions.Core.AssertionResult HasActiveTimers(this TimeAssertions.ObservableTimeProvider value) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion(InlineMethodBody=false)]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have at least {count} active timer(s)", InlineMethodBody=false)]
         public static TUnit.Assertions.Core.AssertionResult HasAtLeastActiveTimerCount(this TimeAssertions.ObservableTimeProvider value, int count) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion(InlineMethodBody=false)]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have the next timer due in approximately {expected} within tolerance {toleranc" +
+            "e}", InlineMethodBody=false)]
         public static TUnit.Assertions.Core.AssertionResult HasNextTimerDueApproximately(this TimeAssertions.ObservableTimeProvider value, System.TimeSpan expected, System.TimeSpan tolerance) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion(InlineMethodBody=false)]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have no active timers", InlineMethodBody=false)]
         public static TUnit.Assertions.Core.AssertionResult HasNoActiveTimers(this TimeAssertions.ObservableTimeProvider value) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion(InlineMethodBody=false)]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have fired no timer callback", InlineMethodBody=false)]
         public static TUnit.Assertions.Core.AssertionResult HasNoTimerFired(this TimeAssertions.ObservableTimeProvider value) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion(InlineMethodBody=false)]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have no scheduled timer", InlineMethodBody=false)]
         public static TUnit.Assertions.Core.AssertionResult HasNoTimerScheduled(this TimeAssertions.ObservableTimeProvider value) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion(InlineMethodBody=false)]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have the next timer due within [{min}, {max}]", InlineMethodBody=false)]
         public static TUnit.Assertions.Core.AssertionResult HasPendingTimerDueWithin(this TimeAssertions.ObservableTimeProvider value, System.TimeSpan min, System.TimeSpan max) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion(InlineMethodBody=false)]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have fired timer callbacks at least {count} time(s)", InlineMethodBody=false)]
         public static TUnit.Assertions.Core.AssertionResult HasTimerFiredAtLeast(this TimeAssertions.ObservableTimeProvider value, int count) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion(InlineMethodBody=false)]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have fired timer callbacks {expected} time(s)", InlineMethodBody=false)]
         public static TUnit.Assertions.Core.AssertionResult HasTimerFiredCount(this TimeAssertions.ObservableTimeProvider value, int expected) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion(InlineMethodBody=false)]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have at least {atLeast} active timer(s) scheduled at {dueTime}", InlineMethodBody=false)]
         public static TUnit.Assertions.Core.AssertionResult HasTimerScheduled(this TimeAssertions.ObservableTimeProvider value, System.TimeSpan dueTime, int atLeast = 1) { }
     }
     public static class DateTimeOffsetAssertions
@@ -269,37 +270,19 @@ namespace TimeAssertions.TUnit
         public static bool IsAfterNow(this System.DateTimeOffset value, System.TimeProvider timeProvider) { }
         [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to be strictly before the supplied time provider\'s UTC now", InlineMethodBody=true)]
         public static bool IsBeforeNow(this System.DateTimeOffset value, System.TimeProvider timeProvider) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to be within the last {window} relative to the supplied time provider", InlineMethodBody=true)]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to be within the last {window} relative to the supplied time provider", InlineMethodBody=false)]
         public static bool IsRecent(this System.DateTimeOffset value, System.TimeSpan window, System.TimeProvider? timeProvider = null) { }
-    }
-    public static class EventuallyTimerAssertionExtensions
-    {
-        [System.Obsolete("The wait is event-driven since 0.10.0, so pollingInterval has no effect; remove t" +
-            "he argument. This overload will be removed in 0.11.0.")]
-        public static TimeAssertions.TUnit.HasActiveTimerCountEventuallyAssertion HasActiveTimerCountEventually(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, int count, System.TimeSpan timeout, System.TimeSpan? pollingInterval, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("count")] string? countExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("timeout")] string? timeoutExpression = null) { }
-        [System.Obsolete("The wait is event-driven since 0.10.0, so pollingInterval has no effect; remove t" +
-            "he argument. This overload will be removed in 0.11.0.")]
-        public static TimeAssertions.TUnit.HasActiveTimersEventuallyAssertion HasActiveTimersEventually(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, System.TimeSpan timeout, System.TimeSpan? pollingInterval, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("timeout")] string? timeoutExpression = null) { }
-        [System.Obsolete("The wait is event-driven since 0.10.0, so pollingInterval has no effect; remove t" +
-            "he argument. This overload will be removed in 0.11.0.")]
-        public static TimeAssertions.TUnit.HasAtLeastActiveTimerCountEventuallyAssertion HasAtLeastActiveTimerCountEventually(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, int count, System.TimeSpan timeout, System.TimeSpan? pollingInterval, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("count")] string? countExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("timeout")] string? timeoutExpression = null) { }
-        [System.Obsolete("The wait is event-driven since 0.10.0, so pollingInterval has no effect; remove t" +
-            "he argument. This overload will be removed in 0.11.0.")]
-        public static TimeAssertions.TUnit.HasAtMostActiveTimerCountEventuallyAssertion HasAtMostActiveTimerCountEventually(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, int count, System.TimeSpan timeout, System.TimeSpan? pollingInterval, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("count")] string? countExpression = null, [System.Runtime.CompilerServices.CallerArgumentExpression("timeout")] string? timeoutExpression = null) { }
-        [System.Obsolete("The wait is event-driven since 0.10.0, so pollingInterval has no effect; remove t" +
-            "he argument. This overload will be removed in 0.11.0.")]
-        public static TimeAssertions.TUnit.HasNoActiveTimersEventuallyAssertion HasNoActiveTimersEventually(this TUnit.Assertions.Core.IAssertionSource<TimeAssertions.ObservableTimeProvider> source, System.TimeSpan timeout, System.TimeSpan? pollingInterval, System.Threading.CancellationToken cancellationToken = default, [System.Runtime.CompilerServices.CallerArgumentExpression("timeout")] string? timeoutExpression = null) { }
     }
     public static class FakeTimeProviderAssertions
     {
-        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have advanced by approximately {total} within tolerance {tolerance}", InlineMethodBody=true)]
-        public static bool HasAdvancedApproximately(this Microsoft.Extensions.Time.Testing.FakeTimeProvider value, System.TimeSpan total, System.TimeSpan tolerance) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have advanced by total {total}", InlineMethodBody=true)]
-        public static bool HasAdvancedExactly(this Microsoft.Extensions.Time.Testing.FakeTimeProvider value, System.TimeSpan total) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have UTC now {expected}", InlineMethodBody=true)]
-        public static bool HasUtcNow(this Microsoft.Extensions.Time.Testing.FakeTimeProvider value, System.DateTimeOffset expected) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have UTC now approximately {expected} within tolerance {tolerance}", InlineMethodBody=true)]
-        public static bool HasUtcNowApproximately(this Microsoft.Extensions.Time.Testing.FakeTimeProvider value, System.DateTimeOffset expected, System.TimeSpan tolerance) { }
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have advanced by approximately {total} within tolerance {tolerance}", InlineMethodBody=false)]
+        public static TUnit.Assertions.Core.AssertionResult HasAdvancedApproximately(this Microsoft.Extensions.Time.Testing.FakeTimeProvider value, System.TimeSpan total, System.TimeSpan tolerance) { }
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have advanced by total {total}", InlineMethodBody=false)]
+        public static TUnit.Assertions.Core.AssertionResult HasAdvancedExactly(this Microsoft.Extensions.Time.Testing.FakeTimeProvider value, System.TimeSpan total) { }
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have UTC now equal to the expected time", InlineMethodBody=false)]
+        public static TUnit.Assertions.Core.AssertionResult HasUtcNow(this Microsoft.Extensions.Time.Testing.FakeTimeProvider value, System.DateTimeOffset expected) { }
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have UTC now within tolerance {tolerance} of the expected time", InlineMethodBody=false)]
+        public static TUnit.Assertions.Core.AssertionResult HasUtcNowApproximately(this Microsoft.Extensions.Time.Testing.FakeTimeProvider value, System.DateTimeOffset expected, System.TimeSpan tolerance) { }
     }
     [TUnit.Assertions.Attributes.AssertionExtension("HasActiveTimerCountEventually")]
     public sealed class HasActiveTimerCountEventuallyAssertion : TUnit.Assertions.Core.Assertion<TimeAssertions.ObservableTimeProvider>
@@ -353,7 +336,7 @@ namespace TimeAssertions.TUnit
     }
     public static class RateLimitAssertions
     {
-        [TUnit.Assertions.Attributes.GenerateAssertion(InlineMethodBody=false)]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to have consecutive timestamps at least {interval} apart", InlineMethodBody=false)]
         public static TUnit.Assertions.Core.AssertionResult WasInvokedAtMostOncePer(this System.Collections.Generic.IReadOnlyList<System.DateTimeOffset> timestamps, System.TimeSpan interval) { }
     }
     [TUnit.Assertions.Attributes.AssertionExtension("WithinTimeBudget")]

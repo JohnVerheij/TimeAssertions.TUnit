@@ -27,7 +27,8 @@ namespace TimeAssertions.TUnit;
 /// <para>
 /// <b>Bounds.</b> The <c>timeout</c> forms fail when <c>timeout</c> of real time passes first; the timeout is
 /// a bound, not a poll interval. The token-only forms are bounded by the token only, typically the test's own.
-/// When the token is canceled the wait throws <see cref="OperationCanceledException"/>.
+/// When the token is canceled the wait throws an <see cref="OperationCanceledException"/> that names the timers
+/// found ("Canceled while waiting for at least 1 active timer(s) scheduled at 30.0s: found 0 …").
 /// </para>
 /// <code>
 /// _ = service.StartAsync(ct);
@@ -130,9 +131,6 @@ public sealed class HasTimerScheduledEventuallyAssertion : Assertion<ObservableT
         _timeout = timeout;
         _within = timeout is { } bound ? " within " + TimeRenderingHelpers.FormatDuration(bound) : string.Empty;
         _cancellationToken = cancellationToken;
-        Context.ExpressionBuilder.Append(
-            CultureInfo.InvariantCulture,
-            $".HasTimerScheduledEventually({TimeRenderingHelpers.FormatDuration(_dueTime)}{(_atLeast > 1 ? ", atLeast: " + _atLeast.ToString(CultureInfo.InvariantCulture) : string.Empty)}, {(_timeout is { } timeoutValue ? TimeRenderingHelpers.FormatDuration(timeoutValue) : "cancellationToken")})");
     }
 
     /// <inheritdoc/>
@@ -154,22 +152,19 @@ public sealed class HasTimerScheduledEventuallyAssertion : Assertion<ObservableT
                 value,
                 provider => ActiveTimerAssertions.CountScheduledAt(provider.ActiveTimers, _dueTime) >= _atLeast,
                 _timeout,
+                GetExpectation(),
+                Describe,
                 _cancellationToken)
             .ConfigureAwait(false);
 
-        if (reached)
-        {
-            return AssertionResult.Passed;
-        }
-
-        var active = value.ActiveTimers;
-        var actual = ActiveTimerAssertions.CountScheduledAt(active, _dueTime);
-        return AssertionResult.Failed(
-            string.Create(
-                CultureInfo.InvariantCulture,
-                $"expected at least {_atLeast} active timer(s) scheduled at {TimeRenderingHelpers.FormatDuration(_dueTime)}{_within} but found {actual} (minimum={_atLeast}, actual={actual}):")
-            + TimeRenderingHelpers.FormatActiveTimerSurvivors(active));
+        return reached ? AssertionResult.Passed : AssertionResult.Failed(Describe(value));
     }
+
+    /// <summary>Describes how many active timers carry the due time, for a failure or a cancellation.</summary>
+    /// <param name="provider">The provider waited on.</param>
+    /// <returns>The count found against the minimum, and every active timer's schedule.</returns>
+    private string Describe(ObservableTimeProvider provider) =>
+        TimeRenderingHelpers.FormatScheduledTimerShortfall(provider.ActiveTimers, _dueTime, _atLeast);
 
     /// <inheritdoc/>
     protected override string GetExpectation()

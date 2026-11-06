@@ -26,6 +26,7 @@ A TUnit-native fluent time-assertion DSL on top of `Microsoft.Extensions.Time.Te
 - [Namespaces (and a `GlobalUsings.cs` recommendation)](#namespaces-and-a-globalusingscs-recommendation)
 - [Quick start](#quick-start)
 - [Why TimeProvider in tests](#why-timeprovider-in-tests)
+- [Compared with TUnit's `Within`, `CompletesWithin` and `WaitsFor`](#compared-with-tunits-within-completeswithin-and-waitsfor)
 - [Entry points](#entry-points)
   - [`FakeTimeProvider` state assertions](#faketimeprovider-state-assertions)
   - [`TimeProvider`-aware `DateTimeOffset` assertions](#timeprovider-aware-datetimeoffset-assertions)
@@ -73,7 +74,7 @@ This repo ships **two** NuGet packages:
 | [`TimeAssertions`](https://www.nuget.org/packages/TimeAssertions/) | Framework-agnostic core: `ObservableTimeProvider` (timer tracking and event-driven waits), `ObservableFakeTimeProvider` (an observed fake clock with advance helpers), `TimeRenderingHelpers` (failure-message formatting), `TimelineRenderer` | `Microsoft.Extensions.TimeProvider.Testing` |
 | [`TimeAssertions.TUnit`](https://www.nuget.org/packages/TimeAssertions.TUnit/) | TUnit-specific entry points: `HasAdvancedExactly()`, `HasAdvancedApproximately()`, `HasUtcNow()`, `HasUtcNowApproximately()`, `IsRecent()`, `IsBeforeNow()`, `IsAfterNow()`, `WithinTimeBudget()`, `WithinTimeBudgetCapturing()`, `WasInvokedAtMostOncePer()`, `HasNoActiveTimers()`, `HasActiveTimerCount(int)`, `HasActiveTimers()`, `HasAtLeastActiveTimerCount(int)`, `HasNoActiveTimersEventually()`, `HasActiveTimerCountEventually()`, `HasAtLeastActiveTimerCountEventually()`, `HasAtMostActiveTimerCountEventually()`, `HasActiveTimersEventually()`, `HasNextTimerDueApproximately()`, `HasPendingTimerDueWithin()`, `HasTimerScheduled()`, `HasNoTimerScheduled()`, `HasTimerScheduledEventually()`, `HasTimerFiredCount(int)`, `HasNoTimerFired()`, `HasTimerFiredAtLeast(int)` | `TimeAssertions` + `TUnit.Assertions` + `TUnit.Core` + `Microsoft.Extensions.TimeProvider.Testing` |
 
-You install `TimeAssertions.TUnit`; `TimeAssertions` and `Microsoft.Extensions.TimeProvider.Testing` come transitively. Adapters for other test frameworks (NUnit, xUnit, MSTest) are *not* shipped today: they would reuse the `TimeAssertions` core. Open a feature request if you need one.
+You install `TimeAssertions.TUnit`; `TimeAssertions` and `Microsoft.Extensions.TimeProvider.Testing` come transitively. Adapters for other test frameworks (NUnit, xUnit, MSTest) are not planned; the family targets TUnit.
 
 ## Namespaces (and a `GlobalUsings.cs` recommendation)
 
@@ -101,22 +102,24 @@ global using TimeAssertions.TUnit;
 using Microsoft.Extensions.Time.Testing;
 
 [Test]
-public async Task PreReleaseExpiration_advances_state_after_clock_moves_forward()
+public async Task PreReleaseExpiration_advances_state_after_clock_moves_forward(CancellationToken cancellationToken)
 {
     var fakeTime = new FakeTimeProvider();
-    var service = new ExpirationService(fakeTime);
+    var service = new ExpirationService(fakeTime);   // defined in the cookbook below
 
     fakeTime.Advance(TimeSpan.FromMinutes(31));
-    await service.ProcessAsync(CancellationToken.None);
+    await service.ProcessAsync(cancellationToken);
 
     using (Assert.Multiple())
     {
         await Assert.That(fakeTime).HasAdvancedExactly(TimeSpan.FromMinutes(31));
-        await Assert.That(service.LastProcessedAt).IsRecent(TimeSpan.FromSeconds(1), fakeTime);
+        await Assert.That(service.LastProcessedAt!.Value).IsRecent(TimeSpan.FromSeconds(1), fakeTime);
         await Assert.That(service.NextRunAt).IsAfterNow(fakeTime);
     }
 }
 ```
+
+Every sample takes the test method's own `CancellationToken` parameter, which TUnit cancels when the test times out; `TestContext.Current!.Execution.CancellationToken` is for code that has no such parameter.
 
 ---
 
@@ -141,11 +144,24 @@ await Assert.That(timestamp).IsAfterNow(fakeTime);
 
 For projects standardizing on this pattern, TimeAssertions.TUnit is the TUnit-side test infrastructure that pays for itself test-by-test.
 
+## Compared with TUnit's `Within`, `CompletesWithin` and `WaitsFor`
+
+TUnit has its own time-related assertions. None of them takes a `TimeProvider`, so none can follow a fake clock:
+
+| TUnit | What it does | Clock | Here instead |
+|---|---|---|---|
+| `IsEqualTo(x).Within(tolerance)` on a `TimeSpan`, `DateTime` or `DateTimeOffset` | Equality within a tolerance | None: it compares two values | `HasAdvancedApproximately`, `HasUtcNowApproximately` and `HasNextTimerDueApproximately` compare a fake clock's state within a tolerance |
+| `CompletesWithin(timeout)` on a delegate | Races the delegate against `Task.Delay(timeout)` and fails with "it took too long to complete"; the delegate is not canceled | Real (`Stopwatch`, `CancellationTokenSource(timeout)`) | `WithinTimeBudget(budget)` waits for the evaluation, then compares the duration TUnit measured |
+| `WaitsFor(...)` / `Eventually(...)` | Re-evaluates the source and polls, every 10 ms by default, until the timeout | Real (`Stopwatch`, `CancelAfter`) | The `*Eventually` timer assertions re-check on each timer change, with no polling; the [advance helpers](#driving-timer-loops-without-real-time) move a fake clock |
+| `IsInPast()` / `IsInFuture()` | Compare with `DateTimeOffset.Now` | System | `IsBeforeNow(timeProvider)` / `IsAfterNow(timeProvider)` |
+
+Use TUnit's for real-clock checks of real work, and these for code that takes a `TimeProvider`.
+
 ---
 
 ## Entry points
 
-Six groups of entry points cover six distinct testing concerns: fake-clock state, `TimeProvider`-aware `DateTimeOffset` checks, assertion-level timing budgets, rate-limit assertions on invocation timestamps, timer-leak detection, and pending-timer due-time inspection.
+The entry points cover eight testing concerns: fake-clock state, `TimeProvider`-aware `DateTimeOffset` checks, assertion-level timing budgets, rate-limit assertions on invocation timestamps, timer-leak detection, timer fire counts, pending-timer due-time inspection, and driving timer loops without real time.
 
 ### `FakeTimeProvider` state assertions
 
@@ -163,7 +179,7 @@ fakeTime.Advance(TimeSpan.FromHours(2));
 await Assert.That(fakeTime).HasAdvancedExactly(TimeSpan.FromHours(2));
 ```
 
-> **Renamed in v0.2.0.** The previous names `HasAdvanced` / `HasAdvancedBy` are kept as `[Obsolete]` aliases through v0.3.x and removed in v0.4.0. The rename gives both names an explicit "Exactly" vs "Approximately" suffix for symmetry with `HasUtcNow` / `HasUtcNowApproximately`. Migrate via search-and-replace by name across the test suite.
+On failure these assertions say how far the clock advanced, or where it stands, in a culture-independent format: see [Failure diagnostics](#failure-diagnostics).
 
 ### `TimeProvider`-aware `DateTimeOffset` assertions
 
@@ -176,7 +192,7 @@ Distinct from TUnit core's `IsInPast()` / `IsInFuture()` (which always use the s
 | `IsAfterNow(TimeProvider timeProvider)` | Strict-after-now check. |
 
 ```csharp
-await Assert.That(service.LastProcessedAt).IsRecent(TimeSpan.FromSeconds(1), fakeTime);
+await Assert.That(service.LastProcessedAt!.Value).IsRecent(TimeSpan.FromSeconds(1), fakeTime);
 await Assert.That(record.ExpiresAt).IsBeforeNow(fakeTime);
 await Assert.That(service.NextRunAt).IsAfterNow(fakeTime);
 ```
@@ -198,7 +214,9 @@ await Assert.That(collector)
     .And.WithinTimeBudget(TimeSpan.FromSeconds(2));
 ```
 
-`.And.WithinTimeBudget()` is **post-facto**, not cancellation. The wall-clock duration is captured around the assertion's evaluation; the chain fails if the budget is exceeded but does NOT abort the assertion mid-flight. For polling / streaming workloads, use the relevant sibling package's domain-specific timeout API.
+`.And.WithinTimeBudget()` is **post-facto**, not cancellation. The wall-clock duration is captured around the assertion's evaluation; the chain fails if the budget is exceeded but does NOT abort the assertion mid-flight. For a wait on background work, use a bounded wait instead: the `*Eventually` timer assertions here, or a sibling package's wait such as LogAssertions' `WaitForLogAsync`.
+
+On a `Task<T>` source (`Assert.That(task)`) the direct form needs the type argument, `.WithinTimeBudget<int>(...)`, because TUnit's task source is an assertion source of both `T` and `Task<T>`; after `.And`, and on a value or delegate source, the type argument is inferred.
 
 #### Capturing the elapsed time: `WithinTimeBudgetCapturing` (v0.2.0+)
 
@@ -213,7 +231,7 @@ await Assert.That(asyncOp)
 // 'elapsed' now holds the wall-clock duration of the asyncOp evaluator.
 // Use it for diagnostic logging, or feed into HasAdvancedApproximately for
 // a follow-up assertion against a fake clock advanced by the same amount.
-TestContext.Current.OutputWriter.WriteLine($"asyncOp took {elapsed.TotalMilliseconds:F1}ms");
+TestContext.Current!.OutputWriter.WriteLine($"asyncOp took {elapsed.TotalMilliseconds:F1}ms");
 ```
 
 The capture callback runs on **every** evaluation path EXCEPT external cancellation (since v0.5.0), so failed-budget tests can still surface the observed timing in their failure diagnostic before the budget-overrun `AssertionException` propagates. If the source itself threw a non-`OperationCanceledException`, the callback receives the partial elapsed reported by TUnit's `EvaluationMetadata<T>.Duration`. When the source threw `OperationCanceledException` (parent `[Timeout]`, test-class CT, runner cancel), the assertion propagates the OCE to the test runner and the capture callback is deliberately not invoked: a partial elapsed from a canceled operation would mislead consumers about the operation's real cost.
@@ -229,13 +247,16 @@ The capture callback runs on **every** evaluation path EXCEPT external cancellat
 ```csharp
 // Production code records invocation timestamps somewhere observable; the test
 // extracts the timestamp list from that recording and asserts the rate-limit.
-List<DateTimeOffset> failureLogs = collector.Collected
+// The assertion takes an IReadOnlyList<DateTimeOffset>: declare the timestamps as one.
+IReadOnlyList<DateTimeOffset> failureLogs = collector.GetSnapshot()
     .Where(r => r.Message.Contains("PingFailed", StringComparison.Ordinal))
     .Select(r => r.Timestamp)
     .ToList();
 
 await Assert.That(failureLogs).WasInvokedAtMostOncePer(TimeSpan.FromSeconds(30));
 ```
+
+The boundary is the one LogAssertions' `HasLogged()...AtMostOncePer(interval)` uses: a gap exactly `interval` long passes, one tick less fails. Two differences remain: this assertion takes the timestamps in the order given (an earlier timestamp after a later one fails at any interval), and it accepts an `interval` of zero; LogAssertions orders the records by timestamp and needs a positive interval.
 
 The receiver is the recorded log itself, NOT the action being invoked: the consumer's production code calls the rate-limited operation, the test records each invocation's timestamp, and the assertion examines the recording. Caller is responsible for chronological order; the assertion preserves input order verbatim.
 
@@ -259,22 +280,22 @@ The receiver is the recorded log itself, NOT the action being invoked: the consu
 var time = new ObservableTimeProvider(new FakeTimeProvider());
 var service = new HeartbeatService(time);
 
-await service.StartAsync(ct);
+await service.StartAsync(cancellationToken);
 await Assert.That(time).HasActiveTimerCount(1);   // the heartbeat timer registered
 
-await service.StopAsync(ct);
+await service.StopAsync(cancellationToken);
 await Assert.That(time).HasNoActiveTimers();       // ...and was disposed on stop
 ```
 
 An `IHostedService` commonly disposes its timer on a continuation that runs *after* `StopAsync` returns to the caller, so a synchronous `HasNoActiveTimers()` just after stop can still see the timer. `HasNoActiveTimersEventually` handles that race by waiting for the disposal itself:
 
 ```csharp
-await service.StopAsync(ct);
-await Assert.That(time).HasNoActiveTimersEventually(ct);                           // bounded by the test's token
-await Assert.That(time).HasNoActiveTimersEventually(TimeSpan.FromSeconds(2), ct);  // or fail after 2 s of real time
+await service.StopAsync(cancellationToken);
+await Assert.That(time).HasNoActiveTimersEventually(cancellationToken);                           // bounded by the test's token
+await Assert.That(time).HasNoActiveTimersEventually(TimeSpan.FromSeconds(2), cancellationToken);  // or fail after 2 s of real time
 ```
 
-The wait neither polls nor advances the fake clock: the disposal wakes it. It returns at once when the timer is already gone, and otherwise as soon as the continuation disposes it. The `timeout` is a real-time bound for a disposal that never comes; with the token-only form the test's own timeout ends the wait, and the test is recorded as canceled rather than failed, so pass a `timeout` shorter than the test's when you want a failure message that names the surviving timers. The count-targeted siblings wait the same way for an exact count, a lower bound, an upper bound, and at least one active timer. The `pollingInterval` argument of earlier versions is obsolete and ignored since 0.10.0.
+The wait neither polls nor advances the fake clock: the disposal wakes it. It returns at once when the timer is already gone (a token that is already canceled throws first), and otherwise as soon as the continuation disposes it. The `timeout` is a real-time bound for a disposal that never comes. With the token-only form the test's own timeout ends the wait: the test is recorded as canceled, and the cancellation still names the surviving timers (`Canceled while waiting for no active timers: 1 remained (count=1):` and the schedules). Pass a `timeout` shorter than the test's to fail sooner. The count-targeted siblings wait the same way for an exact count, a lower bound, an upper bound, and at least one active timer. The `pollingInterval` argument of versions before 0.10.0 was removed in 0.11.0.
 
 #### Migrating from a hand-rolled `ObservableTimeProvider`
 
@@ -294,7 +315,7 @@ The leak assertions cover timer disposal. These cover how many times a timer's c
 var fakeTime = new FakeTimeProvider();
 var time = new ObservableTimeProvider(fakeTime);
 var service = new HeartbeatService(time);   // CreateTimer(_, _, dueTime: 1s, period: 1s)
-await service.StartAsync(ct);
+await service.StartAsync(cancellationToken);
 
 await Assert.That(time).HasNoTimerFired();             // scheduled, not yet fired
 fakeTime.Advance(TimeSpan.FromSeconds(3));             // advance the inner fake clock
@@ -336,7 +357,8 @@ A `BackgroundService` that waits with `Task.Delay(delay, timeProvider, ct)`, `ne
 |---|---|
 | `Advance(TimeSpan)`, `SetUtcNow(DateTimeOffset)` | Move the owned fake clock, firing every timer that becomes due. |
 | `AdvanceAndSettleAsync(TimeSpan delta, CancellationToken)` | Advances, then waits until every loop woken by the advance has armed its next wait (as many timers created with a due time or re-scheduled with `Change` as one-shot timers fired; a timer created disabled counts once it is armed). The next assertion sees the loop's step completed. |
-| `AdvanceOnEachTimerUntilAsync(Task until, TimeSpan step, CancellationToken)` | Advances by `step` each time the code under test has created a timer, until `until` completes: drives a reconnect backoff through any number of failed attempts. It counts every timer created on the provider, including one created before the call, so use it on a provider the loop has to itself; and `step` must cover the loop's longest single wait, or the next timer is never created and the helper waits until the token is canceled. |
+| `AdvanceOnEachTimerUntilAsync(Task until, TimeSpan step, CancellationToken)` | Advances by `step` each time a timer has been created since the previous advance (a timer created before the call counts for the first one), until `until` completes, and then completes as `until` did: a fault or a cancellation of `until` is rethrown. Drives a reconnect backoff through any number of failed attempts. It counts every timer created on the provider, so use it on a provider the loop has to itself; and `step` must cover the loop's longest single wait, or the next timer is never created and the helper waits until the token is canceled. |
+| `AdvanceOnEachTimerUntilAsync<T>(Task<T> until, TimeSpan step, CancellationToken)` | The same for a task with a result, which it returns: `FakeLogRecord record = await time.AdvanceOnEachTimerUntilAsync(collector.WaitForLogAsync(filter, cancellationToken), step, cancellationToken);` |
 | `AdvanceUntilAsync(TimeSpan step, Func<bool> until, TimeSpan maxAdvance, CancellationToken)` | Advances in settled steps until `until` holds, for loops on a periodic timer; throws `TimeoutException` after `maxAdvance` of fake time. |
 | `Fake` | The owned `FakeTimeProvider`, for its other settings (`AutoAdvanceAmount`, `SetLocalTimeZone`). Inject the `ObservableFakeTimeProvider`, not `Fake`: timers created on `Fake` directly are not observed. |
 
@@ -358,52 +380,179 @@ public async Task Heartbeat_beats_once_per_interval_and_stops_cleanly(Cancellati
 }
 ```
 
-`AdvanceAndSettleAsync` assumes that each woken loop arms its next wait, by creating a timer (`Task.Delay`, `new CancellationTokenSource(timeout, timeProvider)`) or by re-scheduling one with `Change` (a callback that re-arms its own one-shot timer). A loop that ends after its timer fired arms nothing, so the wait runs until the token is canceled, and the exception then says how many timers fired and how many were armed. A periodic timer keeps its schedule and is not waited for; use `AdvanceUntilAsync` for that.
+`AdvanceAndSettleAsync` assumes that each woken loop arms its next wait, by creating a timer (`Task.Delay`, `new CancellationTokenSource(timeout, timeProvider)`) or by re-scheduling one with `Change` (a callback that re-arms its own one-shot timer). A loop that ends after its timer fired arms nothing, so the wait runs until the token is canceled, and the exception then says how far the clock moved, how many timers fired and how many were armed. A periodic timer keeps its schedule and is not waited for; use `AdvanceUntilAsync` for that.
 
 The settle counts every timer the provider sees, not only those of the woken loops: when other code creates or re-schedules timers on the same provider during the settle, it can return before a woken loop has finished its step. Use it when the loops you advance are the only code arming timers on the provider; otherwise wait for the loop's own outcome, for example `WaitUntilAsync` on its state.
 
-The waits behind these helpers are public on every `ObservableTimeProvider`: `WaitForTimersCreatedAsync(count, ct)`, `WaitForTimersDisposedAsync(count, ct)`, and `WaitUntilAsync(condition, ct)` re-check on each timer change, with the token as the only bound. `TimersCreatedCount` and `TimersDisposedCount` never go down, unlike `ActiveTimerCount`, so, when the loop is the only code creating timers on the provider, "the loop armed its second backoff" is `WaitForTimersCreatedAsync(2, ct)`. With other timer users on the same provider, wait for something only the loop does, such as its backoff's due time with `HasTimerScheduledEventually(dueTime, ct)`. A creation is signaled only once the inner provider has scheduled the timer, and a schedule change only once the inner timer carries it, so an advance right after the wait is never too early for that timer. The wait confirms the creation or change, not that the timer is still pending: a one-shot timer that fired as it was created (a zero due time), or a disabled timer, does not fire on the advance; a periodic timer that fired as it was created fires again after its period.
+The waits behind these helpers are public on every `ObservableTimeProvider`: `WaitForTimersCreatedAsync(count, cancellationToken)`, `WaitForTimersDisposedAsync(count, cancellationToken)`, and `WaitUntilAsync(condition, cancellationToken)` re-check on each timer change, with the token as the only bound. `TimersCreatedCount` and `TimersDisposedCount` never go down, unlike `ActiveTimerCount`, so, when the loop is the only code creating timers on the provider, "the loop armed its second backoff" is `WaitForTimersCreatedAsync(2, cancellationToken)`. With other timer users on the same provider, wait for something only the loop does, such as its backoff's due time with `HasTimerScheduledEventually(dueTime, cancellationToken)`. A creation is signaled only once the inner provider has scheduled the timer, and a schedule change only once the inner timer carries it, so an advance right after the wait is never too early for that timer. The wait confirms the creation or change, not that the timer is still pending: a one-shot timer that fired as it was created (a zero due time), or a disabled timer, does not fire on the advance; a periodic timer that fired as it was created fires again after its period.
+
+#### Advancing until a task completes
+
+`AdvanceOnEachTimerUntilAsync` observes the task it advances for, so one call is enough; there is no second `await` of the task afterwards.
+
+```csharp
+[Test]
+public async Task Connect_retries_with_backoff_until_connected(CancellationToken cancellationToken)
+{
+    var time = new ObservableFakeTimeProvider();
+    var client = new ReconnectingClient(time);   // waits Task.Delay(backoff, timeProvider, ct) between attempts
+
+    await time.AdvanceOnEachTimerUntilAsync(client.ConnectAsync(cancellationToken), TimeSpan.FromSeconds(30), cancellationToken);
+
+    await Assert.That(client.IsConnected).IsTrue();
+}
+```
+
+When the task faults, the call throws the task's exception; when it is canceled, its cancellation. A test that expects the fault asserts on the call:
+
+```csharp
+await Assert.That(() => time.AdvanceOnEachTimerUntilAsync(client.ConnectAsync(cancellationToken), step, cancellationToken))
+    .Throws<GiveUpException>();
+```
+
+Start the operation inside the lambda, as here, if your build enables `VSTHRD003` (Microsoft.VisualStudio.Threading.Analyzers): a lambda that returns a task started before it works the same way, but that rule reports it.
+
+#### Advancing until a log line
+
+`AdvanceUntilAsync` needs a condition it can check at once, and a log line is an event. With LogAssertions, pass the wait for the record; the `Task<T>` form returns the record:
+
+```csharp
+FakeLogRecord record = await time.AdvanceOnEachTimerUntilAsync(
+    collector.WaitForLogAsync(LogFilter.Containing("connected", StringComparison.Ordinal), cancellationToken),
+    TimeSpan.FromMilliseconds(50),
+    cancellationToken);
+```
+
+The clock moves only while the record has not been logged, and stops as soon as it is. If the record never comes, the token ends the wait.
+
+#### When the token ends a wait
+
+The token is the only bound of these waits. When it ends one, the `OperationCanceledException` says what the wait saw, so a test that its `[Timeout]` cancels still reports why; TUnit shows the message with the timeout:
+
+```text
+Waited for 3 timer(s) created, but 1 timer(s) were created before the wait was canceled.
+```
+
+```text
+Advanced 3 time(s) by 00:00:01, 00:00:03 in total (clock now 2026-01-01T00:00:03.0000000+00:00), but the task had not completed when the wait was canceled: the next advance waited for timer 4, and 3 timer(s) were created. A loop in a wait longer than the step is not woken by an advance, so it creates no new timer.
+```
+
+```text
+Advanced 1 time(s) by 00:00:01, 00:00:01 in total (clock now 2026-01-01T00:00:01.0000000+00:00): the last advance fired 1 one-shot timer(s), but only 0 timer(s) were armed (created with a due time, or re-scheduled with Change) before the wait was canceled. A loop that ends after its timer fires arms no new one; for a periodic timer use AdvanceUntilAsync.
+```
+
+`WaitForTimersDisposedAsync` reports its count the same way, and `AdvanceUntilAsync` reports its advances in both its `TimeoutException` and its cancellation. `WaitUntilAsync` cannot describe an arbitrary condition, so its cancellation carries no description.
+
+#### Bounding one wait
+
+A lost timer otherwise surfaces only when the test's own timeout ends the test. To fail one wait sooner, pass a linked token with a limit:
+
+```csharp
+using var bound = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+bound.CancelAfter(TimeSpan.FromSeconds(5));
+await time.WaitForTimersCreatedAsync(2, bound.Token);
+```
+
+The limit is real time and only a safety net. The wait itself ends on the event it waits for (a timer, or a log record), never on the wall clock, so a test that passes never waits for the limit. When the limit is reached, the test fails at once with the message above.
+
+#### Waiting for pending timers
+
+- **Right after an advance,** `AdvanceAndSettleAsync(delta, cancellationToken)` waits until the loops the advance woke have armed their next timers.
+- **Until a number of timers are pending,** wait on the active timers' due state. A one-shot timer that fired and that its owner has not disposed stays active, so `ActiveTimerCount` still counts it, but it carries an infinite due time and is no longer pending:
+
+  ```csharp
+  await time.WaitUntilAsync(
+      static provider => provider.ActiveTimers.Count(static timer => timer.DueTime != Timeout.InfiniteTimeSpan) >= 2,
+      cancellationToken);
+  ```
 
 ---
 
 ## Failure diagnostics
 
-Failures render the actual measurement against the expected value, with no extra `Console.WriteLine` calls needed.
+TUnit prints a failure as `Expected <what was expected>`, then `but <what was found>`, then the call. The `but` text of every assertion here says only what was found (`HasUtcNow` and `HasUtcNowApproximately` also name the expected time there, in the round-trip format, since TUnit would render it in the current culture), followed by a grep-friendly trailer (`(expected=N, actual=M)`, `(count=N)`, `(elapsed=…ms, budget=…ms, overrun=…ms)`) and, for the timer assertions, each timer's schedule. These texts are pinned by tests; the samples below are copied from them.
 
-**`HasAdvancedExactly` mismatch:**
-
-```text
-Expected:
-  fakeTime to have advanced 31m
-
-Actual:
-  advanced 30m (differs by 1m)
-```
-
-**`WithinTimeBudget` budget exceeded (assertion behavioral check passed but slow):**
+**A leak (`HasNoActiveTimers`):**
 
 ```text
-Expected:
-  to be equal to 42
-  and completion within timing budget of 500ms
+Expected to have no active timers
+but 2 remained (count=2):
+  [dueTime=600ms, period=one-shot]
+  [dueTime=30.0s, period=1.0s]
 
-Actual:
-  Value: 42 (matches)
-  Timing: completed in 1.2s: exceeded budget of 500ms by 747ms
+at Assert.That(time).HasNoActiveTimers()
 ```
 
-**Source threw (timing surface is additive; a thrown source is the dominant failure mode):**
+**A due time (`HasNextTimerDueApproximately`):**
 
 ```text
-Expected:
-  to be equal to 42
-  and completion within timing budget of 500ms
+Expected to have the next timer due in approximately 00:00:00.5000000 within tolerance 00:00:00.0010000
+but it was due in 600ms, off by 100ms (expected=500ms, tolerance=1ms, actual=600ms, delta=100ms)
 
-Actual:
-  Source threw InvalidOperationException: connection refused
+at Assert.That(time).HasNextTimerDueApproximately(TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(1))
 ```
 
-The budget-overrun rendering carries a grep-friendly fixed-unit suffix `(elapsed=Xms, budget=Yms, overrun=Zms)` in addition to the human-readable prose, so CI log scrapers and triage tooling can extract the three numbers without parsing the prose.
+**An "eventually" wait that reached its bound (`HasActiveTimerCountEventually`):**
+
+```text
+Expected 3 active timer(s) within 50ms
+but found 2 (expected=3, actual=2):
+  [dueTime=600ms, period=one-shot]
+  [dueTime=30.0s, period=1.0s]
+
+at Assert.That(time).HasActiveTimerCountEventually(3, Bound, cancellationToken)
+```
+
+**The fake clock's own state (`HasAdvancedExactly`):** the times are culture-independent.
+
+```text
+Expected to have advanced by total 00:31:00
+but it advanced by 00:30:00, off by 00:01:00 (start 2026-01-01T00:00:00.0000000+00:00, now 2026-01-01T00:30:00.0000000+00:00)
+
+at Assert.That(fakeTime).HasAdvancedExactly(TimeSpan.FromMinutes(31))
+```
+
+**A rate limit (`WasInvokedAtMostOncePer`):**
+
+```text
+Expected to have consecutive timestamps at least 00:00:30 apart
+but the gap at index 2 was 5.0s (minimum 30.0s)
+  timestamps[1]: 2026-01-01T00:00:30.0000000+00:00
+  timestamps[2]: 2026-01-01T00:00:35.0000000+00:00
+  (gap=5000ms, minimum=30000ms)
+
+at Assert.That(stamps).WasInvokedAtMostOncePer(TimeSpan.FromSeconds(30))
+```
+
+**A timing budget that was exceeded** (the durations are measured, so they vary per run):
+
+```text
+Expected to be 42
+	and completion within timing budget of 1ms
+but completed in 22ms: exceeded budget of 1ms by 21ms (elapsed=22ms, budget=1ms, overrun=21ms)
+
+at Assert.That(slow).IsEqualTo(42).And.WithinTimeBudget(TimeSpan.FromMilliseconds(1))
+```
+
+**A source that threw.** After a behavioral assertion, that assertion reports it first:
+
+```text
+Expected to be 42
+but threw InvalidOperationException
+
+at Assert.That(refused).IsEqualTo(42).And.WithinTimeBudget(TimeSpan.FromMilliseconds(500))
+```
+
+With the budget first in the chain, the budget assertion reports it, with the exception's message:
+
+```text
+Expected completion within timing budget of 500ms
+but threw InvalidOperationException: connection refused
+
+at Assert.That(refused).WithinTimeBudget(TimeSpan.FromMilliseconds(500))
+```
+
+The cancellation messages of the waits are under [When the token ends a wait](#when-the-token-ends-a-wait).
 
 For tests that need to surface the measured elapsed even on the success path, the capturing variant `WithinTimeBudgetCapturing` invokes its callback on every evaluation path (pass / fail / throw). Use it to write the observed elapsed to test output before the assertion exception propagates: see [Capturing the elapsed time](#capturing-the-elapsed-time-withintimebudgetcapturing-v020).
 
@@ -442,7 +591,7 @@ public sealed class ExpirationService
 
 // === Test ===
 [Test]
-public async Task PreReleaseExpiration_advances_state_after_clock_moves_forward(CancellationToken ct)
+public async Task PreReleaseExpiration_advances_state_after_clock_moves_forward(CancellationToken cancellationToken)
 {
     var startedAt = new DateTimeOffset(2026, 5, 6, 18, 0, 0, TimeSpan.Zero);
     var fakeTime = new FakeTimeProvider();
@@ -451,7 +600,7 @@ public async Task PreReleaseExpiration_advances_state_after_clock_moves_forward(
     var service = new ExpirationService(fakeTime, ttl: TimeSpan.FromMinutes(30));
 
     fakeTime.Advance(TimeSpan.FromMinutes(31));
-    await service.ProcessAsync(ct);
+    await service.ProcessAsync(cancellationToken);
 
     using (Assert.Multiple())
     {
@@ -498,19 +647,21 @@ After `fakeTime.Advance(...)`, a woken loop continues on a thread-pool thread; i
 ```csharp
 // Patterns to avoid: real time on every run, and still a guess.
 fakeTime.Advance(TimeSpan.FromMinutes(2));
-await Task.Delay(TimeSpan.FromMilliseconds(50), ct);               // hope continuations have drained
-await Assert.That(() => collector.HasLogged("[Heartbeat]"))
-    .Eventually(a => a.IsTrue(), TimeSpan.FromSeconds(1));          // polls every 10 ms
+await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);     // hope continuations have drained
+await Assert.That(() => collector.Count)
+    .Eventually(a => a.IsGreaterThanOrEqualTo(1), TimeSpan.FromSeconds(1));  // polls every 10 ms
 ```
 
 When a timer drives the effect, wait for the timer instead (see [Driving timer loops without real time](#driving-timer-loops-without-real-time)):
 
 ```csharp
-await time.AdvanceAndSettleAsync(TimeSpan.FromMinutes(2), ct);      // the woken loop armed its next timer
-await Assert.That(collector.HasLogged("[Heartbeat]")).IsTrue();
+await time.AdvanceAndSettleAsync(TimeSpan.FromMinutes(2), cancellationToken);   // the woken loop armed its next timer
+await Assert.That(collector).HasLogged().Containing("[Heartbeat]", StringComparison.Ordinal).Once();
 ```
 
-For timer state, replace TUnit's `Eventually` with the event-driven assertions: `Assert.That(() => time.ActiveTimerCount).Eventually(...)` becomes `HasActiveTimerCountEventually(count, ct)`, `HasNoActiveTimersEventually(ct)`, or `HasTimerScheduledEventually(dueTime, ct)`. They wake on the timer change itself, return at once when the state already holds, and name the timers on failure.
+When a log record, not a timer, marks the effect, advance until it is logged: see [Advancing until a log line](#advancing-until-a-log-line).
+
+For timer state, replace TUnit's `Eventually` with the event-driven assertions: `Assert.That(() => time.ActiveTimerCount).Eventually(...)` becomes `HasActiveTimerCountEventually(count, cancellationToken)`, `HasNoActiveTimersEventually(cancellationToken)`, or `HasTimerScheduledEventually(dueTime, cancellationToken)`. They wake on the timer change itself, return at once when the state already holds, and name the timers on failure.
 
 For a condition that no timer change signals (a counter updated by another thread, a value from an external system), TUnit's `Eventually` or its alias `WaitsFor` still fits. Pass the test's own token so that an external cancel (parent `[Timeout]`, runner cancel) ends the polling loop instead of waiting for the timeout argument:
 
@@ -548,7 +699,7 @@ When a test produces a sequence of named events at known fake-time moments, snap
 using TimeAssertions.Render;
 
 [Test]
-public async Task HeartbeatService_emits_at_expected_cadence(CancellationToken ct)
+public async Task HeartbeatService_emits_at_expected_cadence(CancellationToken cancellationToken)
 {
     var epoch = new DateTimeOffset(2026, 5, 13, 0, 0, 0, TimeSpan.Zero);
     var fakeTime = new FakeTimeProvider();
@@ -556,7 +707,7 @@ public async Task HeartbeatService_emits_at_expected_cadence(CancellationToken c
     var events = new List<TimelineEvent>();
 
     var service = new HeartbeatService(fakeTime, ev => events.Add(new TimelineEvent(fakeTime.GetUtcNow(), ev)));
-    await service.StartAsync(ct);
+    await service.StartAsync(cancellationToken);
     fakeTime.Advance(TimeSpan.FromMinutes(3));
 
     var rendered = TimelineRenderer.Render(epoch, events);
@@ -577,11 +728,11 @@ The renderer preserves input order verbatim, including ties on `Timestamp`. If t
 ```csharp
 var elapsed = TimeSpan.Zero;
 await Assert.That(httpClient.GetAsync("/health"))
-    .CompletesSuccessfully()
+    .ThrowsNothing()
     .And.WithinTimeBudgetCapturing(TimeSpan.FromSeconds(2), e => elapsed = e);
 
 // Surface the measured latency in test output, even when the assertion passes.
-TestContext.Current.OutputWriter.WriteLine($"GET /health: {elapsed.TotalMilliseconds:F1}ms");
+TestContext.Current!.OutputWriter.WriteLine($"GET /health: {elapsed.TotalMilliseconds:F1}ms");
 ```
 
 ### Verifying a periodic-probe suppression window
@@ -592,23 +743,24 @@ A common production pattern: a background component periodically probes some ext
 
 ```csharp
 [Test]
-public async Task PingHandler_suppresses_repeated_failures_within_30s_window(CancellationToken ct)
+public async Task PingHandler_suppresses_repeated_failures_within_30s_window(CancellationToken cancellationToken)
 {
     var fakeTime = new FakeTimeProvider();
-    var collector = new FakeLogCollector();
-    var handler = new PingHandler(fakeTime, collector.GetLogger<PingHandler>());
+    // The collector stamps each record with the fake clock's time.
+    var collector = FakeLogCollector.Create(new FakeLogCollectorOptions { TimeProvider = fakeTime });
+    var handler = new PingHandler(fakeTime, new FakeLogger<PingHandler>(collector));
 
     // Simulate ten consecutive ping failures spaced 5s apart of fake time.
     for (var i = 0; i < 10; i++)
     {
-        await handler.HandleFailureAsync(ct);
+        await handler.HandleFailureAsync(cancellationToken);
         fakeTime.Advance(TimeSpan.FromSeconds(5));
     }
 
     // Production code logs every failure as "[PingFailed]" but suppresses the second-and-later
     // occurrence within any 30-second window. After ten failures spaced 5s apart, we expect at
     // most one log entry per 30-second window: two failures total (at t=0 and t=30).
-    var failureTimestamps = collector.Collected
+    IReadOnlyList<DateTimeOffset> failureTimestamps = collector.GetSnapshot()
         .Where(r => r.Message.Contains("[PingFailed]", StringComparison.Ordinal))
         .Select(r => r.Timestamp)
         .ToList();
@@ -617,18 +769,7 @@ public async Task PingHandler_suppresses_repeated_failures_within_30s_window(Can
 }
 ```
 
-The assertion preserves input order. If the underlying mechanism does not guarantee chronological order (rare; log collectors usually do), sort before asserting. The failure message names the first violating index, the observed gap, and the required minimum so a regression in the suppression-window code path is immediately legible:
-
-```text
-Expected:
-  to have at most one invocation per 30s
-
-Actual:
-  interval violation at index 4: gap was 5.0s (minimum 30s)
-    timestamps[3]: 2026-01-01T00:00:15.000+00:00
-    timestamps[4]: 2026-01-01T00:00:20.000+00:00
-    (gap=5000ms, minimum=30000ms)
-```
+The assertion preserves input order. If the underlying mechanism does not guarantee chronological order (rare; log collectors usually do), sort before asserting. The failure names the first pair that is too close, the observed gap, and the required minimum, so a regression in the suppression window is immediately legible: see the rate-limit sample under [Failure diagnostics](#failure-diagnostics).
 
 `WasInvokedAtMostOncePer` is added in v0.5.0; consumers on earlier versions can hand-roll the equivalent gap check inline.
 
@@ -647,7 +788,7 @@ await Assert.That(action)
     .And.WithinTimeBudget(TimeSpan.FromSeconds(10));
 ```
 
-**Pattern B: warm-up call (precise).** Factor a single warm-up invocation before the measured call. The warm-up amortises JIT and one-shot init; the measured call sees steady-state cost only.
+**Pattern B: warm-up call (precise).** Factor a single warm-up invocation before the measured call. The warm-up amortizes JIT and one-shot init; the measured call sees steady-state cost only.
 
 ```csharp
 // Warm up: pays the cold-start tax once, discarded.
@@ -668,14 +809,14 @@ var elapsed = TimeSpan.Zero;
 await Assert.That(action)
     .ThrowsNothing()
     .And.WithinTimeBudgetCapturing(TimeSpan.FromMilliseconds(500), e => elapsed = e);
-TestContext.Current.OutputWriter.WriteLine($"steady-state: {elapsed.TotalMilliseconds:F1}ms");
+TestContext.Current!.OutputWriter.WriteLine($"steady-state: {elapsed.TotalMilliseconds:F1}ms");
 ```
 
 ---
 
 ## Design notes
 
-- **`WithinTimeBudget`, not `Within`.** TUnit core already uses `.Within(...)` for tolerance assertions, so a separate name avoids the overload collision and reads naturally after `.And`. It is generic in the source's value type: `.And.WithinTimeBudget(...)` infers it, while the direct `.WithinTimeBudget<int>(...)` form needs an explicit type argument.
+- **`WithinTimeBudget`, not `Within`.** TUnit core already uses `.Within(...)` for tolerance assertions, so a separate name avoids the overload collision and reads naturally after `.And`. It is generic in the source's value type: `.And.WithinTimeBudget(...)` and a value or delegate source infer it, while a `Task<T>` source (`Assert.That(task).WithinTimeBudget<int>(...)`) needs the type argument.
 - **`IsBeforeNow` / `IsAfterNow`, not `IsInPast` / `IsInFuture`.** TUnit core's versions use the system clock; ours take a `TimeProvider`. Distinct names make the mechanism obvious: use TUnit's for system-clock tests, ours for `FakeTimeProvider`-driven ones.
 - **`Microsoft.Extensions.TimeProvider.Testing` is propagated, not `PrivateAssets="all"`.** Consumers asserting on `FakeTimeProvider` need it in scope; making it transitive saves an explicit reference per test project. Since 0.10.0 the core depends on it too, because `ObservableFakeTimeProvider` owns a `FakeTimeProvider`. It is Microsoft's own MIT-licensed package from the same repository as the `TimeProvider` testing story.
 - **Waits are event-driven; bounds are real time.** `ObservableTimeProvider` sees every timer creation, change, fire, and disposal, so each wait re-checks its condition on the change itself and nothing polls. A `timeout` bounds a wait in real time on purpose: the provider's own clock is usually a fake one that moves only when the test advances it.
@@ -692,7 +833,7 @@ The 1.0 milestone signals API stability: see [Limitations and future work](#limi
 
 ## Limitations and future work
 
-Deferred (demand-driven): a `Stopwatch.GetTimestamp()`-based monotonic-clock variant of `WithinTimeBudget`, for benchmark-class precision. Today `WithinTimeBudget` uses TUnit's `EvaluationMetadata<T>.Duration` (`DateTimeOffset.Now`-based); system-clock jumps mid-test are vanishingly rare.
+`WithinTimeBudget` uses TUnit's `EvaluationMetadata<T>.Duration`, which TUnit takes from `DateTimeOffset.Now` before and after the evaluation; system-clock jumps mid-test are vanishingly rare. A `Stopwatch.GetTimestamp()`-based variant is not planned: a chained assertion only sees the times TUnit recorded, and measuring with a monotonic clock would need a hook before the evaluation that TUnit does not give a chained assertion.
 
 ## Family compatibility
 
@@ -711,13 +852,13 @@ For per-package release notes:
 
 ## Pair with
 
-- **[`LogAssertions.TUnit`](https://www.nuget.org/packages/LogAssertions.TUnit/)**: fluent log assertions over `Microsoft.Extensions.Logging.Testing.FakeLogCollector`. Use `.And.WithinTimeBudget(...)` to add a timing budget to any `HasLogged()` chain.
+- **[`LogAssertions.TUnit`](https://www.nuget.org/packages/LogAssertions.TUnit/)**: fluent log assertions over `Microsoft.Extensions.Logging.Testing.FakeLogCollector`. Use `.And.WithinTimeBudget(...)` to add a timing budget to any `HasLogged()` chain, and `AdvanceOnEachTimerUntilAsync` with its `WaitForLogAsync` to drive a fake clock until a record is logged ([Advancing until a log line](#advancing-until-a-log-line)); neither package depends on the other.
 - **[`SnapshotAssertions.TUnit`](https://www.nuget.org/packages/SnapshotAssertions.TUnit/)**: text-snapshot assertions for API-surface tests and similar deterministic-string scenarios. Coexists with Verify; covers the 80% case without coverage friction.
 - **[`MathAssertions.TUnit`](https://www.nuget.org/packages/MathAssertions.TUnit/)**: tolerance-aware fluent assertions over numeric and geometric types (vectors, quaternions, matrices, planes, complex numbers, arrays).
 - **[`JsonAssertions.TUnit`](https://www.nuget.org/packages/JsonAssertions.TUnit/)**: fluent JSON assertions over `System.Text.Json`, HTTP response bodies (including RFC 7807 ProblemDetails), and source-generated `JsonSerializerContext` registration.
 - **[`SseAssertions.TUnit`](https://www.nuget.org/packages/SseAssertions.TUnit/)**: Server-Sent Events (SSE) wire-format assertions: event-count, field shape (`event:`, `data:`, `id:`, `retry:`), and stream content validation.
 - **[`GrpcAssertions.TUnit`](https://www.nuget.org/packages/GrpcAssertions.TUnit/)**: fluent gRPC outcome assertions (`ThrowsGrpcException` with `StatusCode` shorthands and detail refinements) plus the `GrpcCallBuilder` test-double helper.
-- **[`TracingAssertions.TUnit`](https://www.nuget.org/packages/TracingAssertions.TUnit/)**: fluent OpenTelemetry distributed-tracing (`Activity` / span) assertions: operation name, tags, status, and parent/child and same-trace relationships, captured via a raw `ActivityListener` with no OpenTelemetry SDK dependency.
+- **[`TracingAssertions.TUnit`](https://www.nuget.org/packages/TracingAssertions.TUnit/)**: fluent OpenTelemetry distributed-tracing (`Activity` / span) assertions: operation name, tags, status, kind, events, and parent/child, root and same-trace relationships, captured via a raw `ActivityListener` with no OpenTelemetry SDK dependency.
 - **[`MetricsAssertions.TUnit`](https://www.nuget.org/packages/MetricsAssertions.TUnit/)**: fluent assertions over `System.Diagnostics.Metrics` instruments (counters, histograms, gauges), built on `MetricCollector`.
 
 ## Contributing

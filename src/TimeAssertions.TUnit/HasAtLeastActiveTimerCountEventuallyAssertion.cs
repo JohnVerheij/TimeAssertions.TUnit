@@ -25,9 +25,10 @@ namespace TimeAssertions.TUnit;
 /// token only, typically the test's own.
 /// </para>
 /// <para>
-/// <b>Cancellation.</b> When the token is canceled the wait throws <see cref="OperationCanceledException"/> and
-/// the test is recorded as canceled rather than failed. For a failure that describes the timers, pass a
-/// timeout shorter than the test's own timeout.
+/// <b>Cancellation.</b> When the token is canceled the wait throws an <see cref="OperationCanceledException"/>
+/// that names the count found and the timers ("Canceled while waiting for at least 3 active timer(s): found 1 …"),
+/// so the test is recorded as canceled and its report still says why. To fail sooner than the test's own timeout,
+/// pass a <c>timeout</c>.
 /// </para>
 /// <code>
 /// await Assert.That(time).HasAtLeastActiveTimerCountEventually(3, ct);
@@ -85,9 +86,6 @@ public sealed class HasAtLeastActiveTimerCountEventuallyAssertion : Assertion<Ob
         _timeout = timeout;
         _within = timeout is { } bound ? " within " + TimeRenderingHelpers.FormatDuration(bound) : string.Empty;
         _cancellationToken = cancellationToken;
-        Context.ExpressionBuilder.Append(
-            CultureInfo.InvariantCulture,
-            $".HasAtLeastActiveTimerCountEventually({_count}, {(_timeout is { } timeoutValue ? TimeRenderingHelpers.FormatDuration(timeoutValue) : "cancellationToken")})");
     }
 
     /// <inheritdoc/>
@@ -105,21 +103,23 @@ public sealed class HasAtLeastActiveTimerCountEventuallyAssertion : Assertion<Ob
         }
 
         var reached = await TimerWait
-            .UntilAsync(value, provider => provider.ActiveTimerCount >= _count, _timeout, _cancellationToken)
+            .UntilAsync(
+                value,
+                provider => provider.ActiveTimerCount >= _count,
+                _timeout,
+                GetExpectation(),
+                Describe,
+                _cancellationToken)
             .ConfigureAwait(false);
 
-        if (reached)
-        {
-            return AssertionResult.Passed;
-        }
-
-        var active = value.ActiveTimers;
-        return AssertionResult.Failed(
-            string.Create(
-                CultureInfo.InvariantCulture,
-                $"expected the active-timer count to reach at least {_count}{_within} but it was {active.Count} (minimum={_count}, actual={active.Count}):")
-            + TimeRenderingHelpers.FormatActiveTimerSurvivors(active));
+        return reached ? AssertionResult.Passed : AssertionResult.Failed(Describe(value));
     }
+
+    /// <summary>Describes the active-timer count found and the timers, for a failure or a cancellation.</summary>
+    /// <param name="provider">The provider waited on.</param>
+    /// <returns>The count found against the minimum, and the timers' schedules.</returns>
+    private string Describe(ObservableTimeProvider provider) =>
+        TimeRenderingHelpers.FormatActiveTimerAtLeastShortfall(provider.ActiveTimers, _count);
 
     /// <inheritdoc/>
     protected override string GetExpectation()

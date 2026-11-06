@@ -32,16 +32,49 @@ internal static class TimerWait
 
     /// <summary>
     /// Waits until <paramref name="condition"/> holds for <paramref name="provider"/>. Without a
-    /// <paramref name="timeout"/>, only <paramref name="cancellationToken"/> bounds the wait.
+    /// <paramref name="timeout"/>, only <paramref name="cancellationToken"/> bounds the wait. When the token ends
+    /// the wait, the <see cref="OperationCanceledException"/> says what was awaited and what was found, so a test
+    /// that its own timeout cancels still reports the timers.
     /// </summary>
     /// <param name="provider">The provider whose changes wake the wait.</param>
     /// <param name="condition">The condition to wait for.</param>
     /// <param name="timeout">An optional bound in real time; <see langword="null"/> waits for the token only.</param>
+    /// <param name="expectation">The assertion's expectation, as in "no active timers within 5.0s".</param>
+    /// <param name="describe">Describes what the provider holds, as in the assertion's failure text.</param>
     /// <param name="cancellationToken">A token that cancels the wait.</param>
     /// <returns><see langword="true"/> when the condition held; <see langword="false"/> when
     /// <paramref name="timeout"/> passed first.</returns>
-    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled first.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled first; the
+    /// message reads "Canceled while waiting for {expectation}: {description}".</exception>
     public static async Task<bool> UntilAsync(
+        ObservableTimeProvider provider,
+        Func<ObservableTimeProvider, bool> condition,
+        TimeSpan? timeout,
+        string expectation,
+        Func<ObservableTimeProvider, string> describe,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await WaitAsync(provider, condition, timeout, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException exception)
+        {
+            throw new OperationCanceledException(
+                $"Canceled while waiting for {expectation}: {describe(provider)}",
+                exception,
+                cancellationToken);
+        }
+    }
+
+    /// <summary>Waits until <paramref name="condition"/> holds, bounded by <paramref name="timeout"/> when one is
+    /// given and by <paramref name="cancellationToken"/>.</summary>
+    /// <param name="provider">The provider whose changes wake the wait.</param>
+    /// <param name="condition">The condition to wait for.</param>
+    /// <param name="timeout">An optional bound in real time.</param>
+    /// <param name="cancellationToken">A token that cancels the wait.</param>
+    /// <returns>Whether the condition held before <paramref name="timeout"/> passed.</returns>
+    private static async Task<bool> WaitAsync(
         ObservableTimeProvider provider,
         Func<ObservableTimeProvider, bool> condition,
         TimeSpan? timeout,

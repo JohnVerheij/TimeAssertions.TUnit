@@ -20,6 +20,7 @@ namespace TimeAssertions
         public void Advance(System.TimeSpan delta) { }
         public System.Threading.Tasks.Task AdvanceAndSettleAsync(System.TimeSpan delta, System.Threading.CancellationToken cancellationToken) { }
         public System.Threading.Tasks.Task AdvanceOnEachTimerUntilAsync(System.Threading.Tasks.Task until, System.TimeSpan step, System.Threading.CancellationToken cancellationToken) { }
+        public System.Threading.Tasks.Task<T> AdvanceOnEachTimerUntilAsync<T>(System.Threading.Tasks.Task<T> until, System.TimeSpan step, System.Threading.CancellationToken cancellationToken) { }
         public System.Threading.Tasks.Task AdvanceUntilAsync(System.TimeSpan step, System.Func<bool> until, System.TimeSpan maxAdvance, System.Threading.CancellationToken cancellationToken) { }
         public void SetUtcNow(System.DateTimeOffset value) { }
     }

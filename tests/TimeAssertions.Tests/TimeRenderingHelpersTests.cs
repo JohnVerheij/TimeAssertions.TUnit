@@ -13,6 +13,9 @@ namespace TimeAssertions.Tests;
 [Timeout(5_000)]
 internal sealed class TimeRenderingHelpersTests
 {
+    /// <summary>Joins message lines with the platform's line ending, as the renderers write them.</summary>
+    private static string Lines(params string[] lines) => string.Join(Environment.NewLine, lines);
+
     [Test]
     public async Task FormatDuration_Microseconds(CancellationToken cancellationToken)
     {
@@ -154,10 +157,10 @@ internal sealed class TimeRenderingHelpersTests
 
     // ---- FormatRateLimitViolation (v0.5.0) ----
 
-    /// <summary>The headline line names the violating index, the observed gap, and the
-    /// minimum interval. Pins the user-visible prose without the grep-friendly trailer.</summary>
+    /// <summary>The text names the violating index, the observed gap, and the minimum interval, then the two
+    /// timestamps (aligned, in round-trip form) and the grep-friendly trailer.</summary>
     [Test]
-    public async Task FormatRateLimitViolation_HeadlineNamesIndexAndGap(CancellationToken cancellationToken)
+    public async Task FormatRateLimitViolation_RendersHeadlineAlignedTimestampsAndTrailer(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var epoch = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
@@ -169,9 +172,11 @@ internal sealed class TimeRenderingHelpersTests
             gap: TimeSpan.FromSeconds(5),
             interval: TimeSpan.FromSeconds(30));
 
-        await Assert.That(formatted).Contains("interval violation at index 1");
-        await Assert.That(formatted).Contains("gap was 5.0s");
-        await Assert.That(formatted).Contains("minimum 30");
+        await Assert.That(formatted).IsEqualTo(Lines(
+            "the gap at index 1 was 5.0s (minimum 30.0s)",
+            "  timestamps[0]: 2026-01-01T00:00:00.0000000+00:00",
+            "  timestamps[1]: 2026-01-01T00:00:05.0000000+00:00",
+            "  (gap=5000ms, minimum=30000ms)"));
     }
 
     /// <summary>The grep-friendly parenthetical carries `(gap=Xms, minimum=Yms)` in
@@ -258,9 +263,20 @@ internal sealed class TimeRenderingHelpersTests
 
         var formatted = TimeRenderingHelpers.FormatActiveTimerLeak(survivors);
 
-        await Assert.That(formatted).Contains("expected no active timers but 1 remained");
-        await Assert.That(formatted).Contains("(count=1)");
-        await Assert.That(formatted).Contains("[dueTime=1.0s, period=5.0s]");
+        await Assert.That(formatted).IsEqualTo(Lines("1 remained (count=1):", "  [dueTime=1.0s, period=5.0s]"));
+    }
+
+    /// <summary>A zero period is one-shot by the <see cref="TimeProvider.CreateTimer"/> contract, so it renders
+    /// as <c>one-shot</c> like an infinite period, not as <c>0μs</c>.</summary>
+    [Test]
+    public async Task FormatActiveTimerLeak_ZeroPeriod_RendersOneShot(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var survivors = new[] { new ActiveTimerInfo(TimeSpan.FromSeconds(1), TimeSpan.Zero) };
+
+        var formatted = TimeRenderingHelpers.FormatActiveTimerLeak(survivors);
+
+        await Assert.That(formatted).IsEqualTo(Lines("1 remained (count=1):", "  [dueTime=1.0s, period=one-shot]"));
     }
 
     /// <summary>Survivors render in a deterministic order (by due time, then period) regardless of
@@ -320,9 +336,7 @@ internal sealed class TimeRenderingHelpersTests
 
         var formatted = TimeRenderingHelpers.FormatActiveTimerCountMismatch(active, expected: 2);
 
-        await Assert.That(formatted).Contains("expected 2 active timer(s) but found 1");
-        await Assert.That(formatted).Contains("(expected=2, actual=1)");
-        await Assert.That(formatted).Contains("period=5.0s");
+        await Assert.That(formatted).IsEqualTo(Lines("found 1 (expected=2, actual=1):", "  [dueTime=0μs, period=5.0s]"));
     }
 
     /// <summary>When no timers are active, the schedule list is omitted (nothing to render): only
@@ -335,9 +349,7 @@ internal sealed class TimeRenderingHelpersTests
 
         var formatted = TimeRenderingHelpers.FormatActiveTimerCountMismatch(active, expected: 1);
 
-        await Assert.That(formatted).Contains("expected 1 active timer(s) but found 0");
-        await Assert.That(formatted).Contains("(expected=1, actual=0)");
-        await Assert.That(formatted).DoesNotContain("[dueTime=");
+        await Assert.That(formatted).IsEqualTo("found 0 (expected=1, actual=0)");
     }
 
     /// <summary>Argument validation: a <see langword="null"/> active list is rejected.</summary>
@@ -362,10 +374,10 @@ internal sealed class TimeRenderingHelpersTests
 
     // ---- FormatActiveTimerSurvivors / FormatActiveTimerAtLeastShortfall (v0.7.0) ----
 
-    /// <summary>The survivor list renders the grep-friendly count trailer followed by each survivor's
-    /// schedule, sorted deterministically.</summary>
+    /// <summary>The survivor list renders a colon and each survivor's schedule, sorted deterministically, for a
+    /// headline the caller supplies.</summary>
     [Test]
-    public async Task FormatActiveTimerSurvivors_RendersCountTrailerAndSchedules(CancellationToken cancellationToken)
+    public async Task FormatActiveTimerSurvivors_RendersColonAndSortedSchedules(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var survivors = new[]
@@ -376,23 +388,20 @@ internal sealed class TimeRenderingHelpersTests
 
         var formatted = TimeRenderingHelpers.FormatActiveTimerSurvivors(survivors);
 
-        await Assert.That(formatted).Contains("(count=2)");
-        var first = formatted.IndexOf("dueTime=1.0s, period=5.0s", StringComparison.Ordinal);
-        var second = formatted.IndexOf("dueTime=2.0s, period=10.0s", StringComparison.Ordinal);
-        await Assert.That(first).IsGreaterThanOrEqualTo(0);
-        await Assert.That(first).IsLessThan(second);
+        await Assert.That(formatted).IsEqualTo(Lines(
+            ":",
+            "  [dueTime=1.0s, period=5.0s]",
+            "  [dueTime=2.0s, period=10.0s]"));
     }
 
-    /// <summary>An empty survivor list renders the <c>(count=0)</c> trailer alone, with no schedule
-    /// lines.</summary>
+    /// <summary>An empty survivor list renders nothing, so the caller's headline stands alone without a colon.</summary>
     [Test]
-    public async Task FormatActiveTimerSurvivors_Empty_RendersCountTrailerOnly(CancellationToken cancellationToken)
+    public async Task FormatActiveTimerSurvivors_Empty_RendersNothing(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var formatted = TimeRenderingHelpers.FormatActiveTimerSurvivors(Array.Empty<ActiveTimerInfo>());
 
-        await Assert.That(formatted).Contains("(count=0)");
-        await Assert.That(formatted).DoesNotContain("[dueTime=");
+        await Assert.That(formatted).IsEmpty();
     }
 
     /// <summary>Argument validation: a <see langword="null"/> survivor list is rejected.</summary>
@@ -414,21 +423,17 @@ internal sealed class TimeRenderingHelpersTests
 
         var formatted = TimeRenderingHelpers.FormatActiveTimerAtLeastShortfall(active, minimum: 3);
 
-        await Assert.That(formatted).Contains("expected at least 3 active timer(s) but found 1");
-        await Assert.That(formatted).Contains("(minimum=3, actual=1)");
-        await Assert.That(formatted).Contains("[dueTime=1.0s, period=5.0s]");
+        await Assert.That(formatted).IsEqualTo(Lines("found 1 (minimum=3, actual=1):", "  [dueTime=1.0s, period=5.0s]"));
     }
 
-    /// <summary>When no timers are active, the schedule list is omitted: only the headline appears.</summary>
+    /// <summary>When no timers are active, the schedule list and its colon are omitted: only the headline appears.</summary>
     [Test]
     public async Task FormatActiveTimerAtLeastShortfall_EmptyActive_OmitsScheduleList(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var formatted = TimeRenderingHelpers.FormatActiveTimerAtLeastShortfall(Array.Empty<ActiveTimerInfo>(), minimum: 1);
 
-        await Assert.That(formatted).Contains("expected at least 1 active timer(s) but found 0");
-        await Assert.That(formatted).Contains("(minimum=1, actual=0)");
-        await Assert.That(formatted).DoesNotContain("[dueTime=");
+        await Assert.That(formatted).IsEqualTo("found 0 (minimum=1, actual=0)");
     }
 
     /// <summary>Argument validation: a <see langword="null"/> active list is rejected.</summary>
@@ -462,8 +467,8 @@ internal sealed class TimeRenderingHelpersTests
             expected: TimeSpan.FromMilliseconds(2000),
             tolerance: TimeSpan.FromMilliseconds(100));
 
-        await Assert.That(formatted).Contains("expected the next timer due in approximately 2.0s");
-        await Assert.That(formatted).Contains("(expected=2000ms, tolerance=100ms, actual=2400ms, delta=400ms)");
+        await Assert.That(formatted).IsEqualTo(
+            "it was due in 2.4s, off by 400ms (expected=2000ms, tolerance=100ms, actual=2400ms, delta=400ms)");
     }
 
     /// <summary>When no enabled timer is pending the message reads <c>actual=none</c> rather than
@@ -477,8 +482,7 @@ internal sealed class TimeRenderingHelpersTests
             expected: TimeSpan.FromSeconds(2),
             tolerance: TimeSpan.FromMilliseconds(1));
 
-        await Assert.That(formatted).Contains("no enabled timer was pending");
-        await Assert.That(formatted).Contains("(expected=2000ms, tolerance=1ms, actual=none)");
+        await Assert.That(formatted).IsEqualTo("no enabled timer was pending (expected=2000ms, tolerance=1ms, actual=none)");
     }
 
     /// <summary>Argument validation: a negative tolerance is rejected.</summary>
@@ -504,8 +508,7 @@ internal sealed class TimeRenderingHelpersTests
             min: TimeSpan.FromMilliseconds(1000),
             max: TimeSpan.FromMilliseconds(4000));
 
-        await Assert.That(formatted).Contains("expected a pending timer due within [1.0s, 4.0s]");
-        await Assert.That(formatted).Contains("(min=1000ms, max=4000ms, actual=5000ms)");
+        await Assert.That(formatted).IsEqualTo("it was due in 5.0s (min=1000ms, max=4000ms, actual=5000ms)");
     }
 
     /// <summary>When no enabled timer is pending the range message reads <c>actual=none</c>.</summary>
@@ -518,8 +521,7 @@ internal sealed class TimeRenderingHelpersTests
             min: TimeSpan.FromMilliseconds(1000),
             max: TimeSpan.FromMilliseconds(4000));
 
-        await Assert.That(formatted).Contains("no enabled timer was pending");
-        await Assert.That(formatted).Contains("(min=1000ms, max=4000ms, actual=none)");
+        await Assert.That(formatted).IsEqualTo("no enabled timer was pending (min=1000ms, max=4000ms, actual=none)");
     }
 
     // ---- FormatTimerFireCount* (v0.9.0) ----
@@ -536,9 +538,9 @@ internal sealed class TimeRenderingHelpersTests
         };
         var formatted = TimeRenderingHelpers.FormatTimerFireCountMismatch(actual: 1, expected: 3, active);
 
-        await Assert.That(formatted).Contains("expected timer callbacks to have fired 3 time(s) but they fired 1");
-        await Assert.That(formatted).Contains("(expected=3, actual=1)");
-        await Assert.That(formatted).Contains("[dueTime=1.0s, period=1.0s, fired=1]");
+        await Assert.That(formatted).IsEqualTo(Lines(
+            "they fired 1 time(s) (expected=3, actual=1):",
+            "  [dueTime=1.0s, period=1.0s, fired=1]"));
     }
 
     /// <summary>With no still-active timers the cumulative-count headline stands alone (the count
@@ -550,8 +552,7 @@ internal sealed class TimeRenderingHelpersTests
         var formatted = TimeRenderingHelpers.FormatTimerFireCountMismatch(
             actual: 2, expected: 5, Array.Empty<ActiveTimerInfo>());
 
-        await Assert.That(formatted).Contains("(expected=5, actual=2)");
-        await Assert.That(formatted).DoesNotContain("[dueTime=");
+        await Assert.That(formatted).IsEqualTo("they fired 2 time(s) (expected=5, actual=2)");
     }
 
     /// <summary>A still-active timer whose due time is infinite (a one-shot that has fired and is now
@@ -598,9 +599,9 @@ internal sealed class TimeRenderingHelpersTests
         };
         var formatted = TimeRenderingHelpers.FormatNoTimerFired(actual: 2, active);
 
-        await Assert.That(formatted).Contains("expected no timer callback to have fired but 2 fired");
-        await Assert.That(formatted).Contains("(expected=0, actual=2)");
-        await Assert.That(formatted).Contains("[dueTime=2.0s, period=one-shot, fired=2]");
+        await Assert.That(formatted).IsEqualTo(Lines(
+            "2 fired (expected=0, actual=2):",
+            "  [dueTime=2.0s, period=one-shot, fired=2]"));
     }
 
     [Test]
@@ -620,8 +621,7 @@ internal sealed class TimeRenderingHelpersTests
         var formatted = TimeRenderingHelpers.FormatTimerFireShortfall(
             actual: 1, minimum: 3, Array.Empty<ActiveTimerInfo>());
 
-        await Assert.That(formatted).Contains("expected timer callbacks to have fired at least 3 time(s) but they fired 1");
-        await Assert.That(formatted).Contains("(minimum=3, actual=1)");
+        await Assert.That(formatted).IsEqualTo("they fired 1 time(s) (minimum=3, actual=1)");
     }
 
     [Test]
@@ -657,9 +657,10 @@ internal sealed class TimeRenderingHelpersTests
 
         var formatted = TimeRenderingHelpers.FormatScheduledTimerShortfall(active, TimeSpan.FromSeconds(30), minimum: 2);
 
-        await Assert.That(formatted).Contains("expected at least 2 active timer(s) scheduled at 30.0s but found 1 (minimum=2, actual=1):");
-        await Assert.That(formatted).Contains("[dueTime=1.0s, period=1.0s]");
-        await Assert.That(formatted).Contains("[dueTime=30.0s, period=one-shot]");
+        await Assert.That(formatted).IsEqualTo(Lines(
+            "found 1 (minimum=2, actual=1) among 2 active timer(s):",
+            "  [dueTime=1.0s, period=1.0s]",
+            "  [dueTime=30.0s, period=one-shot]"));
     }
 
     /// <summary>Argument validation: a <see langword="null"/> list and a negative minimum are rejected.</summary>
@@ -687,9 +688,9 @@ internal sealed class TimeRenderingHelpersTests
 
         var formatted = TimeRenderingHelpers.FormatUnexpectedScheduledTimers(active);
 
-        await Assert.That(formatted).Contains("expected no scheduled timer but 1 active timer(s) had a pending due time (count=1):");
-        await Assert.That(formatted).Contains("[dueTime=5.0s, period=one-shot]");
-        await Assert.That(formatted).DoesNotContain("dueTime=infinite");
+        await Assert.That(formatted).IsEqualTo(Lines(
+            "1 active timer(s) had a pending due time (count=1):",
+            "  [dueTime=5.0s, period=one-shot]"));
     }
 
     /// <summary>Argument validation: a <see langword="null"/> list is rejected.</summary>
