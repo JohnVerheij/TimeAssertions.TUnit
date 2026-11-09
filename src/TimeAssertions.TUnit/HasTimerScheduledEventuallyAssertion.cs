@@ -21,7 +21,7 @@ namespace TimeAssertions.TUnit;
 /// </para>
 /// <para>
 /// <b>Event-driven.</b> The condition is checked once, then again each time a timer is created,
-/// re-scheduled, fired, or disposed through the provider (<see cref="ObservableTimeProvider.WaitUntilAsync"/>),
+/// changed, fired, or disposed through the provider (<see cref="ObservableTimeProvider.WaitUntilAsync"/>),
 /// never on a polling loop.
 /// </para>
 /// <para>
@@ -116,6 +116,7 @@ public sealed class HasTimerScheduledEventuallyAssertion : Assertion<ObservableT
     {
     }
 
+    /// <summary>Shared by the public constructors: a <see langword="null"/> timeout means only the token bounds the wait.</summary>
     private HasTimerScheduledEventuallyAssertion(
         AssertionContext<ObservableTimeProvider> context,
         TimeSpan dueTime,

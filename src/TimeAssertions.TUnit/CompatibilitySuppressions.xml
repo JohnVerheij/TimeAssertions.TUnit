@@ -2,134 +2,22 @@
 <!-- https://learn.microsoft.com/dotnet/fundamentals/package-validation/diagnostic-ids -->
 <Suppressions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <Suppression>
-    <DiagnosticId>CP0001</DiagnosticId>
-    <Target>T:TimeAssertions.TUnit.EventuallyTimerAssertionExtensions</Target>
-    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0002</DiagnosticId>
-    <Target>M:TimeAssertions.TUnit.FakeTimeProviderAssertions.HasAdvancedApproximately(Microsoft.Extensions.Time.Testing.FakeTimeProvider,System.TimeSpan,System.TimeSpan)</Target>
-    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0002</DiagnosticId>
-    <Target>M:TimeAssertions.TUnit.FakeTimeProviderAssertions.HasAdvancedExactly(Microsoft.Extensions.Time.Testing.FakeTimeProvider,System.TimeSpan)</Target>
-    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0002</DiagnosticId>
-    <Target>M:TimeAssertions.TUnit.FakeTimeProviderAssertions.HasUtcNow(Microsoft.Extensions.Time.Testing.FakeTimeProvider,System.DateTimeOffset)</Target>
-    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0002</DiagnosticId>
-    <Target>M:TimeAssertions.TUnit.FakeTimeProviderAssertions.HasUtcNowApproximately(Microsoft.Extensions.Time.Testing.FakeTimeProvider,System.DateTimeOffset,System.TimeSpan)</Target>
-    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
     <DiagnosticId>CP0003</DiagnosticId>
-    <Target>TimeAssertions.TUnit, Version=0.10.0.0, Culture=neutral, PublicKeyToken=null</Target>
+    <Target>TimeAssertions.TUnit, Version=0.11.0.0, Culture=neutral, PublicKeyToken=null</Target>
     <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:TimeAssertions.TUnit.ActiveTimerAssertions.HasActiveTimerCount(TimeAssertions.ObservableTimeProvider,System.Int32):[T:TUnit.Assertions.Attributes.GenerateAssertionAttribute]</Target>
+    <Target>M:TimeAssertions.TUnit.DateTimeOffsetAssertions.IsAfterNow(System.DateTimeOffset,System.TimeProvider):[T:TUnit.Assertions.Attributes.GenerateAssertionAttribute]</Target>
     <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:TimeAssertions.TUnit.ActiveTimerAssertions.HasActiveTimers(TimeAssertions.ObservableTimeProvider):[T:TUnit.Assertions.Attributes.GenerateAssertionAttribute]</Target>
-    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:TimeAssertions.TUnit.ActiveTimerAssertions.HasAtLeastActiveTimerCount(TimeAssertions.ObservableTimeProvider,System.Int32):[T:TUnit.Assertions.Attributes.GenerateAssertionAttribute]</Target>
-    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:TimeAssertions.TUnit.ActiveTimerAssertions.HasNextTimerDueApproximately(TimeAssertions.ObservableTimeProvider,System.TimeSpan,System.TimeSpan):[T:TUnit.Assertions.Attributes.GenerateAssertionAttribute]</Target>
-    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:TimeAssertions.TUnit.ActiveTimerAssertions.HasNoActiveTimers(TimeAssertions.ObservableTimeProvider):[T:TUnit.Assertions.Attributes.GenerateAssertionAttribute]</Target>
-    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:TimeAssertions.TUnit.ActiveTimerAssertions.HasNoTimerFired(TimeAssertions.ObservableTimeProvider):[T:TUnit.Assertions.Attributes.GenerateAssertionAttribute]</Target>
-    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:TimeAssertions.TUnit.ActiveTimerAssertions.HasNoTimerScheduled(TimeAssertions.ObservableTimeProvider):[T:TUnit.Assertions.Attributes.GenerateAssertionAttribute]</Target>
-    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:TimeAssertions.TUnit.ActiveTimerAssertions.HasPendingTimerDueWithin(TimeAssertions.ObservableTimeProvider,System.TimeSpan,System.TimeSpan):[T:TUnit.Assertions.Attributes.GenerateAssertionAttribute]</Target>
-    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:TimeAssertions.TUnit.ActiveTimerAssertions.HasTimerFiredAtLeast(TimeAssertions.ObservableTimeProvider,System.Int32):[T:TUnit.Assertions.Attributes.GenerateAssertionAttribute]</Target>
-    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:TimeAssertions.TUnit.ActiveTimerAssertions.HasTimerFiredCount(TimeAssertions.ObservableTimeProvider,System.Int32):[T:TUnit.Assertions.Attributes.GenerateAssertionAttribute]</Target>
-    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:TimeAssertions.TUnit.ActiveTimerAssertions.HasTimerScheduled(TimeAssertions.ObservableTimeProvider,System.TimeSpan,System.Int32):[T:TUnit.Assertions.Attributes.GenerateAssertionAttribute]</Target>
-    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:TimeAssertions.TUnit.DateTimeOffsetAssertions.IsRecent(System.DateTimeOffset,System.TimeSpan,System.TimeProvider):[T:TUnit.Assertions.Attributes.GenerateAssertionAttribute]</Target>
-    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:TimeAssertions.TUnit.RateLimitAssertions.WasInvokedAtMostOncePer(System.Collections.Generic.IReadOnlyList{System.DateTimeOffset},System.TimeSpan):[T:TUnit.Assertions.Attributes.GenerateAssertionAttribute]</Target>
+    <Target>M:TimeAssertions.TUnit.DateTimeOffsetAssertions.IsBeforeNow(System.DateTimeOffset,System.TimeProvider):[T:TUnit.Assertions.Attributes.GenerateAssertionAttribute]</Target>
     <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
     <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>

@@ -270,7 +270,7 @@ The receiver is the recorded log itself, NOT the action being invoked: the consu
 | `HasActiveTimerCount(int expected)` | Asserts the exact number of active (undisposed) timers: the registration half of a disposal test. On mismatch the message renders expected vs actual counts plus each active timer's schedule, with an `(expected=N, actual=M)` trailer. |
 | `HasActiveTimers()` | Asserts at least one timer is active: the positive-presence counterpart for the registration half of a disposal test, without pinning the exact count. |
 | `HasAtLeastActiveTimerCount(int count)` | Asserts the active count is at least `count`, for a lower bound rather than an exact count. On a shortfall the message renders the required minimum vs actual count plus each active timer's schedule, with a `(minimum=N, actual=M)` trailer. |
-| `HasNoActiveTimersEventually(cancellationToken)` or `(timeout, cancellationToken)` | Waits until no timer is active: the asynchronous disposal race a synchronous check cannot see (see below). Event-driven: the count is re-checked each time a timer is created, re-scheduled, fired, or disposed. On a timeout the message names each survivor by its schedule with a `(count=N)` trailer. |
+| `HasNoActiveTimersEventually(cancellationToken)` or `(timeout, cancellationToken)` | Waits until no timer is active: the asynchronous disposal race a synchronous check cannot see (see below). Event-driven: the count is re-checked each time a timer is created, changed, fired, or disposed. On a timeout the message names each survivor by its schedule with a `(count=N)` trailer. |
 | `HasActiveTimerCountEventually(int count, ...)` | The count-targeted sibling: waits until the active count equals `count`. On a timeout the message renders the expected and actual counts with an `(expected=N, actual=M)` trailer. |
 | `HasAtLeastActiveTimerCountEventually(int count, ...)` | The asynchronous lower bound: waits until at least `count` timers are active. The right shape for a registration wait where more than one timer may register. On a timeout the message renders a `(minimum=N, actual=M)` trailer. |
 | `HasAtMostActiveTimerCountEventually(int count, ...)` | The asynchronous upper bound: waits until at most `count` timers are active, for "the active set settles to no more than N". On a timeout the message renders a `(maximum=N, actual=M)` trailer. `HasAtMostActiveTimerCountEventually(0, ...)` is equivalent to `HasNoActiveTimersEventually`. |
@@ -353,13 +353,25 @@ await Assert.That(time).HasTimerScheduled(TimeSpan.FromSeconds(30));
 
 A `BackgroundService` that waits with `Task.Delay(delay, timeProvider, ct)`, `new CancellationTokenSource(timeout, timeProvider)`, or `WaitAsync(timeout, timeProvider, ct)` creates one timer per wait, usually on a thread-pool thread. After `fakeTime.Advance(...)` the woken loop runs on, and the next assertion races it. `ObservableFakeTimeProvider` closes that race without a real-time sleep. It is an `ObservableTimeProvider` over its own `FakeTimeProvider`, so a test injects one object, advances it, and asserts on it.
 
+Which helper when:
+
+| The test wants to | Use | Because |
+|---|---|---|
+| Advance a known amount and let every woken loop finish its step | `AdvanceAndSettleAsync(delta, ct)` | It waits until each woken loop has armed its next wait. |
+| Drive an operation through an unknown number of waits until it completes (a reconnect backoff, a start that returns once connected) | `AdvanceOnEachTimerUntilAsync(task, step, ct)` | It advances once per new timer until the task completes, then reports the task's outcome. |
+| Drive a loop on a periodic timer (`PeriodicTimer`, a periodic `ITimer`) | `AdvanceUntilAsync(step, until, maxAdvance, ct)` with a condition the ticks themselves satisfy, such as `TimerFireCount` | A periodic timer is not waited for; it steps until the condition holds, bounded in fake time. |
+| Advance until a log line is written | `AdvanceOnEachTimerUntilAsync(collector.WaitForLogAsync(...), step, ct)` | The record is an event; the clock stops when it arrives. |
+| Wait until a loop has reached its first wait, before advancing | `WaitForTimersCreatedAsync(count, ct)`, or `HasTimerScheduledEventually(dueTime, ct)` when other code also creates timers | An advance before the timer exists is lost. |
+| Wait until a stopped loop's timers are gone | `HasNoActiveTimersEventually(ct)`, or `WaitForTimersDisposedAsync(count, ct)` | The disposal often runs on a continuation, after the stop returns. |
+| Wait for any other condition on the provider | `WaitUntilAsync(condition, ct)` | It re-checks on each timer change. |
+
 | Member | Behavior |
 |---|---|
-| `Advance(TimeSpan)`, `SetUtcNow(DateTimeOffset)` | Move the owned fake clock, firing every timer that becomes due. |
-| `AdvanceAndSettleAsync(TimeSpan delta, CancellationToken)` | Advances, then waits until every loop woken by the advance has armed its next wait (as many timers created with a due time or re-scheduled with `Change` as one-shot timers fired; a timer created disabled counts once it is armed). The next assertion sees the loop's step completed. |
+| `Advance(TimeSpan)`, `SetUtcNow(DateTimeOffset)` | Move the owned fake clock, firing every timer that becomes due. `Advance` and the advance helpers below throw `ArgumentOutOfRangeException` naming `delta` or `step` for a negative advance or one past `DateTimeOffset.MaxValue`, before that advance moves the clock. While `Fake.AutoAdvanceAmount` is set, the check against the latest time is left to the fake clock, because reading the clock would then move it. |
+| `AdvanceAndSettleAsync(TimeSpan delta, CancellationToken)` | Advances, then waits until every loop woken by the advance has armed its next wait (as many timers created with a due time or re-armed with `Change` as one-shot timers fired; a timer created disabled counts once it is armed). The next assertion sees the loop's step completed. |
 | `AdvanceOnEachTimerUntilAsync(Task until, TimeSpan step, CancellationToken)` | Advances by `step` each time a timer has been created since the previous advance (a timer created before the call counts for the first one), until `until` completes, and then completes as `until` did: a fault or a cancellation of `until` is rethrown. Drives a reconnect backoff through any number of failed attempts. It counts every timer created on the provider, so use it on a provider the loop has to itself; and `step` must cover the loop's longest single wait, or the next timer is never created and the helper waits until the token is canceled. |
 | `AdvanceOnEachTimerUntilAsync<T>(Task<T> until, TimeSpan step, CancellationToken)` | The same for a task with a result, which it returns: `FakeLogRecord record = await time.AdvanceOnEachTimerUntilAsync(collector.WaitForLogAsync(filter, cancellationToken), step, cancellationToken);` |
-| `AdvanceUntilAsync(TimeSpan step, Func<bool> until, TimeSpan maxAdvance, CancellationToken)` | Advances in settled steps until `until` holds, for loops on a periodic timer; throws `TimeoutException` after `maxAdvance` of fake time. |
+| `AdvanceUntilAsync(TimeSpan step, Func<bool> until, TimeSpan maxAdvance, CancellationToken)` | Advances in settled steps until `until` holds, for loops on a periodic timer; throws `TimeoutException` after `maxAdvance` of fake time. `until` runs right after each step, and a periodic timer gives no sign that its loop is waiting again: a loop that awaits other work after each tick falls behind, and a `PeriodicTimer` that is not being awaited merges the ticks it missed. So base `until` on what the ticks themselves do, such as `TimerFireCount`, or wait for the loop's own signal after each `Advance`. |
 | `Fake` | The owned `FakeTimeProvider`, for its other settings (`AutoAdvanceAmount`, `SetLocalTimeZone`). Inject the `ObservableFakeTimeProvider`, not `Fake`: timers created on `Fake` directly are not observed. |
 
 ```csharp
@@ -380,9 +392,9 @@ public async Task Heartbeat_beats_once_per_interval_and_stops_cleanly(Cancellati
 }
 ```
 
-`AdvanceAndSettleAsync` assumes that each woken loop arms its next wait, by creating a timer (`Task.Delay`, `new CancellationTokenSource(timeout, timeProvider)`) or by re-scheduling one with `Change` (a callback that re-arms its own one-shot timer). A loop that ends after its timer fired arms nothing, so the wait runs until the token is canceled, and the exception then says how far the clock moved, how many timers fired and how many were armed. A periodic timer keeps its schedule and is not waited for; use `AdvanceUntilAsync` for that.
+`AdvanceAndSettleAsync` assumes that each woken loop arms its next wait, by creating a timer (`Task.Delay`, `new CancellationTokenSource(timeout, timeProvider)`) or by re-arming one with `Change`: a callback that re-arms its own fired one-shot timer, or a timer created disabled. Moving a timer that is still pending is not an arm, so a loop that extends a watchdog deadline with `CancelAfter` on each iteration is waited for until it has armed its next wait. A loop that ends after its timer fired arms nothing, so the wait runs until the token is canceled, and the exception then says how far the clock moved, how many timers fired and how many were armed. A periodic timer keeps its schedule and is not waited for; use `AdvanceUntilAsync` for that.
 
-The settle counts every timer the provider sees, not only those of the woken loops: when other code creates or re-schedules timers on the same provider during the settle, it can return before a woken loop has finished its step. Use it when the loops you advance are the only code arming timers on the provider; otherwise wait for the loop's own outcome, for example `WaitUntilAsync` on its state.
+The settle counts every timer the provider sees, not only those of the woken loops: when other code creates or re-arms timers on the same provider during the settle, it can return before a woken loop has finished its step. Use it when the loops you advance are the only code arming timers on the provider; otherwise wait for the loop's own outcome, for example `WaitUntilAsync` on its state.
 
 The waits behind these helpers are public on every `ObservableTimeProvider`: `WaitForTimersCreatedAsync(count, cancellationToken)`, `WaitForTimersDisposedAsync(count, cancellationToken)`, and `WaitUntilAsync(condition, cancellationToken)` re-check on each timer change, with the token as the only bound. `TimersCreatedCount` and `TimersDisposedCount` never go down, unlike `ActiveTimerCount`, so, when the loop is the only code creating timers on the provider, "the loop armed its second backoff" is `WaitForTimersCreatedAsync(2, cancellationToken)`. With other timer users on the same provider, wait for something only the loop does, such as its backoff's due time with `HasTimerScheduledEventually(dueTime, cancellationToken)`. A creation is signaled only once the inner provider has scheduled the timer, and a schedule change only once the inner timer carries it, so an advance right after the wait is never too early for that timer. The wait confirms the creation or change, not that the timer is still pending: a one-shot timer that fired as it was created (a zero due time), or a disabled timer, does not fire on the advance; a periodic timer that fired as it was created fires again after its period.
 
@@ -425,6 +437,19 @@ FakeLogRecord record = await time.AdvanceOnEachTimerUntilAsync(
 
 The clock moves only while the record has not been logged, and stops as soon as it is. If the record never comes, the token ends the wait.
 
+An assertion's task works the same way, for example LogAssertions' `WillLog(...)` from 0.14.0. Put the chain in a local async function that awaits it and pass that function's task: TUnit's analyzer (`TUnitAssertions0002`, an error) requires every `Assert.That(...)` to be awaited where it is written, so `Assert.That(...).AssertAsync()` passed as an argument does not build.
+
+```csharp
+await time.AdvanceOnEachTimerUntilAsync(ConnectedAsync(), TimeSpan.FromMilliseconds(50), cancellationToken);
+
+async Task ConnectedAsync() =>
+    await Assert.That(collector).WillLog(TimeSpan.FromSeconds(5), cancellationToken)
+        .Containing("connected", StringComparison.Ordinal)
+        .Once();
+```
+
+If the record does not come, the call fails with `WillLog`'s message, because `AdvanceOnEachTimerUntilAsync` observes the task.
+
 #### When the token ends a wait
 
 The token is the only bound of these waits. When it ends one, the `OperationCanceledException` says what the wait saw, so a test that its `[Timeout]` cancels still reports why; TUnit shows the message with the timeout:
@@ -438,7 +463,7 @@ Advanced 3 time(s) by 00:00:01, 00:00:03 in total (clock now 2026-01-01T00:00:03
 ```
 
 ```text
-Advanced 1 time(s) by 00:00:01, 00:00:01 in total (clock now 2026-01-01T00:00:01.0000000+00:00): the last advance fired 1 one-shot timer(s), but only 0 timer(s) were armed (created with a due time, or re-scheduled with Change) before the wait was canceled. A loop that ends after its timer fires arms no new one; for a periodic timer use AdvanceUntilAsync.
+Advanced 1 time(s) by 00:00:01, 00:00:01 in total (clock now 2026-01-01T00:00:01.0000000+00:00): the last advance fired 1 one-shot timer(s), but only 0 timer(s) were armed (created with a due time, or re-armed with Change; moving a pending timer is not an arm) before the wait was canceled. A loop that ends after its timer fires arms no new one; for a periodic timer use AdvanceUntilAsync.
 ```
 
 `WaitForTimersDisposedAsync` reports its count the same way, and `AdvanceUntilAsync` reports its advances in both its `TimeoutException` and its cancellation. `WaitUntilAsync` cannot describe an arbitrary condition, so its cancellation carries no description.

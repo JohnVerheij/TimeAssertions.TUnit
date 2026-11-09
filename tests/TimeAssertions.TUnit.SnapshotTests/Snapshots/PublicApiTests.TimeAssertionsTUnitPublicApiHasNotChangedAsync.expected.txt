@@ -266,9 +266,9 @@ namespace TimeAssertions.TUnit
     }
     public static class DateTimeOffsetAssertions
     {
-        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to be strictly after the supplied time provider\'s UTC now", InlineMethodBody=true)]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to be strictly after the supplied time provider\'s UTC now")]
         public static bool IsAfterNow(this System.DateTimeOffset value, System.TimeProvider timeProvider) { }
-        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to be strictly before the supplied time provider\'s UTC now", InlineMethodBody=true)]
+        [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to be strictly before the supplied time provider\'s UTC now")]
         public static bool IsBeforeNow(this System.DateTimeOffset value, System.TimeProvider timeProvider) { }
         [TUnit.Assertions.Attributes.GenerateAssertion(ExpectationMessage="to be within the last {window} relative to the supplied time provider", InlineMethodBody=false)]
         public static bool IsRecent(this System.DateTimeOffset value, System.TimeSpan window, System.TimeProvider? timeProvider = null) { }

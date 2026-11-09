@@ -102,6 +102,26 @@ internal sealed class ObservableTimeProviderWaitTests
         await Assert.That(evaluations).IsEqualTo(0);
     }
 
+    /// <summary>The hook for the change-ordering tests does nothing unless a test sets it: calling the default leaves
+    /// every count and the schedule as they were.</summary>
+    [Test]
+    public async Task ChangeLockContended_DefaultsToANoOp(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var fake = new FakeTimeProvider();
+        var time = new ObservableTimeProvider(fake);
+        using var timer = time.CreateTimer(static _ => { }, state: null, OneSecond, Timeout.InfiniteTimeSpan);
+        fake.Advance(OneSecond);
+        _ = timer.Change(OneSecond, Timeout.InfiniteTimeSpan);
+        var before = (time.TimersCreatedCount, time.TimerFireCount, time.TimersArmedCount, time.ActiveTimerCount, time.NextTimerDueTime);
+        await Assert.That(before).IsEqualTo((1L, 1L, 2L, 1, (TimeSpan?)OneSecond));
+
+        time.ChangeLockContended();
+
+        await Assert.That((time.TimersCreatedCount, time.TimerFireCount, time.TimersArmedCount, time.ActiveTimerCount, time.NextTimerDueTime))
+            .IsEqualTo(before);
+    }
+
     /// <summary>Canceling the token while the wait is pending throws <see cref="OperationCanceledException"/>.</summary>
     [Test]
     public async Task WaitUntilAsync_CanceledWhileWaiting_Throws(CancellationToken cancellationToken)
@@ -232,7 +252,8 @@ internal sealed class ObservableTimeProviderWaitTests
         await Assert.That(exception!.Message).IsEqualTo(
             "Waited for 3 timer(s) created, but 1 timer(s) were created before the wait was canceled.");
         await Assert.That(exception.CancellationToken).IsEqualTo(cts.Token);
-        await Assert.That(exception.InnerException).IsTypeOf<TaskCanceledException>();
+        await Assert.That(exception.InnerException).IsAssignableTo<OperationCanceledException>()
+            .Because("the wait ends as a TaskCanceledException or, when the timer's signal wins the race, an OperationCanceledException");
     }
 
     /// <summary>A creation wait on a token canceled before the call fails at once, with the same message.</summary>

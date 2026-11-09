@@ -14,7 +14,7 @@ namespace TimeAssertions.TUnit;
 /// <remarks>
 /// <para>
 /// <b>Event-driven.</b> The condition is checked once, then again each time a timer is created,
-/// re-scheduled, fired, or disposed through the provider (<see cref="ObservableTimeProvider.WaitUntilAsync"/>),
+/// changed, fired, or disposed through the provider (<see cref="ObservableTimeProvider.WaitUntilAsync"/>),
 /// never on a polling loop. A timer that a <c>BackgroundService</c> disposes on a continuation after
 /// <c>StopAsync</c> returns is seen the moment the disposal happens.
 /// </para>
@@ -68,6 +68,7 @@ public sealed class HasNoActiveTimersEventuallyAssertion : Assertion<ObservableT
     {
     }
 
+    /// <summary>Shared by the public constructors: a <see langword="null"/> timeout means only the token bounds the wait.</summary>
     private HasNoActiveTimersEventuallyAssertion(
         AssertionContext<ObservableTimeProvider> context,
         TimeSpan? timeout,

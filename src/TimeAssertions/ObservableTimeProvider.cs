@@ -28,7 +28,7 @@ namespace TimeAssertions;
 /// behind the same assertion surface with no consumer change.
 /// </para>
 /// <para>
-/// Every observed change (a timer created, re-scheduled, fired, or disposed) wakes the waits:
+/// Every observed change (a timer created, changed, fired, or disposed) wakes the waits:
 /// <see cref="WaitUntilAsync"/>, <see cref="WaitForTimersCreatedAsync"/>, and
 /// <see cref="WaitForTimersDisposedAsync"/> re-check their condition at the moment the state changes,
 /// with no polling and no real-time delay; the <see cref="CancellationToken"/> is the only bound.
@@ -212,8 +212,8 @@ public class ObservableTimeProvider : TimeProvider
 
     /// <summary>
     /// Gets the cumulative number of fires of non-periodic (one-shot) timers. A fired one-shot timer is
-    /// done, so a loop that keeps running arms its next wait by creating a new timer or by re-scheduling a timer
-    /// with <see cref="ITimer.Change"/>; the settle barrier relies on that.
+    /// done, so a loop that keeps running arms its next wait by creating a new timer or by re-arming a fired or
+    /// disabled timer with <see cref="ITimer.Change"/>; the settle barrier relies on that.
     /// </summary>
     internal long OneShotFireCount
     {
@@ -228,9 +228,10 @@ public class ObservableTimeProvider : TimeProvider
 
     /// <summary>
     /// Gets the cumulative number of times a timer was armed: every creation with a finite due time, plus every
-    /// <see cref="ITimer.Change"/> to a finite due time (the pattern of a callback that re-arms its own one-shot
-    /// timer). A timer created disabled counts once a change arms it. Read under one lock, so the two parts are
-    /// consistent.
+    /// <see cref="ITimer.Change"/> that gives a timer that was not pending a finite due time (the pattern of a
+    /// callback that re-arms its own fired one-shot timer). A timer created disabled counts once a change arms it.
+    /// Moving a timer that is still pending, such as extending a watchdog deadline with <c>CancelAfter</c>, is not an
+    /// arm. Read under one lock, so the two parts are consistent.
     /// </summary>
     internal long TimersArmedCount
     {
@@ -246,7 +247,7 @@ public class ObservableTimeProvider : TimeProvider
     /// <summary>
     /// Waits until <paramref name="condition"/> holds. The token is checked first: a canceled token throws before
     /// the condition is evaluated, even when the condition already holds. Otherwise the condition is checked at
-    /// once and then again after every observed change (a timer created, re-scheduled, fired, or disposed), never
+    /// once and then again after every observed change (a timer created, changed, fired, or disposed), never
     /// on a polling loop. It runs on the waiting side, never under the internal lock, so it may read any member of
     /// the provider.
     /// </summary>
@@ -431,8 +432,7 @@ public class ObservableTimeProvider : TimeProvider
         TaskCompletionSource? changed;
         lock (_lock)
         {
-            timer.EndChange(change, dueTime, period, applied);
-            if (applied && dueTime != Timeout.InfiniteTimeSpan)
+            if (timer.EndChange(change, dueTime, period, applied))
             {
                 _timersArmedByChangeCount++;
             }
@@ -520,6 +520,7 @@ public class ObservableTimeProvider : TimeProvider
         [ThreadStatic]
         private static List<(TrackedTimer Timer, object? State)>? t_deferredCallbacks;
 
+        /// <summary>Records the schedule, then creates the inner timer through the owner's inner provider.</summary>
         public TrackedTimer(
             ObservableTimeProvider owner,
             TimerCallback callback,
@@ -556,6 +557,7 @@ public class ObservableTimeProvider : TimeProvider
             _callback(state);
         }
 
+        /// <inheritdoc/>
         public bool Change(TimeSpan dueTime, TimeSpan period)
         {
             // Publish the new schedule only once the inner timer carries it: a waiter that sees it may advance
@@ -700,15 +702,22 @@ public class ObservableTimeProvider : TimeProvider
         /// <param name="dueTime">The due time the change applies.</param>
         /// <param name="period">The period the change applies.</param>
         /// <param name="applied">Whether the inner timer accepted the change.</param>
-        public void EndChange(long change, TimeSpan dueTime, TimeSpan period, bool applied)
+        /// <returns>Whether the change armed the timer: it published a due time on a timer that was not pending (a
+        /// fired one-shot, or one created or set disabled). Moving a pending timer, such as extending a deadline, is
+        /// not an arm.</returns>
+        public bool EndChange(long change, TimeSpan dueTime, TimeSpan period, bool applied)
         {
             _changesPending--;
-            if (applied && change > _publishedChange)
+            if (!applied || change <= _publishedChange)
             {
-                _publishedChange = change;
-                _period = period;
-                _dueTime = _changeFiredDuring == change ? AfterFire(period) : dueTime;
+                return false;
             }
+
+            var arms = _dueTime == Timeout.InfiniteTimeSpan && dueTime != Timeout.InfiniteTimeSpan;
+            _publishedChange = change;
+            _period = period;
+            _dueTime = _changeFiredDuring == change ? AfterFire(period) : dueTime;
+            return arms;
         }
 
         /// <summary>
@@ -745,6 +754,7 @@ public class ObservableTimeProvider : TimeProvider
         /// <summary>Projects the current schedule. Callers must hold the owner's lock.</summary>
         public ActiveTimerInfo ToInfo() => new(_dueTime, _period) { TimesFired = _timesFired };
 
+        /// <inheritdoc/>
         public void Dispose()
         {
             if (Interlocked.Exchange(ref _disposed, 1) is not 0)
@@ -759,6 +769,7 @@ public class ObservableTimeProvider : TimeProvider
             _inner.Dispose();
         }
 
+        /// <inheritdoc/>
         public ValueTask DisposeAsync()
         {
             if (Interlocked.Exchange(ref _disposed, 1) is not 0)

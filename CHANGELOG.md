@@ -15,6 +15,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-11-09: a settle that waits for the loop's next wait, argument errors that name the argument
+
+Patch release with no API change. A settle no longer ends on a deadline that a loop extends; the advance helpers reject a negative or overflowing advance by naming their own argument.
+
+### Changed
+
+- **`AdvanceUntilAsync`** documents that its condition must rest on what a periodic timer's ticks do, such as `TimerFireCount`, or the test waits for the loop's own signal after each `Advance`: a periodic timer gives no sign that its loop is waiting again, so a loop that awaits other work after its tick falls behind, and a `PeriodicTimer` that is not being awaited merges the ticks it missed.
+- **`TUnit.Assertions`** and **`TUnit.Core`** minimum versions raised from 1.81.0 to 1.81.10.
+
+### Fixed
+
+- **`AdvanceAndSettleAsync`** and each step of **`AdvanceUntilAsync`** no longer count a `Change` that moves a timer that is still pending (for example a watchdog deadline extended with `CancelAfter`) as an arm. Such a change ended the settle before the woken loop had armed its next wait, so the next assertion raced the loop. A `Change` that re-arms a fired one-shot timer, or a timer that is disabled, still counts. The cancellation text says "re-armed with Change; moving a pending timer is not an arm".
+- **`Advance`** and **`AdvanceAndSettleAsync`** throw an `ArgumentOutOfRangeException` that names `delta` for a negative `delta`, before the clock moves; `AdvanceAndSettleAsync` does so also when its token is already canceled. It named `delta.Ticks`, from inside the fake clock.
+- **`Advance`**, **`AdvanceAndSettleAsync`**, **`AdvanceOnEachTimerUntilAsync`** and **`AdvanceUntilAsync`** throw an `ArgumentOutOfRangeException` that names `delta` or `step` for an advance that would move the clock past `DateTimeOffset.MaxValue`, before that advance moves the clock (the multi-step helpers keep the advances they made before it); it named `t`. With `AutoAdvanceAmount` set the check is left to the fake clock, because reading the clock then moves it.
+
+**Upgrade:** raise `TUnit` (and a centrally pinned `TUnit.Assertions` or `TUnit.Core`) to 1.81.10 or later; a central pin below it fails the restore with NU1109 (package downgrade). A test whose loop extends a pending timer and then arms its next wait now sees that wait armed after the settle. A test that settled only because a pending timer was moved, with no next wait armed, now waits until its token is canceled, and the cancellation names the fired and armed counts.
+
 ## [0.11.0] - 2026-11-06: an advance that observes its task, cancellations that say why, one message rule
 
 Minor release with breaking changes (see BREAKING and Upgrade). `AdvanceOnEachTimerUntilAsync` now fails when its task fails and returns its result; a wait that its token ends says what it saw, in an `OperationCanceledException`; every failure message states the expectation once and then only what was found. The `pollingInterval` overloads deprecated in 0.10.0 are removed.
@@ -251,7 +268,8 @@ First public release, positioned as the TUnit assertion package for projects com
 
 - **AOT-compatible, trimmable, no runtime reflection** in the assertion path.
 
-[unreleased]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.11.0...HEAD
+[unreleased]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.11.1...HEAD
+[0.11.1]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.8.1...v0.9.0
