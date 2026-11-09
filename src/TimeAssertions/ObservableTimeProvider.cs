@@ -212,8 +212,8 @@ public class ObservableTimeProvider : TimeProvider
 
     /// <summary>
     /// Gets the cumulative number of fires of non-periodic (one-shot) timers. A fired one-shot timer is
-    /// done, so a loop that keeps running arms its next wait by creating a new timer or by re-scheduling a timer
-    /// with <see cref="ITimer.Change"/>; the settle barrier relies on that.
+    /// done, so a loop that keeps running arms its next wait by creating a new timer or by re-arming a fired or
+    /// disabled timer with <see cref="ITimer.Change"/>; the settle barrier relies on that.
     /// </summary>
     internal long OneShotFireCount
     {
@@ -228,9 +228,10 @@ public class ObservableTimeProvider : TimeProvider
 
     /// <summary>
     /// Gets the cumulative number of times a timer was armed: every creation with a finite due time, plus every
-    /// <see cref="ITimer.Change"/> to a finite due time (the pattern of a callback that re-arms its own one-shot
-    /// timer). A timer created disabled counts once a change arms it. Read under one lock, so the two parts are
-    /// consistent.
+    /// <see cref="ITimer.Change"/> that gives a timer that was not pending a finite due time (the pattern of a
+    /// callback that re-arms its own fired one-shot timer). A timer created disabled counts once a change arms it.
+    /// Moving a timer that is still pending, such as extending a watchdog deadline with <c>CancelAfter</c>, is not an
+    /// arm. Read under one lock, so the two parts are consistent.
     /// </summary>
     internal long TimersArmedCount
     {
@@ -431,8 +432,7 @@ public class ObservableTimeProvider : TimeProvider
         TaskCompletionSource? changed;
         lock (_lock)
         {
-            timer.EndChange(change, dueTime, period, applied);
-            if (applied && dueTime != Timeout.InfiniteTimeSpan)
+            if (timer.EndChange(change, dueTime, period, applied))
             {
                 _timersArmedByChangeCount++;
             }
@@ -700,15 +700,22 @@ public class ObservableTimeProvider : TimeProvider
         /// <param name="dueTime">The due time the change applies.</param>
         /// <param name="period">The period the change applies.</param>
         /// <param name="applied">Whether the inner timer accepted the change.</param>
-        public void EndChange(long change, TimeSpan dueTime, TimeSpan period, bool applied)
+        /// <returns>Whether the change armed the timer: it published a due time on a timer that was not pending (a
+        /// fired one-shot, or one created or set disabled). Moving a pending timer, such as extending a deadline, is
+        /// not an arm.</returns>
+        public bool EndChange(long change, TimeSpan dueTime, TimeSpan period, bool applied)
         {
             _changesPending--;
-            if (applied && change > _publishedChange)
+            if (!applied || change <= _publishedChange)
             {
-                _publishedChange = change;
-                _period = period;
-                _dueTime = _changeFiredDuring == change ? AfterFire(period) : dueTime;
+                return false;
             }
+
+            var arms = _dueTime == Timeout.InfiniteTimeSpan && dueTime != Timeout.InfiniteTimeSpan;
+            _publishedChange = change;
+            _period = period;
+            _dueTime = _changeFiredDuring == change ? AfterFire(period) : dueTime;
+            return arms;
         }
 
         /// <summary>

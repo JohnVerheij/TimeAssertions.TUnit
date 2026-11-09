@@ -51,7 +51,14 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
 
     /// <summary>Advances the fake clock by <paramref name="delta"/>, firing every timer that becomes due.</summary>
     /// <param name="delta">The amount of time to advance.</param>
-    public void Advance(TimeSpan delta) => Fake.Advance(delta);
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="delta"/> is negative, or would move the clock
+    /// past <see cref="DateTimeOffset.MaxValue"/>. While <see cref="FakeTimeProvider.AutoAdvanceAmount"/> is set, that
+    /// check is left to the fake clock, because reading the clock would then move it.</exception>
+    public void Advance(TimeSpan delta)
+    {
+        ThrowIfNegative(delta, nameof(delta));
+        AdvanceClock(delta, nameof(delta));
+    }
 
     /// <summary>Sets the fake clock to <paramref name="value"/>, firing every timer that becomes due.</summary>
     /// <param name="value">The new date and time.</param>
@@ -60,7 +67,7 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
     /// <summary>
     /// Advances the fake clock by <paramref name="delta"/> and then waits until the loops woken by it have
     /// re-armed: for every one-shot timer that fired during the advance, a timer has been armed, either created or
-    /// re-scheduled with <see cref="ITimer.Change"/> (a callback that re-arms its own one-shot timer).
+    /// re-armed with <see cref="ITimer.Change"/> (a callback that re-arms its own one-shot timer).
     /// </summary>
     /// <param name="delta">The amount of time to advance.</param>
     /// <param name="cancellationToken">The only bound of the wait, typically the test's token. To fail sooner than
@@ -69,13 +76,14 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
     /// <remarks>
     /// <para>
     /// A one-shot timer that fired is done; a loop that keeps running schedules its next wait by creating a
-    /// timer with a due time or re-scheduling one with <see cref="ITimer.Change"/> (a timer created disabled
-    /// counts once a change arms it), so "as many armed timers as fired one-shot timers" means every woken loop
-    /// reached its next wait. Periodic timers keep their schedule and are not waited for; use
-    /// <see cref="AdvanceUntilAsync"/> for loops driven by a periodic timer.
+    /// timer with a due time or by re-arming one with <see cref="ITimer.Change"/>: a fired one-shot timer, or one
+    /// created disabled. So "as many armed timers as fired one-shot timers" means every woken loop reached its next
+    /// wait. Moving a timer that is still pending is not an arm, so a loop that extends a watchdog deadline
+    /// (<c>CancelAfter</c>) before its next wait is waited for until that wait exists. Periodic timers keep their
+    /// schedule and are not waited for; use <see cref="AdvanceUntilAsync"/> for loops driven by a periodic timer.
     /// </para>
     /// <para>
-    /// The counts are those of the whole provider: a timer that other code creates or re-schedules during the
+    /// The counts are those of the whole provider: a timer that other code creates or re-arms during the
     /// wait counts as well, so the settle can return before a woken loop has finished its step. Rely on it when
     /// the loops being advanced are the only code arming timers on this provider; otherwise wait for the loop's
     /// own signal, for example a <see cref="ObservableTimeProvider.WaitUntilAsync"/> condition on its state.
@@ -87,11 +95,15 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
     /// the clock moves.
     /// </para>
     /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="delta"/> is negative, or would move the clock
+    /// past <see cref="DateTimeOffset.MaxValue"/>. While <see cref="FakeTimeProvider.AutoAdvanceAmount"/> is set, that
+    /// check is left to the fake clock, because reading the clock would then move it.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled before
     /// the advance, or before the woken loops re-armed.</exception>
     public Task AdvanceAndSettleAsync(TimeSpan delta, CancellationToken cancellationToken)
         => AdvanceAndSettleCoreAsync(
             delta,
+            nameof(delta),
             new AdvanceProgress(0, delta, TimeSpan.Zero, Shortened: false),
             " A loop that ends after its timer fires arms no new one; for a periodic timer use AdvanceUntilAsync.",
             cancellationToken);
@@ -125,7 +137,10 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
     /// </para>
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="until"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="step"/> is not positive.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="step"/> is not positive, or an advance by it
+    /// would move the clock past <see cref="DateTimeOffset.MaxValue"/>. While
+    /// <see cref="FakeTimeProvider.AutoAdvanceAmount"/> is set, that check is left to the fake clock, because reading
+    /// the clock would then move it.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled before
     /// <paramref name="until"/> completed, or <paramref name="until"/> was canceled.</exception>
     [SuppressMessage(
@@ -165,7 +180,7 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
             }
 
             handled = TimersCreatedCount;
-            Fake.Advance(step);
+            AdvanceClock(step, nameof(step));
             progress = progress.After(step);
         }
 
@@ -185,7 +200,10 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
     /// <param name="cancellationToken">The only bound of the wait, typically the test's token.</param>
     /// <returns>The result of <paramref name="until"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="until"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="step"/> is not positive.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="step"/> is not positive, or an advance by it
+    /// would move the clock past <see cref="DateTimeOffset.MaxValue"/>. While
+    /// <see cref="FakeTimeProvider.AutoAdvanceAmount"/> is set, that check is left to the fake clock, because reading
+    /// the clock would then move it.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled before
     /// <paramref name="until"/> completed, or <paramref name="until"/> was canceled.</exception>
     [SuppressMessage(
@@ -205,6 +223,13 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
     /// <paramref name="maxAdvance"/> of fake time has passed. Suits loops driven by a periodic timer, for
     /// example "until <see cref="ObservableTimeProvider.TimerFireCount"/> reaches 6".
     /// </summary>
+    /// <remarks>
+    /// A periodic timer gives no sign that its loop is waiting again, so the steps do not wait for the loop: a loop
+    /// that awaits other work after each tick falls behind, and a <see cref="PeriodicTimer"/> that is not being
+    /// awaited merges the ticks it missed. Base <paramref name="until"/> on what the ticks themselves do, such as
+    /// <see cref="ObservableTimeProvider.TimerFireCount"/>, or wait for the loop's own signal after each
+    /// <see cref="Advance"/>.
+    /// </remarks>
     /// <param name="step">The fake time per advance.</param>
     /// <param name="until">The condition to reach; checked before each step, on the calling thread.</param>
     /// <param name="maxAdvance">The most fake time to advance before giving up; the last step is shortened so
@@ -212,8 +237,10 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
     /// <param name="cancellationToken">Bounds the settle waits, typically the test's token.</param>
     /// <returns>A task that completes once <paramref name="until"/> holds.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="until"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="step"/> is not positive, or
-    /// <paramref name="maxAdvance"/> is negative.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="step"/> is not positive, a step would move the
+    /// clock past <see cref="DateTimeOffset.MaxValue"/>, or <paramref name="maxAdvance"/> is negative. While
+    /// <see cref="FakeTimeProvider.AutoAdvanceAmount"/> is set, the check against the latest time is left to the fake
+    /// clock, because reading the clock would then move it.</exception>
     /// <exception cref="TimeoutException"><paramref name="until"/> did not hold after advancing
     /// <paramref name="maxAdvance"/>. The message says how many advances were made and how far the clock moved.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled before an
@@ -237,6 +264,7 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
             var next = step < maxAdvance - progress.Total ? step : maxAdvance - progress.Total;
             await AdvanceAndSettleCoreAsync(
                 next,
+                nameof(step),
                 progress,
                 " A loop that ends after its timer fires arms no new one.",
                 cancellationToken).ConfigureAwait(false);
@@ -250,16 +278,19 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
     /// advances and the counts; a token that is already canceled stops it before the clock moves.
     /// </summary>
     /// <param name="delta">The amount of time to advance.</param>
+    /// <param name="deltaName">The calling helper's name for <paramref name="delta"/>, for argument exceptions.</param>
     /// <param name="done">The calling helper's advances before this one, for the message.</param>
     /// <param name="hint">The sentence that ends the message of a canceled settle wait, with a leading space.</param>
     /// <param name="cancellationToken">The only bound of the wait.</param>
     /// <returns>A task that completes once the woken loops have armed their next timers.</returns>
     private async Task AdvanceAndSettleCoreAsync(
         TimeSpan delta,
+        string deltaName,
         AdvanceProgress done,
         string hint,
         CancellationToken cancellationToken)
     {
+        ThrowIfNegative(delta, deltaName);
         if (cancellationToken.IsCancellationRequested)
         {
             throw new OperationCanceledException(
@@ -270,7 +301,7 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
         var progress = done.After(delta);
         var armedBefore = TimersArmedCount;
         var oneShotFiresBefore = OneShotFireCount;
-        Fake.Advance(delta);
+        AdvanceClock(delta, deltaName);
         var fired = OneShotFireCount - oneShotFiresBefore;
 
         try
@@ -287,9 +318,41 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
                     $"{Describe(progress)}: the last advance fired {fired} one-shot timer(s), and {armed} timer(s) were armed, but the token was canceled before the settle returned.")
                 : string.Create(
                     CultureInfo.InvariantCulture,
-                    $"{Describe(progress)}: the last advance fired {fired} one-shot timer(s), but only {armed} timer(s) were armed (created with a due time, or re-scheduled with Change) before the wait was canceled.{hint}");
+                    $"{Describe(progress)}: the last advance fired {fired} one-shot timer(s), but only {armed} timer(s) were armed (created with a due time, or re-armed with Change; moving a pending timer is not an arm) before the wait was canceled.{hint}");
             throw new OperationCanceledException(message, exception, cancellationToken);
         }
+    }
+
+    /// <summary>Rejects a negative advance, naming the calling helper's argument.</summary>
+    /// <param name="delta">The amount of time to advance.</param>
+    /// <param name="deltaName">The calling helper's name for <paramref name="delta"/>.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="delta"/> is negative.</exception>
+    private static void ThrowIfNegative(TimeSpan delta, string deltaName)
+    {
+        if (delta < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(deltaName, delta, "The fake clock cannot be advanced by a negative amount.");
+        }
+    }
+
+    /// <summary>Advances the fake clock by <paramref name="delta"/>, rejecting an advance past
+    /// <see cref="DateTimeOffset.MaxValue"/> before the clock moves.</summary>
+    /// <param name="delta">The amount of time to advance; not negative.</param>
+    /// <param name="deltaName">The calling helper's name for <paramref name="delta"/>.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The advance would move the clock past
+    /// <see cref="DateTimeOffset.MaxValue"/>.</exception>
+    private void AdvanceClock(TimeSpan delta, string deltaName)
+    {
+        // With AutoAdvanceAmount set, reading the clock moves it, so the check is left to the fake then.
+        if (Fake.AutoAdvanceAmount == TimeSpan.Zero && delta > DateTimeOffset.MaxValue - Fake.GetUtcNow())
+        {
+            throw new ArgumentOutOfRangeException(
+                deltaName,
+                delta,
+                "The advance would move the fake clock past DateTimeOffset.MaxValue.");
+        }
+
+        Fake.Advance(delta);
     }
 
     /// <summary>Builds the exception for a cancellation that ended <c>AdvanceOnEachTimerUntilAsync</c> before its

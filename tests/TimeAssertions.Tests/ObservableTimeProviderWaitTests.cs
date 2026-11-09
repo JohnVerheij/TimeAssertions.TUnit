@@ -102,6 +102,20 @@ internal sealed class ObservableTimeProviderWaitTests
         await Assert.That(evaluations).IsEqualTo(0);
     }
 
+    /// <summary>The hook for the change-ordering tests does nothing unless a test sets it: calling the default
+    /// changes no count.</summary>
+    [Test]
+    public async Task ChangeLockContended_DefaultsToANoOp(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = new ObservableTimeProvider(new FakeTimeProvider());
+
+        time.ChangeLockContended();
+
+        await Assert.That(time.TimersCreatedCount).IsEqualTo(0);
+        await Assert.That(time.TimerFireCount).IsEqualTo(0);
+    }
+
     /// <summary>Canceling the token while the wait is pending throws <see cref="OperationCanceledException"/>.</summary>
     [Test]
     public async Task WaitUntilAsync_CanceledWhileWaiting_Throws(CancellationToken cancellationToken)
@@ -232,7 +246,8 @@ internal sealed class ObservableTimeProviderWaitTests
         await Assert.That(exception!.Message).IsEqualTo(
             "Waited for 3 timer(s) created, but 1 timer(s) were created before the wait was canceled.");
         await Assert.That(exception.CancellationToken).IsEqualTo(cts.Token);
-        await Assert.That(exception.InnerException).IsTypeOf<TaskCanceledException>();
+        await Assert.That(exception.InnerException).IsAssignableTo<OperationCanceledException>()
+            .Because("the wait ends as a TaskCanceledException or, when the timer's signal wins the race, an OperationCanceledException");
     }
 
     /// <summary>A creation wait on a token canceled before the call fails at once, with the same message.</summary>

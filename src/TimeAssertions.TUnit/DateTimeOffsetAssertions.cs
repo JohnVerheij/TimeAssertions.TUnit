@@ -38,7 +38,7 @@ public static class DateTimeOffsetAssertions
     /// <see cref="TimeProvider"/>'s notion of "now". Distinct from TUnit core's
     /// <c>IsInPast()</c> in that the comparison source is explicit (suitable for
     /// <see cref="Microsoft.Extensions.Time.Testing.FakeTimeProvider"/>-driven tests).</summary>
-    [GenerateAssertion(ExpectationMessage = "to be strictly before the supplied time provider's UTC now", InlineMethodBody = true)]
+    [GenerateAssertion(ExpectationMessage = "to be strictly before the supplied time provider's UTC now")]
     public static bool IsBeforeNow(this DateTimeOffset value, TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
@@ -49,7 +49,7 @@ public static class DateTimeOffsetAssertions
     /// <see cref="TimeProvider"/>'s notion of "now". Distinct from TUnit core's
     /// <c>IsInFuture()</c> in that the comparison source is explicit (suitable for
     /// <see cref="Microsoft.Extensions.Time.Testing.FakeTimeProvider"/>-driven tests).</summary>
-    [GenerateAssertion(ExpectationMessage = "to be strictly after the supplied time provider's UTC now", InlineMethodBody = true)]
+    [GenerateAssertion(ExpectationMessage = "to be strictly after the supplied time provider's UTC now")]
     public static bool IsAfterNow(this DateTimeOffset value, TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);

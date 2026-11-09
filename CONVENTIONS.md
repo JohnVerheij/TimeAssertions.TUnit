@@ -47,8 +47,9 @@ For polling, looping, or internal-timeout APIs, the additional rules are:
 - For sleep / delay between iterations, use `Task.Delay(interval, cancellationToken)` for cancellation
   cleanup. When a `TimeProvider?` is supplied non-null on the API, see the polling-loop
   default-schedule section below for the provider-driven variant.
-- For internal-timeout APIs (e.g. `WithinHardTimeBudget(TimeSpan)`), create the internal
-  `CancellationTokenSource(timeout)` and link it with the supplied external CT via
+- For internal-timeout APIs (for example the `timeout` forms of TimeAssertions' `*Eventually`
+  assertions), create the internal `CancellationTokenSource(timeout)` and link it with the
+  supplied external CT via
   `CancellationTokenSource.CreateLinkedTokenSource(externalCt, internalCts.Token)`. Either
   source firing aborts the operation; consumer-side intent is preserved.
 
@@ -102,8 +103,7 @@ when the consumer expected fake-time progression to do so. When `TimeProvider?` 
 falls back to `Task.Delay(interval, cancellationToken)`. If `Task.Delay(TimeSpan, TimeProvider,
 CancellationToken)` doesn't satisfy the polling shape for some future requirement, fall back
 to a timer-built wait via `timeProvider.CreateTimer(...)` plus a `TaskCompletionSource`. Same
-rule applies to `EveryWindow`, `WithinHardTimeBudget`, and any future polling/timer-driven
-family API.
+rule applies to any future polling or timer-driven family API.
 
 ## Renderer output format
 

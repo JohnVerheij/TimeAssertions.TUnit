@@ -23,7 +23,7 @@ internal sealed class ObservableFakeTimeProviderTests
 
     /// <summary>The cancellation message of a one-second settle whose fired one-shot timer armed nothing.</summary>
     private const string OneAdvanceUnsettled =
-        "Advanced 1 time(s) by 00:00:01, 00:00:01 in total (clock now 2026-01-01T00:00:01.0000000+00:00): the last advance fired 1 one-shot timer(s), but only 0 timer(s) were armed (created with a due time, or re-scheduled with Change) before the wait was canceled. A loop that ends after its timer fires arms no new one; for a periodic timer use AdvanceUntilAsync.";
+        "Advanced 1 time(s) by 00:00:01, 00:00:01 in total (clock now 2026-01-01T00:00:01.0000000+00:00): the last advance fired 1 one-shot timer(s), but only 0 timer(s) were armed (created with a due time, or re-armed with Change; moving a pending timer is not an arm) before the wait was canceled. A loop that ends after its timer fires arms no new one; for a periodic timer use AdvanceUntilAsync.";
 
     // --- construction and the owned fake ---
 
@@ -821,7 +821,7 @@ internal sealed class ObservableFakeTimeProviderTests
             .ThrowsExactly<OperationCanceledException>();
 
         await Assert.That(exception!.Message).IsEqualTo(
-            "Advanced 2 time(s) by 00:00:01, 00:00:02 in total (clock now 2026-01-01T00:00:02.0000000+00:00): the last advance fired 1 one-shot timer(s), but only 0 timer(s) were armed (created with a due time, or re-scheduled with Change) before the wait was canceled. A loop that ends after its timer fires arms no new one.");
+            "Advanced 2 time(s) by 00:00:01, 00:00:02 in total (clock now 2026-01-01T00:00:02.0000000+00:00): the last advance fired 1 one-shot timer(s), but only 0 timer(s) were armed (created with a due time, or re-armed with Change; moving a pending timer is not an arm) before the wait was canceled. A loop that ends after its timer fires arms no new one.");
         await finalRun;
     }
 

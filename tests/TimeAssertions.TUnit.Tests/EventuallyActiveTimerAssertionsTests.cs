@@ -713,4 +713,28 @@ internal sealed class EventuallyActiveTimerAssertionsTests
 
         await Assert.That(exception!.Message).Contains("the observable time provider was null");
     }
+
+    /// <summary>A null provider fails <c>HasNoActiveTimersEventually</c> at once, naming the null source.</summary>
+    [Test]
+    public async Task HasNoActiveTimersEventually_NullProvider_FailsWithNullMessage(CancellationToken cancellationToken)
+    {
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(NullProvider).HasNoActiveTimersEventually(GenerousTimeout, cancellationToken);
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains("the observable time provider was null");
+    }
+
+    /// <summary>A null provider fails <c>HasActiveTimerCountEventually</c> at once, naming the null source.</summary>
+    [Test]
+    public async Task HasActiveTimerCountEventually_NullProvider_FailsWithNullMessage(CancellationToken cancellationToken)
+    {
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(NullProvider).HasActiveTimerCountEventually(1, GenerousTimeout, cancellationToken);
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains("the observable time provider was null");
+    }
 }
