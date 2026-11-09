@@ -61,6 +61,25 @@ internal sealed class EdgeCaseTests
         await Assert.That(time.PendingWaitCount).IsEqualTo(0);
     }
 
+    /// <summary>Valid steps near <see cref="DateTimeOffset.MaxValue"/>: the step that would pass the latest time is
+    /// rejected, naming <c>step</c>. The message says that the advance by that step from the current clock would pass
+    /// it, not that the step is invalid, and the step made before it stays made.</summary>
+    [Test]
+    public async Task AdvanceUntilAsync_SecondStepWouldPassTheLatestTime_SaysTheAdvanceWouldPassIt(CancellationToken cancellationToken)
+    {
+        var nearTheEnd = DateTimeOffset.MaxValue - TimeSpan.FromSeconds(1.5);
+        var time = new ObservableFakeTimeProvider(nearTheEnd);
+
+        var exception = await Assert.That(async () =>
+                await time.AdvanceUntilAsync(OneSecond, static () => false, TimeSpan.FromSeconds(10), cancellationToken))
+            .ThrowsExactly<ArgumentOutOfRangeException>();
+
+        await Assert.That(exception!.ParamName).IsEqualTo("step");
+        await Assert.That(exception.Message).StartsWith(
+            "An advance by 00:00:01 from 9999-12-31T23:59:59.4999999+00:00 would move the fake clock past DateTimeOffset.MaxValue.");
+        await Assert.That(time.GetUtcNow()).IsEqualTo(nearTheEnd + OneSecond);
+    }
+
     /// <summary><see cref="ObservableFakeTimeProvider.Advance"/> rejects a negative advance and one past
     /// <see cref="DateTimeOffset.MaxValue"/> the same way, naming <c>delta</c>, before the clock moves.</summary>
     [Test]

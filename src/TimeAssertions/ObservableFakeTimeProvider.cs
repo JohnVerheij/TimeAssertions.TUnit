@@ -344,12 +344,16 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
     private void AdvanceClock(TimeSpan delta, string deltaName)
     {
         // With AutoAdvanceAmount set, reading the clock moves it, so the check is left to the fake then.
-        if (Fake.AutoAdvanceAmount == TimeSpan.Zero && delta > DateTimeOffset.MaxValue - Fake.GetUtcNow())
+        if (Fake.AutoAdvanceAmount == TimeSpan.Zero)
         {
-            throw new ArgumentOutOfRangeException(
-                deltaName,
-                delta,
-                "The advance would move the fake clock past DateTimeOffset.MaxValue.");
+            var now = Fake.GetUtcNow();
+            if (delta > DateTimeOffset.MaxValue - now)
+            {
+                throw new ArgumentOutOfRangeException(
+                    deltaName,
+                    delta,
+                    $"An advance by {delta} from {now:O} would move the fake clock past DateTimeOffset.MaxValue.");
+            }
         }
 
         Fake.Advance(delta);

@@ -10,7 +10,7 @@ namespace TimeAssertions.Tests;
 /// timer fires on the advance, its callback does one thing, and the row says whether the settle returns (the woken
 /// loop armed its next wait) or keeps waiting until its token is canceled. Only arming counts: creating a timer with a
 /// due time, or a <c>Change</c> that arms a timer that was not pending (a fired one-shot, or one created or set
-/// disabled). Re-scheduling a timer that is still pending, such as extending a watchdog, is not an arm.
+/// disabled). Moving a timer that is still pending, such as extending a watchdog, is not an arm.
 /// </summary>
 [Timeout(10_000)]
 internal sealed class SettleDecisionTableTests

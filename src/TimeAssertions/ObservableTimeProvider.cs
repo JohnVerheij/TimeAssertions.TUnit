@@ -28,7 +28,7 @@ namespace TimeAssertions;
 /// behind the same assertion surface with no consumer change.
 /// </para>
 /// <para>
-/// Every observed change (a timer created, re-scheduled, fired, or disposed) wakes the waits:
+/// Every observed change (a timer created, changed, fired, or disposed) wakes the waits:
 /// <see cref="WaitUntilAsync"/>, <see cref="WaitForTimersCreatedAsync"/>, and
 /// <see cref="WaitForTimersDisposedAsync"/> re-check their condition at the moment the state changes,
 /// with no polling and no real-time delay; the <see cref="CancellationToken"/> is the only bound.
@@ -247,7 +247,7 @@ public class ObservableTimeProvider : TimeProvider
     /// <summary>
     /// Waits until <paramref name="condition"/> holds. The token is checked first: a canceled token throws before
     /// the condition is evaluated, even when the condition already holds. Otherwise the condition is checked at
-    /// once and then again after every observed change (a timer created, re-scheduled, fired, or disposed), never
+    /// once and then again after every observed change (a timer created, changed, fired, or disposed), never
     /// on a polling loop. It runs on the waiting side, never under the internal lock, so it may read any member of
     /// the provider.
     /// </summary>

@@ -9,7 +9,7 @@ namespace TimeAssertions.TUnit;
 /// <summary>
 /// Shared wait primitives for the "eventually" active-timer assertions. The wait is event-driven:
 /// <see cref="ObservableTimeProvider.WaitUntilAsync"/> re-checks the condition each time a timer is created,
-/// re-scheduled, fired, or disposed, so nothing polls. An optional timeout bounds the wait in real time.
+/// changed, fired, or disposed, so nothing polls. An optional timeout bounds the wait in real time.
 /// </summary>
 internal static class TimerWait
 {

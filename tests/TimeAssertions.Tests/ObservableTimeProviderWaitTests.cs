@@ -102,18 +102,24 @@ internal sealed class ObservableTimeProviderWaitTests
         await Assert.That(evaluations).IsEqualTo(0);
     }
 
-    /// <summary>The hook for the change-ordering tests does nothing unless a test sets it: calling the default
-    /// changes no count.</summary>
+    /// <summary>The hook for the change-ordering tests does nothing unless a test sets it: calling the default leaves
+    /// every count and the schedule as they were.</summary>
     [Test]
     public async Task ChangeLockContended_DefaultsToANoOp(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var time = new ObservableTimeProvider(new FakeTimeProvider());
+        var fake = new FakeTimeProvider();
+        var time = new ObservableTimeProvider(fake);
+        using var timer = time.CreateTimer(static _ => { }, state: null, OneSecond, Timeout.InfiniteTimeSpan);
+        fake.Advance(OneSecond);
+        _ = timer.Change(OneSecond, Timeout.InfiniteTimeSpan);
+        var before = (time.TimersCreatedCount, time.TimerFireCount, time.TimersArmedCount, time.ActiveTimerCount, time.NextTimerDueTime);
+        await Assert.That(before).IsEqualTo((1L, 1L, 2L, 1, (TimeSpan?)OneSecond));
 
         time.ChangeLockContended();
 
-        await Assert.That(time.TimersCreatedCount).IsEqualTo(0);
-        await Assert.That(time.TimerFireCount).IsEqualTo(0);
+        await Assert.That((time.TimersCreatedCount, time.TimerFireCount, time.TimersArmedCount, time.ActiveTimerCount, time.NextTimerDueTime))
+            .IsEqualTo(before);
     }
 
     /// <summary>Canceling the token while the wait is pending throws <see cref="OperationCanceledException"/>.</summary>

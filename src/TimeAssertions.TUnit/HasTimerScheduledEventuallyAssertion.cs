@@ -21,7 +21,7 @@ namespace TimeAssertions.TUnit;
 /// </para>
 /// <para>
 /// <b>Event-driven.</b> The condition is checked once, then again each time a timer is created,
-/// re-scheduled, fired, or disposed through the provider (<see cref="ObservableTimeProvider.WaitUntilAsync"/>),
+/// changed, fired, or disposed through the provider (<see cref="ObservableTimeProvider.WaitUntilAsync"/>),
 /// never on a polling loop.
 /// </para>
 /// <para>

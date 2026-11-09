@@ -36,8 +36,9 @@ internal sealed class RealTimerUsersTests
     }
 
     /// <summary>A <see cref="PeriodicTimer"/> loop that awaits other work after each tick: <c>AdvanceUntilAsync</c>
-    /// over the fire count stops at the third tick, but the loop's own count may lag behind, because a periodic timer
-    /// is not waited for. Read the fire count, or wait for the loop's own signal.</summary>
+    /// over the fire count, the condition the docs recommend, stops the clock at exactly the third tick, whatever the
+    /// loop is doing, and the loop has processed no more ticks than fired. How far the loop's own count is behind
+    /// depends on scheduling, so the test does not pin it.</summary>
     [Test]
     public async Task PeriodicTimerLoopWithAsyncWork_AdvanceUntilTheFireCount_StopsAtTheThirdTick(CancellationToken cancellationToken)
     {
