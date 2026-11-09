@@ -35,6 +35,7 @@ internal sealed class SharedClockFixture : IAsyncInitializer, IAsyncDisposable
         _stop.Dispose();
     }
 
+    /// <summary>The fixture's background loop: 30-second delays until <paramref name="stop"/> is canceled.</summary>
     private static async Task HeartbeatAsync(TimeProvider time, CancellationToken stop)
     {
         try

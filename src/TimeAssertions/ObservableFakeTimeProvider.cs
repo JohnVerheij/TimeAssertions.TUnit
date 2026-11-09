@@ -35,6 +35,7 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
     {
     }
 
+    /// <summary>Wraps <paramref name="fake"/>, the fake clock the public constructors create.</summary>
     private ObservableFakeTimeProvider(FakeTimeProvider fake)
         : base(fake)
     {

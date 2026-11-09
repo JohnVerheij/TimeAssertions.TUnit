@@ -129,6 +129,7 @@ internal sealed class SettleDecisionTableTests
         return Task.CompletedTask;
     }
 
+    /// <summary>Re-arms <paramref name="timer"/> for one second after a yield.</summary>
     private static async Task ReArmAfterAYieldAsync(ITimer timer)
     {
         await Task.Yield();

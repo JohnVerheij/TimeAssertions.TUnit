@@ -155,6 +155,7 @@ internal sealed class ConcurrencyTests
         await Task.WhenAll(loops);
     }
 
+    /// <summary>Advances the clock a millisecond at a time, yielding between steps, until <paramref name="stop"/> is canceled.</summary>
     private static async Task AdvanceUntilStoppedAsync(ObservableFakeTimeProvider time, CancellationToken stop)
     {
         await Task.Yield();
@@ -165,6 +166,7 @@ internal sealed class ConcurrencyTests
         }
     }
 
+    /// <summary>A retry backoff: waits 5 seconds times the attempt number after each failure, then returns the attempt that succeeds.</summary>
     private static async Task<int> BackoffAsync(TimeProvider time, int failures, CancellationToken cancellationToken)
     {
         await Task.Yield();
@@ -176,6 +178,7 @@ internal sealed class ConcurrencyTests
         return failures + 1;
     }
 
+    /// <summary>One-second delays until <paramref name="stop"/> is canceled.</summary>
     private static async Task DelayLoopAsync(TimeProvider time, CancellationToken stop)
     {
         try

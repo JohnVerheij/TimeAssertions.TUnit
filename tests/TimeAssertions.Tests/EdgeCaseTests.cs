@@ -230,6 +230,7 @@ internal sealed class EdgeCaseTests
         await Assert.That(time.PendingWaitCount).IsEqualTo(0);
     }
 
+    /// <summary>Awaits three one-second delays, then returns 3.</summary>
     private static async Task<int> ThreeDelaysAsync(TimeProvider time, CancellationToken cancellationToken)
     {
         for (var i = 0; i < 3; i++)
@@ -240,6 +241,7 @@ internal sealed class EdgeCaseTests
         return 3;
     }
 
+    /// <summary>One-second delays, counted in <paramref name="iterations"/>, until <paramref name="stop"/> is canceled.</summary>
     private static async Task DelayLoopAsync(TimeProvider time, Counter iterations, CancellationToken stop)
     {
         try

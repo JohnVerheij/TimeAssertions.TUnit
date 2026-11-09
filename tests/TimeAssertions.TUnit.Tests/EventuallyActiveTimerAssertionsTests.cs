@@ -25,6 +25,7 @@ namespace TimeAssertions.TUnit.Tests;
 [Timeout(15_000)]
 internal sealed class EventuallyActiveTimerAssertionsTests
 {
+    /// <summary>A provider over a new fake clock.</summary>
     private static ObservableTimeProvider NewProvider() => new(new FakeTimeProvider());
 
     private static readonly TimeSpan GenerousTimeout = TimeSpan.FromSeconds(2);
@@ -162,9 +163,11 @@ internal sealed class EventuallyActiveTimerAssertionsTests
         await Assert.That(exception!.Message).Contains("InvalidOperationException");
     }
 
+    /// <summary>A source that throws when the assertion evaluates it.</summary>
     private static ObservableTimeProvider ThrowingProvider() =>
         throw new InvalidOperationException("source evaluation failed");
 
+    /// <summary>A source that evaluates to <see langword="null"/>.</summary>
     private static ObservableTimeProvider NullProvider() => null!;
 
     /// <summary>The count-targeted variant passes once a background continuation disposes one of two

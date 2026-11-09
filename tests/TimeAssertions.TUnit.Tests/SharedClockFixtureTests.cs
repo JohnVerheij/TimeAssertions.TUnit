@@ -40,6 +40,7 @@ internal sealed class SharedClockFixtureTests
         await Assert.That(Fixture.Initializations).IsEqualTo(1);
     }
 
+    /// <summary>A retry backoff: waits 5 seconds times the attempt number after each failure, then returns the attempt that succeeds.</summary>
     private static async Task<int> BackoffAsync(TimeProvider time, int failures, CancellationToken cancellationToken)
     {
         await Task.Yield();

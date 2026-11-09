@@ -118,6 +118,7 @@ internal sealed class EventuallyDecisionTableTests
         private readonly ObservableTimeProvider _time = new(new FakeTimeProvider());
         private readonly List<ITimer> _timers = [];
 
+        /// <summary>Creates the timers that leave <paramref name="assertion"/> unmet at the start.</summary>
         public Scenario(Eventually assertion)
         {
             _assertion = assertion;

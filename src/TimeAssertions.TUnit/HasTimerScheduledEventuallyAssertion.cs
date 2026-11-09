@@ -116,6 +116,7 @@ public sealed class HasTimerScheduledEventuallyAssertion : Assertion<ObservableT
     {
     }
 
+    /// <summary>Shared by the public constructors: a <see langword="null"/> timeout means only the token bounds the wait.</summary>
     private HasTimerScheduledEventuallyAssertion(
         AssertionContext<ObservableTimeProvider> context,
         TimeSpan dueTime,

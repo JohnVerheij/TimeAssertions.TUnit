@@ -219,6 +219,7 @@ internal sealed class RealTimerUsersTests
         timer.Dispose();
     }
 
+    /// <summary>A periodic-timer loop that yields after each tick, as asynchronous work would, and counts the ticks it processed.</summary>
     private static async Task TickLoopWithWorkAsync(PeriodicTimer periodic, Counter processed, CancellationToken stop)
     {
         try
@@ -235,6 +236,7 @@ internal sealed class RealTimerUsersTests
         }
     }
 
+    /// <summary>Half-second delays, each followed by extending a 5-second watchdog with CancelAfter, counted until <paramref name="stop"/> is canceled.</summary>
     private static async Task WatchdogLoopAsync(TimeProvider time, Counter iterations, CancellationToken stop)
     {
         using var watchdog = new CancellationTokenSource(TimeSpan.FromSeconds(5), time);

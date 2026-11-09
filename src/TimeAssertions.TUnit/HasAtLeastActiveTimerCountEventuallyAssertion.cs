@@ -74,6 +74,7 @@ public sealed class HasAtLeastActiveTimerCountEventuallyAssertion : Assertion<Ob
     {
     }
 
+    /// <summary>Shared by the public constructors: a <see langword="null"/> timeout means only the token bounds the wait.</summary>
     private HasAtLeastActiveTimerCountEventuallyAssertion(
         AssertionContext<ObservableTimeProvider> context,
         int count,

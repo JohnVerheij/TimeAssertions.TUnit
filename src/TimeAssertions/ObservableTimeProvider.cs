@@ -520,6 +520,7 @@ public class ObservableTimeProvider : TimeProvider
         [ThreadStatic]
         private static List<(TrackedTimer Timer, object? State)>? t_deferredCallbacks;
 
+        /// <summary>Records the schedule, then creates the inner timer through the owner's inner provider.</summary>
         public TrackedTimer(
             ObservableTimeProvider owner,
             TimerCallback callback,
@@ -556,6 +557,7 @@ public class ObservableTimeProvider : TimeProvider
             _callback(state);
         }
 
+        /// <inheritdoc/>
         public bool Change(TimeSpan dueTime, TimeSpan period)
         {
             // Publish the new schedule only once the inner timer carries it: a waiter that sees it may advance
@@ -752,6 +754,7 @@ public class ObservableTimeProvider : TimeProvider
         /// <summary>Projects the current schedule. Callers must hold the owner's lock.</summary>
         public ActiveTimerInfo ToInfo() => new(_dueTime, _period) { TimesFired = _timesFired };
 
+        /// <inheritdoc/>
         public void Dispose()
         {
             if (Interlocked.Exchange(ref _disposed, 1) is not 0)
@@ -766,6 +769,7 @@ public class ObservableTimeProvider : TimeProvider
             _inner.Dispose();
         }
 
+        /// <inheritdoc/>
         public ValueTask DisposeAsync()
         {
             if (Interlocked.Exchange(ref _disposed, 1) is not 0)

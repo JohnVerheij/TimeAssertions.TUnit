@@ -130,6 +130,7 @@ internal sealed class LifecyclePlacementTests : IDisposable
     /// <inheritdoc/>
     public void Dispose() => _stopHookLoop.Dispose();
 
+    /// <summary>The loop the hook starts: one-second delays, counted, until <paramref name="stop"/> is canceled.</summary>
     private async Task HookLoopAsync(TimeProvider time, CancellationToken stop)
     {
         try
