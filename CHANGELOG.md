@@ -24,6 +24,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`Microsoft.Extensions.TimeProvider.Testing`** 11.0.0 for `net11.0`; `net10.0` keeps 10.11.0.
 - **`TUnit.Assertions`** and **`TUnit.Core`** minimum versions raised from 1.81.10 to 1.84.0.
 - **The TFM policy** in `CONVENTIONS.md` now reads: target every .NET version that is in Microsoft support, and drop one in the package's next release after its end-of-life date, instead of anchoring on the current LTS.
+- **`AdvanceUntilAsync`** documents that its condition runs on the calling thread only for the first check; after a settle wait it can run on another thread.
+
+### Fixed
+
+- **`HasNextTimerDueApproximately`** and **`HasAdvancedApproximately`** no longer throw an `OverflowException` when the expected value is at an extreme of `TimeSpan` (for example `TimeSpan.MinValue`); the difference is compared exactly and the assertion fails with its usual message. `TimeRenderingHelpers.FormatDuration` renders `TimeSpan.MinValue` instead of throwing, and `FormatNextTimerDueMismatch` reports the largest duration for a difference beyond `TimeSpan.MaxValue`.
+- **The fire-count failure texts** (`HasTimerFiredCount`, `HasNoTimerFired`, `HasTimerFiredAtLeast`) list timers with the same schedule by fire count, so the order no longer depends on the order the provider listed them in.
+- **`TimelineRenderer.Render`** escapes a carriage return or line feed in an event label as `\r` or `\n`, so each event stays on one line as documented.
+- **`HasActiveTimers`** and **`HasNoTimerScheduled`** decide and describe from one snapshot of the active timers, so a timer created while the assertion runs cannot make the failure text contradict the verdict.
 
 ## [0.11.1] - 2026-11-09: a settle that waits for the loop's next wait, argument errors that name the argument
 
