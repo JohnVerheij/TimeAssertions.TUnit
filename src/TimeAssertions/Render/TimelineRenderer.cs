@@ -75,18 +75,8 @@ public static class TimelineRenderer
             var ev = events[i];
             var deltaMs = (ev.Timestamp - epoch).TotalMilliseconds;
             var prefix = deltaMs >= 0 ? "+" : string.Empty;
-            sb.Append(CultureInfo.InvariantCulture, $"{prefix}{deltaMs:F0}ms {EscapeLineBreaks(ev.Label)}\n");
+            sb.Append(CultureInfo.InvariantCulture, $"{prefix}{deltaMs:F0}ms {TimeRenderingHelpers.EscapeLineBreaks(ev.Label)}\n");
         }
         return sb.ToString();
     }
-
-    /// <summary>Escapes a carriage return and a line feed in a label as <c>\r</c> and <c>\n</c>, so an event stays
-    /// on one line.</summary>
-    /// <param name="label">The event's label; a <see langword="null"/> label (a default <see cref="TimelineEvent"/>)
-    /// renders as empty.</param>
-    /// <returns>The label on one line.</returns>
-    private static string EscapeLineBreaks(string? label) =>
-        label is null
-            ? string.Empty
-            : label.Replace("\r", "\\r", StringComparison.Ordinal).Replace("\n", "\\n", StringComparison.Ordinal);
 }

@@ -495,6 +495,17 @@ public static class TimeRenderingHelpers
         return difference > long.MaxValue ? TimeSpan.MaxValue : TimeSpan.FromTicks((long)difference);
     }
 
+    /// <summary>Escapes a carriage return and a line feed as <c>\r</c> and <c>\n</c>, so a caller's text (a timeline
+    /// label) stays on one line. Kept here rather than in <c>TimelineRenderer</c>: a new member there would move the
+    /// compiler's nullable-context attributes of that public type, which package validation reports as a change.</summary>
+    /// <param name="text">The text; <see langword="null"/> (the label of a default <c>TimelineEvent</c>) renders as
+    /// empty.</param>
+    /// <returns>The text on one line.</returns>
+    internal static string EscapeLineBreaks(string? text) =>
+        text is null
+            ? string.Empty
+            : text.Replace("\r", "\\r", StringComparison.Ordinal).Replace("\n", "\\n", StringComparison.Ordinal);
+
     /// <summary>Renders a timer's due time; <see cref="Timeout.InfiniteTimeSpan"/> (disabled) as <c>infinite</c>.</summary>
     /// <param name="timer">The timer.</param>
     /// <returns>The due time text.</returns>
