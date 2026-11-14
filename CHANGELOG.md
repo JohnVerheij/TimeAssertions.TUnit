@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-15: .NET 11, timer assertion and timeline rendering fixes
+
 ### Added
 
 - **.NET 11 target.** `TimeAssertions` and `TimeAssertions.TUnit` target `net10.0` and `net11.0`. The packed `.nuspec` of each has a dependency group per framework.
@@ -286,7 +288,8 @@ First public release, positioned as the TUnit assertion package for projects com
 
 - **AOT-compatible, trimmable, no runtime reflection** in the assertion path.
 
-[unreleased]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.11.1...HEAD
+[unreleased]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.11.1...v0.12.0
 [0.11.1]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.9.0...v0.10.0
