@@ -8,7 +8,7 @@
 [![NuGet](https://img.shields.io/nuget/v/TimeAssertions.TUnit.svg)](https://www.nuget.org/packages/TimeAssertions.TUnit/)
 [![Downloads](https://img.shields.io/nuget/dt/TimeAssertions.TUnit.svg)](https://www.nuget.org/packages/TimeAssertions.TUnit/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
+[![.NET](https://img.shields.io/badge/.NET-10.0%20%7C%2011.0-512BD4.svg)](https://dotnet.microsoft.com/download/dotnet)
 
 A TUnit-native fluent time-assertion DSL on top of `Microsoft.Extensions.Time.Testing.FakeTimeProvider`. Built using TUnit's `[AssertionExtension]` source generator, so the assertion entry points integrate directly into TUnit's `Assert.That(...)` pipeline. Adds `TimeProvider`-aware `DateTimeOffset` checks plus a cross-cutting `.And.WithinTimeBudget(TimeSpan)` chain extension that composes with any behavioral assertion. For code that schedules timers, `ObservableTimeProvider` and `ObservableFakeTimeProvider` observe every timer it creates: assert on leaks, fires, and schedules, and wait for a timer change instead of sleeping in real time.
 
@@ -63,7 +63,7 @@ This library replaces both with a fluent DSL on top of Microsoft's recommended `
 dotnet add package TimeAssertions.TUnit
 ```
 
-**Requirements:** TUnit 1.81.16 or later, .NET 10. `TimeAssertions` (the framework-agnostic core) and `Microsoft.Extensions.TimeProvider.Testing` come transitively. The package is AOT-compatible, trimmable, and uses no runtime reflection in the assertion path.
+**Requirements:** TUnit 1.81.16 or later, .NET 10 or .NET 11. `TimeAssertions` (the framework-agnostic core) and `Microsoft.Extensions.TimeProvider.Testing` come transitively. The package is AOT-compatible, trimmable, and uses no runtime reflection in the assertion path.
 
 ## Package layout
 
@@ -206,8 +206,14 @@ await Assert.That(service.NextRunAt).IsAfterNow(fakeTime);
 await Assert.That(asyncOp)
     .IsEqualTo(expectedResult)
     .And.WithinTimeBudget(TimeSpan.FromMilliseconds(500));
+```
 
-// Composes with sibling-family chains (LogAssertions, SnapshotAssertions, ...)
+It composes with the chains of the sibling packages (LogAssertions, SnapshotAssertions, ...) the same way:
+
+```csharp no-compile
+// A LogAssertions chain: that package is not a dependency of this one.
+using Microsoft.Extensions.Logging;
+
 await Assert.That(collector)
     .HasLoggedOnce()
     .AtLevel(LogLevel.Error)
@@ -244,7 +250,8 @@ The capture callback runs on **every** evaluation path EXCEPT external cancellat
 |---|---|
 | `WasInvokedAtMostOncePer(this IReadOnlyList<DateTimeOffset> timestamps, TimeSpan interval)` | Asserts every consecutive pair `(timestamps[i-1], timestamps[i])` is at least `interval` apart. The first violating pair fails the assertion with a message naming the violating index, observed gap, and required minimum. Empty / single-element sequences pass trivially; the boundary case `gap == interval` passes (minimum is inclusive). |
 
-```csharp
+```csharp no-compile
+// Needs Microsoft.Extensions.Diagnostics.Testing for FakeLogCollector, which this package does not bring.
 // Production code records invocation timestamps somewhere observable; the test
 // extracts the timestamp list from that recording and asserts the rate-limit.
 // The assertion takes an IReadOnlyList<DateTimeOffset>: declare the timestamps as one.
@@ -428,7 +435,8 @@ Start the operation inside the lambda, as here, if your build enables `VSTHRD003
 
 `AdvanceUntilAsync` needs a condition it can check at once, and a log line is an event. With LogAssertions, pass the wait for the record; the `Task<T>` form returns the record:
 
-```csharp
+```csharp no-compile
+// LogAssertions and Microsoft.Extensions.Diagnostics.Testing: neither is a dependency of this package.
 FakeLogRecord record = await time.AdvanceOnEachTimerUntilAsync(
     collector.WaitForLogAsync(LogFilter.Containing("connected", StringComparison.Ordinal), cancellationToken),
     TimeSpan.FromMilliseconds(50),
@@ -439,7 +447,8 @@ The clock moves only while the record has not been logged, and stops as soon as 
 
 An assertion's task works the same way, for example LogAssertions' `WillLog(...)` from 0.14.0. Put the chain in a local async function that awaits it and pass that function's task: TUnit's analyzer (`TUnitAssertions0002`, an error) requires every `Assert.That(...)` to be awaited where it is written, so `Assert.That(...).AssertAsync()` passed as an argument does not build.
 
-```csharp
+```csharp no-compile
+// LogAssertions' WillLog: that package is not a dependency of this one.
 await time.AdvanceOnEachTimerUntilAsync(ConnectedAsync(), TimeSpan.FromMilliseconds(50), cancellationToken);
 
 async Task ConnectedAsync() =>
@@ -669,8 +678,8 @@ await Assert.That(fakeTime).HasAdvancedApproximately(
 
 After `fakeTime.Advance(...)`, a woken loop continues on a thread-pool thread; it has not finished its step when `Advance` returns. The common workarounds wait in real time:
 
-```csharp
-// Patterns to avoid: real time on every run, and still a guess.
+```csharp no-compile
+// Patterns to avoid (deliberately not compiled): real time on every run, and still a guess.
 fakeTime.Advance(TimeSpan.FromMinutes(2));
 await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);     // hope continuations have drained
 await Assert.That(() => collector.Count)
@@ -681,6 +690,12 @@ When a timer drives the effect, wait for the timer instead (see [Driving timer l
 
 ```csharp
 await time.AdvanceAndSettleAsync(TimeSpan.FromMinutes(2), cancellationToken);   // the woken loop armed its next timer
+```
+
+Then assert the effect, here a log line with LogAssertions:
+
+```csharp no-compile
+// A LogAssertions chain: that package is not a dependency of this one.
 await Assert.That(collector).HasLogged().Containing("[Heartbeat]", StringComparison.Ordinal).Once();
 ```
 
@@ -720,7 +735,8 @@ Pass `TimeProvider.System` for orchestration timeouts, or bound the wait with th
 
 When a test produces a sequence of named events at known fake-time moments, snapshot the whole graph rather than asserting on each event individually. `TimelineRenderer` produces a deterministic byte-stable string from a list of `(Timestamp, Label)` pairs; pair it with `MatchesSnapshot()` from `SnapshotAssertions.TUnit` to pin the graph against a committed baseline.
 
-```csharp
+```csharp no-compile
+// MatchesSnapshot() comes from SnapshotAssertions.TUnit, which this package does not depend on.
 using TimeAssertions.Render;
 
 [Test]
@@ -766,7 +782,8 @@ A common production pattern: a background component periodically probes some ext
 
 `WasInvokedAtMostOncePer` asserts the consecutive-pair gap against a minimum interval. Extract the failure timestamps from whatever recording mechanism the test uses (a `FakeLogCollector`, a captured event probe, a list populated in a wrapped callback) and assert against the recording.
 
-```csharp
+```csharp no-compile
+// FakeLogCollector and FakeLogger come from Microsoft.Extensions.Diagnostics.Testing, which this package does not bring.
 [Test]
 public async Task PingHandler_suppresses_repeated_failures_within_30s_window(CancellationToken cancellationToken)
 {
@@ -862,7 +879,7 @@ The 1.0 milestone signals API stability: see [Limitations and future work](#limi
 
 ## Family compatibility
 
-The nine assertion-family packages: `LogAssertions.TUnit`, `TimeAssertions.TUnit`, `SnapshotAssertions.TUnit`, `MathAssertions.TUnit`, `JsonAssertions.TUnit`, `SseAssertions.TUnit`, `GrpcAssertions.TUnit`, `TracingAssertions.TUnit`, and `MetricsAssertions.TUnit`: release independently and target the same .NET TFM at any moment (LTS-anchored, multi-target during STS support windows; see the [TFM policy in CONVENTIONS.md](CONVENTIONS.md#tfm-policy) for the rotation schedule). **Mix versions freely.** Each package ships under SemVer with `EnablePackageValidation` strict-mode ApiCompat against its previous baseline, so binary breaks within a version line are caught at pack time.
+The nine assertion-family packages: `LogAssertions.TUnit`, `TimeAssertions.TUnit`, `SnapshotAssertions.TUnit`, `MathAssertions.TUnit`, `JsonAssertions.TUnit`, `SseAssertions.TUnit`, `GrpcAssertions.TUnit`, `TracingAssertions.TUnit`, and `MetricsAssertions.TUnit`: release independently and target the same .NET TFM at any moment (every .NET release that is in support; see the [TFM policy in CONVENTIONS.md](CONVENTIONS.md#tfm-policy)). **Mix versions freely.** Each package ships under SemVer with `EnablePackageValidation` strict-mode ApiCompat against its previous baseline, so binary breaks within a version line are caught at pack time.
 
 For per-package release notes:
 - [LogAssertions.TUnit CHANGELOG](https://github.com/JohnVerheij/LogAssertions.TUnit/blob/main/CHANGELOG.md)

@@ -2,7 +2,7 @@
 
 [![NuGet](https://img.shields.io/nuget/v/TimeAssertions.svg)](https://www.nuget.org/packages/TimeAssertions/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
+[![.NET](https://img.shields.io/badge/.NET-10.0%20%7C%2011.0-512BD4.svg)](https://dotnet.microsoft.com/download/dotnet)
 
 > **Scope:** Test projects only. Not intended for production code.
 
@@ -36,7 +36,7 @@ Adapters for other test frameworks (NUnit, xUnit, MSTest) are not planned; the f
 dotnet add package TimeAssertions.TUnit
 ```
 
-`TimeAssertions` comes transitively. You don't need to install it directly unless you want `ObservableFakeTimeProvider` without TUnit. It depends on `Microsoft.Extensions.TimeProvider.Testing` (MIT, from Microsoft) for `FakeTimeProvider`, and has no TUnit dependency; `TimeAssertions.TUnit` needs TUnit 1.81.10 or later.
+`TimeAssertions` comes transitively. You don't need to install it directly unless you want `ObservableFakeTimeProvider` without TUnit. It depends on `Microsoft.Extensions.TimeProvider.Testing` (MIT, from Microsoft) for `FakeTimeProvider`, and has no TUnit dependency; `TimeAssertions.TUnit` needs TUnit 1.81.16 or later.
 
 ## Stability
 

@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **.NET 11 target.** `TimeAssertions` and `TimeAssertions.TUnit` target `net10.0` and `net11.0`. The packed `.nuspec` of each has a dependency group per framework.
+
+### Changed
+
+- **`Microsoft.Extensions.TimeProvider.Testing`** 11.0.0 for `net11.0`; `net10.0` keeps 10.11.0.
+- **The TFM policy** in `CONVENTIONS.md` now reads: target every .NET version that is in Microsoft support, and drop one in the package's next release after its end-of-life date, instead of anchoring on the current LTS.
+
 ## [0.11.1] - 2026-11-09: a settle that waits for the loop's next wait, argument errors that name the argument
 
 Patch release with no API change. A settle no longer ends on a deadline that a loop extends; the advance helpers reject a negative or overflowing advance by naming their own argument.
