@@ -8,18 +8,4 @@
     <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:TimeAssertions.TUnit.DateTimeOffsetAssertions.IsAfterNow(System.DateTimeOffset,System.TimeProvider):[T:TUnit.Assertions.Attributes.GenerateAssertionAttribute]</Target>
-    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0015</DiagnosticId>
-    <Target>M:TimeAssertions.TUnit.DateTimeOffsetAssertions.IsBeforeNow(System.DateTimeOffset,System.TimeProvider):[T:TUnit.Assertions.Attributes.GenerateAssertionAttribute]</Target>
-    <Left>lib/net10.0/TimeAssertions.TUnit.dll</Left>
-    <Right>lib/net10.0/TimeAssertions.TUnit.dll</Right>
-    <IsBaselineSuppression>true</IsBaselineSuppression>
-  </Suppression>
 </Suppressions>
