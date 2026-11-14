@@ -425,9 +425,13 @@ internal sealed class ObservableTimeProviderWaitTests
         await firstInside.Task.WaitAsync(cancellationToken);
         var second = Task.Run(() => timer.Change(OneSecond, Timeout.InfiniteTimeSpan), cancellationToken);
         await secondWaits.Task.WaitAsync(cancellationToken);
-        await Assert.That(applied.IsEmpty).IsTrue();
+        // Read while the first change is held and assert after the release, so a failed check does not leave both
+        // changes blocked on an event the test disposes.
+        var noneAppliedWhileHeld = applied.IsEmpty;
         releaseFirst.Set();
         await Task.WhenAll(first, second);
+
+        await Assert.That(noneAppliedWhileHeld).IsTrue();
 
         var order = applied.ToArray();
         await Assert.That(order.Length).IsEqualTo(2);
