@@ -101,6 +101,37 @@ internal sealed class TimelineRendererTests
         await Assert.That(rendered).IsEqualTo(expected);
     }
 
+    /// <summary>A carriage return or line feed in a label is escaped, so each event stays on one line and the
+    /// line count of the output is the event count.</summary>
+    [Test]
+    public async Task Render_LabelWithLineBreaks_EscapesThemOnOneLine(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var events = new[]
+        {
+            new TimelineEvent(Epoch, "first\r\nsecond\nthird\rfourth"),
+            new TimelineEvent(Epoch.AddSeconds(1), "Next"),
+        };
+
+        var rendered = TimelineRenderer.Render(Epoch, events);
+
+        await Assert.That(rendered).IsEqualTo(
+            "+0ms first\\r\\nsecond\\nthird\\rfourth" + Lf
+            + "+1000ms Next" + Lf);
+    }
+
+    /// <summary>A default event has a <see langword="null"/> label; it renders as an empty label, as before labels
+    /// were escaped, instead of throwing.</summary>
+    [Test]
+    public async Task Render_DefaultEvent_RendersEmptyLabel(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var rendered = TimelineRenderer.Render(default, [default]);
+
+        await Assert.That(rendered).IsEqualTo("+0ms " + Lf);
+    }
+
     /// <summary>Argument validation: <see langword="null"/> events list throws
     /// <see cref="ArgumentNullException"/>, not a silent empty render.</summary>
     [Test]

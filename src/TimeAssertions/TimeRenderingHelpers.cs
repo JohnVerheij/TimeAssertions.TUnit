@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Threading;
 
@@ -31,7 +32,8 @@ public static class TimeRenderingHelpers
     {
         if (duration < TimeSpan.Zero)
         {
-            return "-" + FormatDuration(duration.Negate());
+            // TimeSpan.MinValue has no positive counterpart; its magnitude renders the same as MaxValue's, to the shown precision.
+            return "-" + FormatDuration(duration == TimeSpan.MinValue ? TimeSpan.MaxValue : duration.Negate());
         }
 
         if (duration.TotalMilliseconds < 1.0)
@@ -300,7 +302,7 @@ public static class TimeRenderingHelpers
         }
 
         var actualValue = actual.Value;
-        var delta = (actualValue - expected).Duration();
+        var delta = AbsoluteDifference(actualValue, expected);
         var actualMs = actualValue.TotalMilliseconds;
         var deltaMs = delta.TotalMilliseconds;
         return string.Create(
@@ -458,7 +460,7 @@ public static class TimeRenderingHelpers
     }
 
     /// <summary>
-    /// Sorts <paramref name="timers"/> by due time, then period, and appends the colon that introduces them to
+    /// Sorts <paramref name="timers"/> by due time, then period, then fire count, and appends the colon that introduces them to
     /// <paramref name="sb"/> when there is at least one.
     /// </summary>
     /// <param name="sb">The target builder.</param>
@@ -466,12 +468,13 @@ public static class TimeRenderingHelpers
     /// <returns>The timers in rendering order.</returns>
     private static List<ActiveTimerInfo> Ordered(StringBuilder sb, IReadOnlyList<ActiveTimerInfo> timers)
     {
-        var ordered = new List<ActiveTimerInfo>(timers);
-        ordered.Sort(static (a, b) =>
-        {
-            var byDue = a.DueTime.CompareTo(b.DueTime);
-            return byDue is not 0 ? byDue : a.Period.CompareTo(b.Period);
-        });
+        // OrderBy is stable, and the fire count breaks a tie of schedule, so the order does not depend on the
+        // order the provider happened to list the timers in (List.Sort is unstable).
+        var ordered = timers
+            .OrderBy(static timer => timer.DueTime)
+            .ThenBy(static timer => timer.Period)
+            .ThenBy(static timer => timer.TimesFired)
+            .ToList();
 
         if (ordered.Count > 0)
         {
@@ -480,6 +483,28 @@ public static class TimeRenderingHelpers
 
         return ordered;
     }
+
+    /// <summary>The distance between two durations, without the overflow of <c>(a - b).Duration()</c> at the
+    /// extremes of <see cref="TimeSpan"/>.</summary>
+    /// <param name="a">The first duration.</param>
+    /// <param name="b">The second duration.</param>
+    /// <returns>The absolute difference, or <see cref="TimeSpan.MaxValue"/> when it is larger than that.</returns>
+    private static TimeSpan AbsoluteDifference(TimeSpan a, TimeSpan b)
+    {
+        var difference = Int128.Abs((Int128)a.Ticks - b.Ticks);
+        return difference > long.MaxValue ? TimeSpan.MaxValue : TimeSpan.FromTicks((long)difference);
+    }
+
+    /// <summary>Escapes a carriage return and a line feed as <c>\r</c> and <c>\n</c>, so a caller's text (a timeline
+    /// label) stays on one line. Kept here rather than in <c>TimelineRenderer</c>: a new member there would move the
+    /// compiler's nullable-context attributes of that public type, which package validation reports as a change.</summary>
+    /// <param name="text">The text; <see langword="null"/> (the label of a default <c>TimelineEvent</c>) renders as
+    /// empty.</param>
+    /// <returns>The text on one line.</returns>
+    internal static string EscapeLineBreaks(string? text) =>
+        text is null
+            ? string.Empty
+            : text.Replace("\r", "\\r", StringComparison.Ordinal).Replace("\n", "\\n", StringComparison.Ordinal);
 
     /// <summary>Renders a timer's due time; <see cref="Timeout.InfiniteTimeSpan"/> (disabled) as <c>infinite</c>.</summary>
     /// <param name="timer">The timer.</param>

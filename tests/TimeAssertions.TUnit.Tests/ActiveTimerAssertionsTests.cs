@@ -136,6 +136,24 @@ internal sealed class ActiveTimerAssertionsTests
         await Assert.That(time).HasNextTimerDueApproximately(TimeSpan.FromSeconds(2), tolerance: TimeSpan.FromMilliseconds(1));
     }
 
+    /// <summary>An expected due time at <see cref="TimeSpan.MinValue"/> is further from the due time than any
+    /// <see cref="TimeSpan"/> can say: the assertion fails with its message, not with an overflow, even with the
+    /// largest tolerance.</summary>
+    [Test]
+    public async Task HasNextTimerDueApproximately_ExpectedAtMinValue_FailsWithoutOverflow(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var time = NewProvider();
+        _ = time.CreateTimer(static _ => { }, state: null, TimeSpan.FromSeconds(1), Timeout.InfiniteTimeSpan);
+
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(time).HasNextTimerDueApproximately(TimeSpan.MinValue, tolerance: TimeSpan.MaxValue);
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains("but it was due in 1.0s");
+    }
+
     /// <summary>The smallest enabled due time is the one inspected when several timers are pending.</summary>
     [Test]
     public async Task HasNextTimerDueApproximately_PicksSmallestDueTime(CancellationToken cancellationToken)

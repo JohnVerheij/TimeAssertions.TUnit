@@ -34,6 +34,15 @@ namespace TimeAssertions.TUnit.SnapshotTests;
 internal sealed class PublicApiTests
 {
     /// <summary>
+    /// Leaves out <c>TargetFrameworkAttribute</c>, the one line that differs between the target
+    /// frameworks, so a single baseline serves both <c>net10.0</c> and <c>net11.0</c>.
+    /// </summary>
+    private static readonly ApiGeneratorOptions ApiOptions = new()
+    {
+        ExcludeAttributes = ["System.Runtime.Versioning.TargetFrameworkAttribute"],
+    };
+
+    /// <summary>
     /// Pins the public surface of the framework-agnostic <c>TimeAssertions</c> assembly:
     /// <c>TimeRenderingHelpers</c> and any future BCL-only helpers.
     /// </summary>
@@ -47,7 +56,7 @@ internal sealed class PublicApiTests
         // platform's native EOL while the committed .expected.txt baseline is always LF
         // (per .gitattributes), and Windows local runs would diff against the CI-accepted
         // baseline.
-        var publicApi = assembly.GeneratePublicApi().ReplaceLineEndings("\n");
+        var publicApi = assembly.GeneratePublicApi(ApiOptions).ReplaceLineEndings("\n");
 
         await Assert.That(publicApi).MatchesSnapshot();
     }
@@ -69,7 +78,7 @@ internal sealed class PublicApiTests
         // platform's native EOL while the committed .expected.txt baseline is always LF
         // (per .gitattributes), and Windows local runs would diff against the CI-accepted
         // baseline.
-        var publicApi = assembly.GeneratePublicApi().ReplaceLineEndings("\n");
+        var publicApi = assembly.GeneratePublicApi(ApiOptions).ReplaceLineEndings("\n");
 
         await Assert.That(publicApi).MatchesSnapshot();
     }
