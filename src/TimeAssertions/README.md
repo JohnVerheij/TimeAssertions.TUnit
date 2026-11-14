@@ -36,7 +36,7 @@ Adapters for other test frameworks (NUnit, xUnit, MSTest) are not planned; the f
 dotnet add package TimeAssertions.TUnit
 ```
 
-`TimeAssertions` comes transitively. You don't need to install it directly unless you want `ObservableFakeTimeProvider` without TUnit. It depends on `Microsoft.Extensions.TimeProvider.Testing` (MIT, from Microsoft) for `FakeTimeProvider`, and has no TUnit dependency; `TimeAssertions.TUnit` needs TUnit 1.81.16 or later.
+`TimeAssertions` comes transitively. You don't need to install it directly unless you want `ObservableFakeTimeProvider` without TUnit. It depends on `Microsoft.Extensions.TimeProvider.Testing` (MIT, from Microsoft) for `FakeTimeProvider`, and has no TUnit dependency; `TimeAssertions.TUnit` needs TUnit 1.84.0 or later.
 
 ## Stability
 
