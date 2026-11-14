@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **`Microsoft.Extensions.TimeProvider.Testing`** 11.0.0 for `net11.0`; `net10.0` keeps 10.11.0.
-- **`TUnit.Assertions`** and **`TUnit.Core`** minimum versions raised from 1.81.10 to 1.84.0.
+- **`TUnit.Assertions`** and **`TUnit.Core`** minimum versions raised from 1.81.10 to 1.85.0: 1.83.0 is the first TUnit with a `net11.0` asset, and 1.85.0 keeps TUnit's OpenTelemetry and ASP.NET Core packages on OpenTelemetry 1.20.x for `net10.0`, so a project with one version for all its TUnit packages gets no .NET 11 packages there.
 - **The TFM policy** in `CONVENTIONS.md` now reads: target every .NET version that is in Microsoft support, and drop one in the package's next release after its end-of-life date, instead of anchoring on the current LTS.
 - **`AdvanceUntilAsync`** documents that its condition runs on the calling thread only for the first check; after a settle wait it can run on another thread.
 
