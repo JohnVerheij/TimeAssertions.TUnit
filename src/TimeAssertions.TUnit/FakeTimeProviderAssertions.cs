@@ -63,7 +63,7 @@ public static class FakeTimeProviderAssertions
         ArgumentNullException.ThrowIfNull(value);
         ArgumentOutOfRangeException.ThrowIfLessThan(tolerance, TimeSpan.Zero);
         var advanced = value.GetUtcNow() - value.Start;
-        return (advanced - total).Duration() <= tolerance
+        return TimeSpanDistance.IsWithin(advanced, total, tolerance)
             ? AssertionResult.Passed
             : AssertionResult.Failed(DescribeAdvance(value, advanced, total));
     }
@@ -113,7 +113,7 @@ public static class FakeTimeProviderAssertions
     /// <param name="total">The expected advance.</param>
     /// <returns>The failure text.</returns>
     private static string DescribeAdvance(FakeTimeProvider value, TimeSpan advanced, TimeSpan total) =>
-        $"it advanced by {advanced}, off by {(advanced - total).Duration()} (start {value.Start:O}, now {value.GetUtcNow():O})";
+        $"it advanced by {advanced}, off by {TimeSpanDistance.Between(advanced, total)} (start {value.Start:O}, now {value.GetUtcNow():O})";
 
     /// <summary>Describes where the clock stands: "it was ..., expected ..., off by ...".</summary>
     /// <param name="now">The clock's current time.</param>

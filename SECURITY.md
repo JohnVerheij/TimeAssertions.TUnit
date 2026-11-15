@@ -51,11 +51,11 @@ A **coordinated disclosure** (public CVE filing + advisory + patched release) is
 
 | Version line | Status | Receives security fixes |
 |---|---|---|
-| `0.11.x` | **Current** | ✅ Yes |
-| `0.10.x` | Previous stable | ✅ Yes (security fixes only; no new features) |
-| `< 0.10.0` | Older | ❌ No |
+| `0.12.x` | **Current** | ✅ Yes |
+| `0.11.x` | Previous stable | ✅ Yes (security fixes only; no new features) |
+| `< 0.11.0` | Older | ❌ No |
 
-Both packages (`TimeAssertions` and `TimeAssertions.TUnit`) version in lockstep, so each line covers both. This table is updated alongside each release that bumps the current line. Coverage of older lines for security-only fixes follows the [.NET LTS / STS rotation](CONVENTIONS.md#tfm-policy): when the package's TFM changes at a major-version boundary, security fixes for the previous line continue to ship for one minor cycle.
+Both packages (`TimeAssertions` and `TimeAssertions.TUnit`) version in lockstep, so each line covers both. This table is updated alongside each release that bumps the current line. Coverage of older lines for security-only fixes follows the [TFM policy](CONVENTIONS.md#tfm-policy): when the package drops an end-of-life target framework, security fixes for the previous line continue to ship for one minor cycle.
 
 ## Scope
 

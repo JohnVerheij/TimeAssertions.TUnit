@@ -701,4 +701,51 @@ internal sealed class TimeRenderingHelpersTests
         await Assert.That(() => TimeRenderingHelpers.FormatUnexpectedScheduledTimers(null!))
             .Throws<ArgumentNullException>();
     }
+
+    /// <summary><see cref="TimeSpan.MinValue"/> has no positive counterpart, so negating it overflows; the text
+    /// renders it as the negative of the largest duration instead of throwing.</summary>
+    [Test]
+    public async Task FormatDuration_MinValue_RendersWithoutOverflow(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var formatted = TimeRenderingHelpers.FormatDuration(TimeSpan.MinValue);
+
+        await Assert.That(formatted).IsEqualTo("-" + TimeRenderingHelpers.FormatDuration(TimeSpan.MaxValue));
+    }
+
+    /// <summary>An expected due time at <see cref="TimeSpan.MinValue"/> makes the difference larger than any
+    /// <see cref="TimeSpan"/>: the text reports the largest duration for it instead of throwing.</summary>
+    [Test]
+    public async Task FormatNextTimerDueMismatch_ExpectedAtMinValue_DeltaSaturates(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var formatted = TimeRenderingHelpers.FormatNextTimerDueMismatch(
+            actual: TimeSpan.FromSeconds(1),
+            expected: TimeSpan.MinValue,
+            tolerance: TimeSpan.Zero);
+
+        var maxMs = TimeSpan.MaxValue.TotalMilliseconds.ToString("F0", CultureInfo.InvariantCulture);
+        await Assert.That(formatted).Contains($"delta={maxMs}ms)");
+    }
+
+    /// <summary>Timers with the same schedule but different fire counts render in the same order whatever order
+    /// they are listed in, by fire count.</summary>
+    [Test]
+    public async Task FormatTimerFireCountMismatch_SameScheduleDifferentFires_OrderDoesNotDependOnInput(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var few = new ActiveTimerInfo(TimeSpan.FromSeconds(1), Timeout.InfiniteTimeSpan) { TimesFired = 1 };
+        var many = new ActiveTimerInfo(TimeSpan.FromSeconds(1), Timeout.InfiniteTimeSpan) { TimesFired = 5 };
+
+        var fewFirst = TimeRenderingHelpers.FormatTimerFireCountMismatch(actual: 6, expected: 0, [few, many]);
+        var manyFirst = TimeRenderingHelpers.FormatTimerFireCountMismatch(actual: 6, expected: 0, [many, few]);
+
+        await Assert.That(manyFirst).IsEqualTo(fewFirst);
+        await Assert.That(fewFirst).IsEqualTo(Lines(
+            "they fired 6 time(s) (expected=0, actual=6):",
+            "  [dueTime=1.0s, period=one-shot, fired=1]",
+            "  [dueTime=1.0s, period=one-shot, fired=5]"));
+    }
 }

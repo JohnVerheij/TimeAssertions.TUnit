@@ -15,6 +15,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-15: .NET 11, timer assertion and timeline rendering fixes
+
+### Added
+
+- **.NET 11 target.** `TimeAssertions` and `TimeAssertions.TUnit` target `net10.0` and `net11.0`. The packed `.nuspec` of each has a dependency group per framework.
+
+### Changed
+
+- **`Microsoft.Extensions.TimeProvider.Testing`** 11.0.0 for `net11.0`; `net10.0` keeps 10.11.0.
+- **`TUnit.Assertions`** and **`TUnit.Core`** minimum versions raised from 1.81.10 to 1.85.0: 1.83.0 is the first TUnit with a `net11.0` asset, and 1.85.0 keeps TUnit's OpenTelemetry and ASP.NET Core packages on OpenTelemetry 1.20.x for `net10.0`, so a project with one version for all its TUnit packages gets no .NET 11 packages there.
+- **The TFM policy** in `CONVENTIONS.md` now reads: target every .NET version that is in Microsoft support, and drop one in the package's next release after its end-of-life date, instead of anchoring on the current LTS.
+- **`AdvanceUntilAsync`** documents that its condition runs on the calling thread only for the first check; after a settle wait it can run on another thread.
+
+### Fixed
+
+- **`HasNextTimerDueApproximately`** and **`HasAdvancedApproximately`** no longer throw an `OverflowException` when the expected value is at an extreme of `TimeSpan` (for example `TimeSpan.MinValue`); the difference is compared exactly and the assertion fails with its usual message. `TimeRenderingHelpers.FormatDuration` renders `TimeSpan.MinValue` instead of throwing, and `FormatNextTimerDueMismatch` reports the largest duration for a difference beyond `TimeSpan.MaxValue`.
+- **The fire-count failure texts** (`HasTimerFiredCount`, `HasNoTimerFired`, `HasTimerFiredAtLeast`) list timers with the same schedule by fire count, so the order no longer depends on the order the provider listed them in.
+- **`TimelineRenderer.Render`** escapes a carriage return or line feed in an event label as `\r` or `\n`, so each event stays on one line as documented, and a backslash as `\\`, so a snapshot tells a real line break from a backslash followed by `n`. A baseline with a backslash in a label has to be accepted again.
+- **`HasActiveTimers`** and **`HasNoTimerScheduled`** decide and describe from one snapshot of the active timers, so a timer created while the assertion runs cannot make the failure text contradict the verdict.
+
 ## [0.11.1] - 2026-11-09: a settle that waits for the loop's next wait, argument errors that name the argument
 
 Patch release with no API change. A settle no longer ends on a deadline that a loop extends; the advance helpers reject a negative or overflowing advance by naming their own argument.
@@ -268,7 +288,8 @@ First public release, positioned as the TUnit assertion package for projects com
 
 - **AOT-compatible, trimmable, no runtime reflection** in the assertion path.
 
-[unreleased]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.11.1...HEAD
+[unreleased]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.11.1...v0.12.0
 [0.11.1]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/JohnVerheij/TimeAssertions.TUnit/compare/v0.9.0...v0.10.0

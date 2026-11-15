@@ -307,22 +307,22 @@ sits directly below that scope statement, never above it.
 
 ## TFM policy
 
-Family packages always target the **current LTS** of .NET. While a non-LTS (STS) release is in
-support, packages multi-target the current LTS *plus* the current STS. When the next LTS ships,
-both the previous LTS and the previous STS are dropped on the same release; the new LTS becomes
-the single target until its STS sibling appears the following November.
+Family packages target **every .NET version in Microsoft support**, never an end-of-life one. A
+target framework is added once that .NET release is out and the package's dependencies support it,
+and dropped in the package's next release after its end-of-life date.
 
 | Window (approximate dates) | Target frameworks |
 |---|---|
-| Now, .NET 10 LTS only (Nov 2025 to Nov 2026) | `net10.0` |
-| .NET 11 STS in support (Nov 2026 to Nov 2027) | `net10.0;net11.0` |
-| .NET 12 LTS ships, drop 10 + 11 (Nov 2027 to Nov 2028) | `net12.0` |
-| .NET 13 STS in support (Nov 2028 to Nov 2029) | `net12.0;net13.0` |
-| ... | ... |
+| .NET 10 LTS and .NET 11 STS in support (Nov 2026 to Nov 2027) | `net10.0;net11.0` |
+| .NET 12 LTS released (Nov 2027 to Nov 2028) | `net10.0;net11.0;net12.0` |
+| .NET 10 and .NET 11 out of support, .NET 13 released (from Nov 2028) | `net12.0;net13.0` |
 
-The TFM rotation lands at major-version boundaries (`2.0`, `3.0`, ...). Consumers who need an
-older TFM pin to an older package version. Wide multi-targeting (e.g. `net8;net9;net10`) is not
-used; the goal is "current LTS, plus current STS while it exists" with no long historical tails.
+Every project of a repository (packages, tests, the smoke test that consumes the packed package)
+lists the same target frameworks, so each suite and the Native AOT gate run once per framework.
+Dependencies that ship a version per .NET release (for example `Microsoft.Extensions.TimeProvider.Testing`) take the
+version of their own release for each target. Consumers who need an older target framework pin an
+older package version. Wide multi-targeting that includes versions out of support (for example
+`net8;net9;net10`) is not used.
 
 ## Verify is not promoted
 

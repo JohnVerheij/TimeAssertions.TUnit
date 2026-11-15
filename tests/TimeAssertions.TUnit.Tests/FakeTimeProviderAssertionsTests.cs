@@ -196,4 +196,22 @@ internal sealed class FakeTimeProviderAssertionsTests
         await Assert.That(fakeTime).HasUtcNowApproximately(expected, TimeSpan.FromMilliseconds(10));
     }
 
+    /// <summary>An expected advance at <see cref="TimeSpan.MinValue"/> is further from the actual one than any
+    /// <see cref="TimeSpan"/> can say: the assertion fails with its message, not with an overflow, even with the
+    /// largest tolerance.</summary>
+    [Test]
+    public async Task HasAdvancedApproximately_ExpectedAtMinValue_FailsWithoutOverflow(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var fakeTime = new FakeTimeProvider();
+        fakeTime.Advance(TimeSpan.FromMinutes(5));
+
+        var exception = await Assert.That(async () =>
+        {
+            await Assert.That(fakeTime).HasAdvancedApproximately(TimeSpan.MinValue, TimeSpan.MaxValue);
+        }).Throws<AssertionException>();
+
+        await Assert.That(exception!.Message).Contains($"off by {TimeSpan.MaxValue}");
+    }
+
 }

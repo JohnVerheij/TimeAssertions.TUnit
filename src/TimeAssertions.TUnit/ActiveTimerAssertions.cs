@@ -98,9 +98,11 @@ public static class ActiveTimerAssertions
     {
         ArgumentNullException.ThrowIfNull(value);
 
-        return value.ActiveTimerCount >= 1
+        // One snapshot decides and describes, so a timer created meanwhile cannot make the message contradict the verdict.
+        var active = value.ActiveTimers;
+        return active.Count >= 1
             ? AssertionResult.Passed
-            : AssertionResult.Failed(TimeRenderingHelpers.FormatActiveTimerAtLeastShortfall(value.ActiveTimers, 1));
+            : AssertionResult.Failed(TimeRenderingHelpers.FormatActiveTimerAtLeastShortfall(active, 1));
     }
 
     /// <summary>
@@ -156,7 +158,7 @@ public static class ActiveTimerAssertions
         ArgumentOutOfRangeException.ThrowIfLessThan(tolerance, TimeSpan.Zero);
 
         var actual = value.NextTimerDueTime;
-        if (actual is not null && (actual.Value - expected).Duration() <= tolerance)
+        if (actual is not null && TimeSpanDistance.IsWithin(actual.Value, expected, tolerance))
         {
             return AssertionResult.Passed;
         }
@@ -250,9 +252,17 @@ public static class ActiveTimerAssertions
     {
         ArgumentNullException.ThrowIfNull(value);
 
-        return value.NextTimerDueTime is null
-            ? AssertionResult.Passed
-            : AssertionResult.Failed(TimeRenderingHelpers.FormatUnexpectedScheduledTimers(value.ActiveTimers));
+        // One snapshot decides and describes, so the message never lists fewer timers than the verdict found.
+        var active = value.ActiveTimers;
+        foreach (var timer in active)
+        {
+            if (timer.DueTime != System.Threading.Timeout.InfiniteTimeSpan)
+            {
+                return AssertionResult.Failed(TimeRenderingHelpers.FormatUnexpectedScheduledTimers(active));
+            }
+        }
+
+        return AssertionResult.Passed;
     }
 
     /// <summary>

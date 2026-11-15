@@ -232,7 +232,8 @@ public sealed class ObservableFakeTimeProvider : ObservableTimeProvider
     /// <see cref="Advance"/>.
     /// </remarks>
     /// <param name="step">The fake time per advance.</param>
-    /// <param name="until">The condition to reach; checked before each step, on the calling thread.</param>
+    /// <param name="until">The condition to reach; checked before each step, never under the
+    /// provider's lock. The first check runs on the calling thread; after a settle wait it may run on another thread.</param>
     /// <param name="maxAdvance">The most fake time to advance before giving up; the last step is shortened so
     /// the clock never moves past it. A fake-time bound, so the outcome is deterministic.</param>
     /// <param name="cancellationToken">Bounds the settle waits, typically the test's token.</param>
