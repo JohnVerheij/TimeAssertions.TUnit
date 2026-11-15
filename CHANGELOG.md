@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`HasNextTimerDueApproximately`** and **`HasAdvancedApproximately`** no longer throw an `OverflowException` when the expected value is at an extreme of `TimeSpan` (for example `TimeSpan.MinValue`); the difference is compared exactly and the assertion fails with its usual message. `TimeRenderingHelpers.FormatDuration` renders `TimeSpan.MinValue` instead of throwing, and `FormatNextTimerDueMismatch` reports the largest duration for a difference beyond `TimeSpan.MaxValue`.
 - **The fire-count failure texts** (`HasTimerFiredCount`, `HasNoTimerFired`, `HasTimerFiredAtLeast`) list timers with the same schedule by fire count, so the order no longer depends on the order the provider listed them in.
-- **`TimelineRenderer.Render`** escapes a carriage return or line feed in an event label as `\r` or `\n`, so each event stays on one line as documented.
+- **`TimelineRenderer.Render`** escapes a carriage return or line feed in an event label as `\r` or `\n`, so each event stays on one line as documented, and a backslash as `\\`, so a snapshot tells a real line break from a backslash followed by `n`. A baseline with a backslash in a label has to be accepted again.
 - **`HasActiveTimers`** and **`HasNoTimerScheduled`** decide and describe from one snapshot of the active timers, so a timer created while the assertion runs cannot make the failure text contradict the verdict.
 
 ## [0.11.1] - 2026-11-09: a settle that waits for the loop's next wait, argument errors that name the argument

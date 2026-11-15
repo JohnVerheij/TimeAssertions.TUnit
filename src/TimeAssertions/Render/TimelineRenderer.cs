@@ -10,7 +10,8 @@ namespace TimeAssertions.Render;
 /// multi-line text suitable for snapshot comparison. Each event renders as
 /// <c>+{deltaMs}ms label</c>, where <c>deltaMs</c> is the millisecond offset from the
 /// caller-supplied epoch (negative deltas render with a leading minus sign and no plus). A carriage return or
-/// line feed in a label renders as the two characters <c>\r</c> or <c>\n</c>, so each event stays on one line.
+/// line feed in a label renders as the two characters <c>\r</c> or <c>\n</c>, and a backslash as <c>\\</c>, so each
+/// event stays on one line and a real line break never reads like a backslash followed by <c>n</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -75,7 +76,7 @@ public static class TimelineRenderer
             var ev = events[i];
             var deltaMs = (ev.Timestamp - epoch).TotalMilliseconds;
             var prefix = deltaMs >= 0 ? "+" : string.Empty;
-            sb.Append(CultureInfo.InvariantCulture, $"{prefix}{deltaMs:F0}ms {TimeRenderingHelpers.EscapeLineBreaks(ev.Label)}\n");
+            sb.Append(CultureInfo.InvariantCulture, $"{prefix}{deltaMs:F0}ms {TimeRenderingHelpers.EscapeLabel(ev.Label)}\n");
         }
         return sb.ToString();
     }
